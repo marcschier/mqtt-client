@@ -1,14 +1,14 @@
 # Code coverage
 
-_Last collected: 2026-06-17 (v0.9.2 — coverage uplift)._
+_Last collected: 2026-06-17 (v0.9.3 — coverage ≥ 80 %)._
 
 | Suite | Line | Branch | Sources |
 | --- | ---: | ---: | --- |
-| **Unit tests** (`tests/Mqtt.Client.UnitTests`) | **76.6 %** (1712 / 2235) | **58.3 %** (467 / 801) | codec, trie, packet-id allocator, buffer writer, builder, `MqttClient` end-to-end via `FakePipeTransport` + `FakeBroker`, persistence, DI extensions, exceptions, subscription extension |
-| **Integration tests** (`tests/Mqtt.Client.IntegrationTests`) | **60.3 %** (909 / 1508) | **39.1 %** (265 / 678) | end-to-end against in-process MQTTnet broker (QoS 0/1/2 round-trips) |
-| **Combined** (unit ∪ integration) | **83.1 %** (1908 / 2297) | **65.2 %** (433 / 664) | both suites merged |
+| **Unit tests** (`tests/Mqtt.Client.UnitTests`) | **83.8 %** (2117 / 2527) | **68.8 %** (580 / 843) | codec, trie, packet-id allocator, buffer writer, builder, `MqttClient` end-to-end via `FakePipeTransport` + `FakeBroker`, persistence, DI extensions (incl. named clients + hosted service), exceptions, subscription overflow modes, sequence reader, decoder property branches, reconnect/keep-alive |
+| **Integration tests** (`tests/Mqtt.Client.IntegrationTests`) | **59.6 %** (920 / 1543) | **38.4 %** (264 / 688) | end-to-end against in-process MQTTnet broker (QoS 0/1/2 round-trips) |
+| **Combined** (unit ∪ integration) | **88.5 %** (2291 / 2589) | **75.1 %** (541 / 720) | both suites merged |
 
-The remaining gap is dominated by `TcpTransport` / `TlsTransport` / `WebSocketTransport` / `MqttClientHostedService` which need a real socket / broker — those are exercised by the integration suite.
+The remaining 19 % unit-only gap is `TcpTransport` / `TlsTransport` / `WebSocketTransport` / `Stream*Pipe` pumps / `MqttClientHostedService` — these need a real socket and are integration-only by design.
 
 ## Reproduce
 

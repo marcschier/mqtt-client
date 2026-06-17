@@ -119,8 +119,8 @@ infra before drawing conclusions.
 
 ## 🧪 Tests
 
-- Unit tests (TUnit): `tests/Mqtt.Client.UnitTests` — runs on net8/9/10. **81 tests pass**, **76.6 %** line / **58.3 %** branch coverage of `src/Mqtt.Client` via a `FakePipeTransport` + `FakeBroker` in-process harness.
-- Integration tests vs MQTTnet broker: `tests/Mqtt.Client.IntegrationTests` — **3 tests pass**, lifts combined coverage to **83.1 %** line / **65.2 %** branch.
+- Unit tests (TUnit): `tests/Mqtt.Client.UnitTests` — runs on net8/9/10. **102 tests pass**, **83.8 %** line / **68.8 %** branch coverage of `src/Mqtt.Client` via a `FakePipeTransport` + `FakeBroker` in-process harness.
+- Integration tests vs MQTTnet broker: `tests/Mqtt.Client.IntegrationTests` — **3 tests pass**, lifts combined coverage to **88.5 %** line / **75.1 %** branch.
 - NativeAOT smoke: `tests/Mqtt.Client.AotTests` (publishes with `PublishAot=true`).
 - Fuzz harnesses (SharpFuzz + libFuzzer, Linux): `tests/Mqtt.Client.FuzzTests`.
 
