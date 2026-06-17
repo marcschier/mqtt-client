@@ -1,0 +1,46 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.{cs,csproj,props,targets}]
+indent_size = 4
+
+[*.{json,yml,yaml,md}]
+indent_size = 2
+
+[*.cs]
+# Modern C# preferences
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:silent
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Treat select diagnostics as errors
+dotnet_diagnostic.CA2007.severity = none      # ConfigureAwait: library uses .ConfigureAwait(false) explicitly where required
+dotnet_diagnostic.CA1848.severity = warning   # Use LoggerMessage delegates
+dotnet_diagnostic.IDE0005.severity = warning  # Unused usings
+
+# Roslynator (RCS*) — all rules treated as error per project policy.
+# Targeted RCS suppressions go below this block with an inline rationale.
+dotnet_analyzer_diagnostic.category-Roslynator.severity = error
+
+# RCS1141/RCS1140/RCS1142/RCS1181 — documentation completeness rules. Public API gets full docs;
+# internal helpers do not. Suppressed at file-scope error level to avoid noise; documentation
+# completeness is enforced via dedicated public-API doc review, not these rules.
+dotnet_diagnostic.RCS1141.severity = none   # Missing <param> on doc comment
+dotnet_diagnostic.RCS1140.severity = none   # Missing <exception> on doc comment
+dotnet_diagnostic.RCS1142.severity = none   # Missing <typeparam> on doc comment
+dotnet_diagnostic.RCS1181.severity = none   # Convert // comment to /// doc comment (internals)
+
+# RCS1194 — custom MqttProtocolException / MqttConnectionException intentionally expose only
+# (message) and (message, inner) ctors; the default serialization ctor is deprecated in .NET 8+.
+dotnet_diagnostic.RCS1194.severity = none
+
+# RCS1261 — IDisposable→IAsyncDisposable: our pooled writer is genuinely sync (returns to ArrayPool).
+dotnet_diagnostic.RCS1261.severity = none

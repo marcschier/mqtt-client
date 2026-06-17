@@ -1,0 +1,49 @@
+name: benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: 'BenchmarkDotNet --filter glob (default: all)'
+        required: false
+        default: '*'
+      full:
+        description: 'Use DefaultJob (slow, higher-fidelity) instead of ShortRun'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build benchmarks
+        run: dotnet build tests/Mqtt.Client.Benchmarks -c Release
+
+      - name: Run benchmarks
+        working-directory: tests/Mqtt.Client.Benchmarks
+        run: |
+          ARGS="--filter '${{ inputs.filter }}' --report"
+          if [ "${{ inputs.full }}" = "true" ]; then ARGS="$ARGS --full"; fi
+          dotnet run -c Release --no-build -- $ARGS
+
+      - name: Upload BenchmarkDotNet artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmarks-${{ github.run_id }}
+          path: |
+            tests/Mqtt.Client.Benchmarks/BenchmarkDotNet.Artifacts/**
+            docs/benchmarks.md
+            README.md

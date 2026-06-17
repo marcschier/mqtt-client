@@ -1,0 +1,32 @@
+## .NET
+bin/
+obj/
+out/
+artifacts/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.binlog
+
+## Build
+publish/
+PublishProfiles/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Coverage
+coverage/
+*.cobertura.xml
+
+## NuGet pack output
+nupkg/
+*.nupkg
+*.snupkg

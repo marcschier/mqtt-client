@@ -1,0 +1,1262 @@
+// Validating benchmarks:
+// ***** BenchmarkRunner: Start   *****
+// ***** Found 12 benchmark(s) in total *****
+// ***** Building 1 exe(s) in Parallel: Start   *****
+// start dotnet  restore /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /p:Deterministic=true /p:Optimize=true /p:IntermediateOutputPath="D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\obj\Release\net10.0/" /p:OutDir="D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0/" /p:OutputPath="D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0/" in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2
+// command took 2.98 sec and exited with 0
+// start dotnet  build -c Release --no-restore /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /p:Deterministic=true /p:Optimize=true /p:IntermediateOutputPath="D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\obj\Release\net10.0/" /p:OutDir="D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0/" /p:OutputPath="D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0/" --output "D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0/" in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2
+// command took 21.87 sec and exited with 0
+// ***** Done, took 00:00:25 (25.01 sec)   *****
+// Found 12 benchmarks:
+//   PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=64]
+//   PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=64]
+//   PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=256]
+//   PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=256]
+//   PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=1024]
+//   PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=1024]
+//   PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=4096]
+//   PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=4096]
+//   PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=16384]
+//   PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=16384]
+//   PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=65536]
+//   PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=65536]
+
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=64]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 1440 2040 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.Mqttnet_Publish(PayloadSize: 64)" --job ShortRun --benchmarkId 0 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 319900.00 ns, 319.9000 us/op
+WorkloadJitting  1: 1 op, 18444000.00 ns, 18.4440 ms/op
+
+OverheadJitting  2: 16 op, 332900.00 ns, 20.8063 us/op
+WorkloadJitting  2: 16 op, 4379700.00 ns, 273.7313 us/op
+
+WorkloadPilot    1: 16 op, 3360000.00 ns, 210.0000 us/op
+WorkloadPilot    2: 32 op, 6310300.00 ns, 197.1969 us/op
+WorkloadPilot    3: 64 op, 12980600.00 ns, 202.8219 us/op
+WorkloadPilot    4: 128 op, 23704700.00 ns, 185.1930 us/op
+WorkloadPilot    5: 256 op, 49142400.00 ns, 191.9625 us/op
+WorkloadPilot    6: 512 op, 113023100.00 ns, 220.7482 us/op
+WorkloadPilot    7: 1024 op, 230163300.00 ns, 224.7688 us/op
+WorkloadPilot    8: 2048 op, 465130600.00 ns, 227.1146 us/op
+WorkloadPilot    9: 4096 op, 829952100.00 ns, 202.6250 us/op
+
+OverheadWarmup   1: 4096 op, 32200.00 ns, 7.8613 ns/op
+OverheadWarmup   2: 4096 op, 19400.00 ns, 4.7363 ns/op
+OverheadWarmup   3: 4096 op, 19300.00 ns, 4.7119 ns/op
+OverheadWarmup   4: 4096 op, 10000.00 ns, 2.4414 ns/op
+OverheadWarmup   5: 4096 op, 19800.00 ns, 4.8340 ns/op
+OverheadWarmup   6: 4096 op, 21200.00 ns, 5.1758 ns/op
+OverheadWarmup   7: 4096 op, 18700.00 ns, 4.5654 ns/op
+OverheadWarmup   8: 4096 op, 20900.00 ns, 5.1025 ns/op
+OverheadWarmup   9: 4096 op, 16200.00 ns, 3.9551 ns/op
+
+OverheadActual   1: 4096 op, 20100.00 ns, 4.9072 ns/op
+OverheadActual   2: 4096 op, 21000.00 ns, 5.1270 ns/op
+OverheadActual   3: 4096 op, 14900.00 ns, 3.6377 ns/op
+OverheadActual   4: 4096 op, 20300.00 ns, 4.9561 ns/op
+OverheadActual   5: 4096 op, 18900.00 ns, 4.6143 ns/op
+OverheadActual   6: 4096 op, 21100.00 ns, 5.1514 ns/op
+OverheadActual   7: 4096 op, 19500.00 ns, 4.7607 ns/op
+OverheadActual   8: 4096 op, 20500.00 ns, 5.0049 ns/op
+OverheadActual   9: 4096 op, 19900.00 ns, 4.8584 ns/op
+OverheadActual  10: 4096 op, 21400.00 ns, 5.2246 ns/op
+OverheadActual  11: 4096 op, 20100.00 ns, 4.9072 ns/op
+OverheadActual  12: 4096 op, 18300.00 ns, 4.4678 ns/op
+OverheadActual  13: 4096 op, 19800.00 ns, 4.8340 ns/op
+OverheadActual  14: 4096 op, 21200.00 ns, 5.1758 ns/op
+OverheadActual  15: 4096 op, 19400.00 ns, 4.7363 ns/op
+OverheadActual  16: 4096 op, 22000.00 ns, 5.3711 ns/op
+OverheadActual  17: 4096 op, 20900.00 ns, 5.1025 ns/op
+OverheadActual  18: 4096 op, 18300.00 ns, 4.4678 ns/op
+OverheadActual  19: 4096 op, 23700.00 ns, 5.7861 ns/op
+OverheadActual  20: 4096 op, 11300.00 ns, 2.7588 ns/op
+
+WorkloadWarmup   1: 4096 op, 749284600.00 ns, 182.9308 us/op
+WorkloadWarmup   2: 4096 op, 621351300.00 ns, 151.6971 us/op
+WorkloadWarmup   3: 4096 op, 652760800.00 ns, 159.3654 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 611327600.00 ns, 149.2499 us/op
+WorkloadActual   2: 4096 op, 617501200.00 ns, 150.7571 us/op
+WorkloadActual   3: 4096 op, 625762000.00 ns, 152.7739 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 611307500.00 ns, 149.2450 us/op
+WorkloadResult   2: 4096 op, 617481100.00 ns, 150.7522 us/op
+WorkloadResult   3: 4096 op, 625741900.00 ns, 152.7690 us/op
+// GC:  0 0 0 16077136 4096
+// Threading:  27053 7 4096
+
+// AfterAll
+// Benchmark Process 73060 has exited with code 0.
+
+Mean = 150.922 μs, StdErr = 1.021 μs (0.68%), N = 3, StdDev = 1.768 μs
+Min = 149.245 μs, Q1 = 149.999 μs, Median = 150.752 μs, Q3 = 151.761 μs, Max = 152.769 μs
+IQR = 1.762 μs, LowerFence = 147.356 μs, UpperFence = 154.404 μs
+ConfidenceInterval = [118.665 μs; 183.180 μs] (CI 99.9%), Margin = 32.257 μs (21.37% of Mean)
+Skewness = 0.1, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 11 (91.7%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 1m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=64]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2036 1936 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.MqttClient_Publish(PayloadSize: 64)" --job ShortRun --benchmarkId 1 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 353400.00 ns, 353.4000 us/op
+WorkloadJitting  1: 1 op, 17598500.00 ns, 17.5985 ms/op
+
+OverheadJitting  2: 16 op, 389600.00 ns, 24.3500 us/op
+WorkloadJitting  2: 16 op, 4715000.00 ns, 294.6875 us/op
+
+WorkloadPilot    1: 16 op, 3573100.00 ns, 223.3188 us/op
+WorkloadPilot    2: 32 op, 6637800.00 ns, 207.4313 us/op
+WorkloadPilot    3: 64 op, 14642700.00 ns, 228.7922 us/op
+WorkloadPilot    4: 128 op, 25414700.00 ns, 198.5523 us/op
+WorkloadPilot    5: 256 op, 52293800.00 ns, 204.2727 us/op
+WorkloadPilot    6: 512 op, 109895900.00 ns, 214.6404 us/op
+WorkloadPilot    7: 1024 op, 216129000.00 ns, 211.0635 us/op
+WorkloadPilot    8: 2048 op, 393615400.00 ns, 192.1950 us/op
+WorkloadPilot    9: 4096 op, 785246300.00 ns, 191.7105 us/op
+
+OverheadWarmup   1: 4096 op, 13600.00 ns, 3.3203 ns/op
+OverheadWarmup   2: 4096 op, 17100.00 ns, 4.1748 ns/op
+OverheadWarmup   3: 4096 op, 14500.00 ns, 3.5400 ns/op
+OverheadWarmup   4: 4096 op, 13400.00 ns, 3.2715 ns/op
+OverheadWarmup   5: 4096 op, 12700.00 ns, 3.1006 ns/op
+OverheadWarmup   6: 4096 op, 11600.00 ns, 2.8320 ns/op
+OverheadWarmup   7: 4096 op, 12000.00 ns, 2.9297 ns/op
+OverheadWarmup   8: 4096 op, 14100.00 ns, 3.4424 ns/op
+OverheadWarmup   9: 4096 op, 11200.00 ns, 2.7344 ns/op
+
+OverheadActual   1: 4096 op, 11000.00 ns, 2.6855 ns/op
+OverheadActual   2: 4096 op, 11100.00 ns, 2.7100 ns/op
+OverheadActual   3: 4096 op, 14800.00 ns, 3.6133 ns/op
+OverheadActual   4: 4096 op, 10300.00 ns, 2.5146 ns/op
+OverheadActual   5: 4096 op, 12200.00 ns, 2.9785 ns/op
+OverheadActual   6: 4096 op, 13000.00 ns, 3.1738 ns/op
+OverheadActual   7: 4096 op, 13600.00 ns, 3.3203 ns/op
+OverheadActual   8: 4096 op, 16400.00 ns, 4.0039 ns/op
+OverheadActual   9: 4096 op, 14000.00 ns, 3.4180 ns/op
+OverheadActual  10: 4096 op, 9900.00 ns, 2.4170 ns/op
+OverheadActual  11: 4096 op, 10000.00 ns, 2.4414 ns/op
+OverheadActual  12: 4096 op, 9700.00 ns, 2.3682 ns/op
+OverheadActual  13: 4096 op, 9600.00 ns, 2.3438 ns/op
+OverheadActual  14: 4096 op, 14200.00 ns, 3.4668 ns/op
+OverheadActual  15: 4096 op, 10900.00 ns, 2.6611 ns/op
+OverheadActual  16: 4096 op, 13300.00 ns, 3.2471 ns/op
+OverheadActual  17: 4096 op, 13800.00 ns, 3.3691 ns/op
+OverheadActual  18: 4096 op, 13600.00 ns, 3.3203 ns/op
+OverheadActual  19: 4096 op, 13200.00 ns, 3.2227 ns/op
+OverheadActual  20: 4096 op, 11800.00 ns, 2.8809 ns/op
+
+WorkloadWarmup   1: 4096 op, 733902500.00 ns, 179.1754 us/op
+WorkloadWarmup   2: 4096 op, 531387400.00 ns, 129.7333 us/op
+WorkloadWarmup   3: 4096 op, 505719700.00 ns, 123.4667 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 502510500.00 ns, 122.6832 us/op
+WorkloadActual   2: 4096 op, 504365700.00 ns, 123.1362 us/op
+WorkloadActual   3: 4096 op, 491451100.00 ns, 119.9832 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 502497900.00 ns, 122.6802 us/op
+WorkloadResult   2: 4096 op, 504353100.00 ns, 123.1331 us/op
+WorkloadResult   3: 4096 op, 491438500.00 ns, 119.9801 us/op
+// GC:  0 0 0 11337264 4096
+// Threading:  36857 95 4096
+
+// AfterAll
+// Benchmark Process 29052 has exited with code 0.
+
+Mean = 121.931 μs, StdErr = 0.984 μs (0.81%), N = 3, StdDev = 1.705 μs
+Min = 119.980 μs, Q1 = 121.330 μs, Median = 122.680 μs, Q3 = 122.907 μs, Max = 123.133 μs
+IQR = 1.576 μs, LowerFence = 118.965 μs, UpperFence = 125.271 μs
+ConfidenceInterval = [90.830 μs; 153.032 μs] (CI 99.9%), Margin = 31.101 μs (25.51% of Mean)
+Skewness = -0.35, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 10 (83.3%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 1m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=256]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2116 1264 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.Mqttnet_Publish(PayloadSize: 256)" --job ShortRun --benchmarkId 2 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 330400.00 ns, 330.4000 us/op
+WorkloadJitting  1: 1 op, 19612400.00 ns, 19.6124 ms/op
+
+OverheadJitting  2: 16 op, 387500.00 ns, 24.2188 us/op
+WorkloadJitting  2: 16 op, 4318300.00 ns, 269.8938 us/op
+
+WorkloadPilot    1: 16 op, 3617900.00 ns, 226.1188 us/op
+WorkloadPilot    2: 32 op, 7481500.00 ns, 233.7969 us/op
+WorkloadPilot    3: 64 op, 13388600.00 ns, 209.1969 us/op
+WorkloadPilot    4: 128 op, 24918100.00 ns, 194.6727 us/op
+WorkloadPilot    5: 256 op, 50267900.00 ns, 196.3590 us/op
+WorkloadPilot    6: 512 op, 113230500.00 ns, 221.1533 us/op
+WorkloadPilot    7: 1024 op, 233846500.00 ns, 228.3657 us/op
+WorkloadPilot    8: 2048 op, 448176700.00 ns, 218.8363 us/op
+WorkloadPilot    9: 4096 op, 822219300.00 ns, 200.7371 us/op
+
+OverheadWarmup   1: 4096 op, 25000.00 ns, 6.1035 ns/op
+OverheadWarmup   2: 4096 op, 17200.00 ns, 4.1992 ns/op
+OverheadWarmup   3: 4096 op, 16400.00 ns, 4.0039 ns/op
+OverheadWarmup   4: 4096 op, 16100.00 ns, 3.9307 ns/op
+OverheadWarmup   5: 4096 op, 18700.00 ns, 4.5654 ns/op
+OverheadWarmup   6: 4096 op, 13700.00 ns, 3.3447 ns/op
+OverheadWarmup   7: 4096 op, 16800.00 ns, 4.1016 ns/op
+OverheadWarmup   8: 4096 op, 20800.00 ns, 5.0781 ns/op
+OverheadWarmup   9: 4096 op, 15500.00 ns, 3.7842 ns/op
+
+OverheadActual   1: 4096 op, 21000.00 ns, 5.1270 ns/op
+OverheadActual   2: 4096 op, 12000.00 ns, 2.9297 ns/op
+OverheadActual   3: 4096 op, 12400.00 ns, 3.0273 ns/op
+OverheadActual   4: 4096 op, 19400.00 ns, 4.7363 ns/op
+OverheadActual   5: 4096 op, 25300.00 ns, 6.1768 ns/op
+OverheadActual   6: 4096 op, 19100.00 ns, 4.6631 ns/op
+OverheadActual   7: 4096 op, 20600.00 ns, 5.0293 ns/op
+OverheadActual   8: 4096 op, 20000.00 ns, 4.8828 ns/op
+OverheadActual   9: 4096 op, 18300.00 ns, 4.4678 ns/op
+OverheadActual  10: 4096 op, 15900.00 ns, 3.8818 ns/op
+OverheadActual  11: 4096 op, 20900.00 ns, 5.1025 ns/op
+OverheadActual  12: 4096 op, 12500.00 ns, 3.0518 ns/op
+OverheadActual  13: 4096 op, 20200.00 ns, 4.9316 ns/op
+OverheadActual  14: 4096 op, 10600.00 ns, 2.5879 ns/op
+OverheadActual  15: 4096 op, 20600.00 ns, 5.0293 ns/op
+OverheadActual  16: 4096 op, 20900.00 ns, 5.1025 ns/op
+OverheadActual  17: 4096 op, 11600.00 ns, 2.8320 ns/op
+OverheadActual  18: 4096 op, 22500.00 ns, 5.4932 ns/op
+OverheadActual  19: 4096 op, 18400.00 ns, 4.4922 ns/op
+OverheadActual  20: 4096 op, 18500.00 ns, 4.5166 ns/op
+
+WorkloadWarmup   1: 4096 op, 735748700.00 ns, 179.6261 us/op
+WorkloadWarmup   2: 4096 op, 624838200.00 ns, 152.5484 us/op
+WorkloadWarmup   3: 4096 op, 604151700.00 ns, 147.4980 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 652447500.00 ns, 159.2889 us/op
+WorkloadActual   2: 4096 op, 609044200.00 ns, 148.6924 us/op
+WorkloadActual   3: 4096 op, 617738000.00 ns, 150.8149 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 652428250.00 ns, 159.2842 us/op
+WorkloadResult   2: 4096 op, 609024950.00 ns, 148.6877 us/op
+WorkloadResult   3: 4096 op, 617718750.00 ns, 150.8102 us/op
+// GC:  0 0 0 17650408 4096
+// Threading:  26960 10 4096
+
+// AfterAll
+// Benchmark Process 17640 has exited with code 0.
+
+Mean = 152.927 μs, StdErr = 3.237 μs (2.12%), N = 3, StdDev = 5.607 μs
+Min = 148.688 μs, Q1 = 149.749 μs, Median = 150.810 μs, Q3 = 155.047 μs, Max = 159.284 μs
+IQR = 5.298 μs, LowerFence = 141.802 μs, UpperFence = 162.995 μs
+ConfidenceInterval = [50.643 μs; 255.212 μs] (CI 99.9%), Margin = 102.284 μs (66.88% of Mean)
+Skewness = 0.32, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 9 (75.0%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 1m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=256]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2028 2032 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.MqttClient_Publish(PayloadSize: 256)" --job ShortRun --benchmarkId 3 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 561200.00 ns, 561.2000 us/op
+WorkloadJitting  1: 1 op, 23379500.00 ns, 23.3795 ms/op
+
+OverheadJitting  2: 16 op, 468300.00 ns, 29.2688 us/op
+WorkloadJitting  2: 16 op, 4505800.00 ns, 281.6125 us/op
+
+WorkloadPilot    1: 16 op, 3768900.00 ns, 235.5563 us/op
+WorkloadPilot    2: 32 op, 7592100.00 ns, 237.2531 us/op
+WorkloadPilot    3: 64 op, 14809800.00 ns, 231.4031 us/op
+WorkloadPilot    4: 128 op, 33101600.00 ns, 258.6063 us/op
+WorkloadPilot    5: 256 op, 56106100.00 ns, 219.1645 us/op
+WorkloadPilot    6: 512 op, 122453800.00 ns, 239.1676 us/op
+WorkloadPilot    7: 1024 op, 228395700.00 ns, 223.0427 us/op
+WorkloadPilot    8: 2048 op, 422287800.00 ns, 206.1952 us/op
+WorkloadPilot    9: 4096 op, 713977700.00 ns, 174.3110 us/op
+
+OverheadWarmup   1: 4096 op, 11600.00 ns, 2.8320 ns/op
+OverheadWarmup   2: 4096 op, 14300.00 ns, 3.4912 ns/op
+OverheadWarmup   3: 4096 op, 12900.00 ns, 3.1494 ns/op
+OverheadWarmup   4: 4096 op, 15700.00 ns, 3.8330 ns/op
+OverheadWarmup   5: 4096 op, 13800.00 ns, 3.3691 ns/op
+
+OverheadActual   1: 4096 op, 14800.00 ns, 3.6133 ns/op
+OverheadActual   2: 4096 op, 13600.00 ns, 3.3203 ns/op
+OverheadActual   3: 4096 op, 12300.00 ns, 3.0029 ns/op
+OverheadActual   4: 4096 op, 10400.00 ns, 2.5391 ns/op
+OverheadActual   5: 4096 op, 12700.00 ns, 3.1006 ns/op
+OverheadActual   6: 4096 op, 15000.00 ns, 3.6621 ns/op
+OverheadActual   7: 4096 op, 14600.00 ns, 3.5645 ns/op
+OverheadActual   8: 4096 op, 14600.00 ns, 3.5645 ns/op
+OverheadActual   9: 4096 op, 14600.00 ns, 3.5645 ns/op
+OverheadActual  10: 4096 op, 11600.00 ns, 2.8320 ns/op
+OverheadActual  11: 4096 op, 12200.00 ns, 2.9785 ns/op
+OverheadActual  12: 4096 op, 11900.00 ns, 2.9053 ns/op
+OverheadActual  13: 4096 op, 14900.00 ns, 3.6377 ns/op
+OverheadActual  14: 4096 op, 10600.00 ns, 2.5879 ns/op
+OverheadActual  15: 4096 op, 9900.00 ns, 2.4170 ns/op
+OverheadActual  16: 4096 op, 9800.00 ns, 2.3926 ns/op
+OverheadActual  17: 4096 op, 9800.00 ns, 2.3926 ns/op
+OverheadActual  18: 4096 op, 9600.00 ns, 2.3438 ns/op
+OverheadActual  19: 4096 op, 9400.00 ns, 2.2949 ns/op
+OverheadActual  20: 4096 op, 11900.00 ns, 2.9053 ns/op
+
+WorkloadWarmup   1: 4096 op, 674516200.00 ns, 164.6768 us/op
+WorkloadWarmup   2: 4096 op, 685452400.00 ns, 167.3468 us/op
+WorkloadWarmup   3: 4096 op, 504198200.00 ns, 123.0953 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 523740000.00 ns, 127.8662 us/op
+WorkloadActual   2: 4096 op, 549358800.00 ns, 134.1208 us/op
+WorkloadActual   3: 4096 op, 511997500.00 ns, 124.9994 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 523727950.00 ns, 127.8633 us/op
+WorkloadResult   2: 4096 op, 549346750.00 ns, 134.1179 us/op
+WorkloadResult   3: 4096 op, 511985450.00 ns, 124.9964 us/op
+// GC:  0 0 0 12910352 4096
+// Threading:  36858 45 4096
+
+// AfterAll
+// Benchmark Process 48228 has exited with code 0.
+
+Mean = 128.993 μs, StdErr = 2.693 μs (2.09%), N = 3, StdDev = 4.664 μs
+Min = 124.996 μs, Q1 = 126.430 μs, Median = 127.863 μs, Q3 = 130.991 μs, Max = 134.118 μs
+IQR = 4.561 μs, LowerFence = 119.589 μs, UpperFence = 137.832 μs
+ConfidenceInterval = [43.897 μs; 214.088 μs] (CI 99.9%), Margin = 85.096 μs (65.97% of Mean)
+Skewness = 0.23, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 8 (66.7%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=1024]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2144 2124 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.Mqttnet_Publish(PayloadSize: 1024)" --job ShortRun --benchmarkId 4 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 441600.00 ns, 441.6000 us/op
+WorkloadJitting  1: 1 op, 23451700.00 ns, 23.4517 ms/op
+
+OverheadJitting  2: 16 op, 408200.00 ns, 25.5125 us/op
+WorkloadJitting  2: 16 op, 5496700.00 ns, 343.5438 us/op
+
+WorkloadPilot    1: 16 op, 3642400.00 ns, 227.6500 us/op
+WorkloadPilot    2: 32 op, 8451800.00 ns, 264.1188 us/op
+WorkloadPilot    3: 64 op, 12475000.00 ns, 194.9219 us/op
+WorkloadPilot    4: 128 op, 25129500.00 ns, 196.3242 us/op
+WorkloadPilot    5: 256 op, 56095000.00 ns, 219.1211 us/op
+WorkloadPilot    6: 512 op, 117064800.00 ns, 228.6422 us/op
+WorkloadPilot    7: 1024 op, 223382000.00 ns, 218.1465 us/op
+WorkloadPilot    8: 2048 op, 427171700.00 ns, 208.5799 us/op
+WorkloadPilot    9: 4096 op, 813808100.00 ns, 198.6836 us/op
+
+OverheadWarmup   1: 4096 op, 16700.00 ns, 4.0771 ns/op
+OverheadWarmup   2: 4096 op, 13500.00 ns, 3.2959 ns/op
+OverheadWarmup   3: 4096 op, 13200.00 ns, 3.2227 ns/op
+OverheadWarmup   4: 4096 op, 14400.00 ns, 3.5156 ns/op
+OverheadWarmup   5: 4096 op, 16400.00 ns, 4.0039 ns/op
+OverheadWarmup   6: 4096 op, 11000.00 ns, 2.6855 ns/op
+OverheadWarmup   7: 4096 op, 19200.00 ns, 4.6875 ns/op
+OverheadWarmup   8: 4096 op, 14000.00 ns, 3.4180 ns/op
+
+OverheadActual   1: 4096 op, 14800.00 ns, 3.6133 ns/op
+OverheadActual   2: 4096 op, 12600.00 ns, 3.0762 ns/op
+OverheadActual   3: 4096 op, 13700.00 ns, 3.3447 ns/op
+OverheadActual   4: 4096 op, 16200.00 ns, 3.9551 ns/op
+OverheadActual   5: 4096 op, 16700.00 ns, 4.0771 ns/op
+OverheadActual   6: 4096 op, 10900.00 ns, 2.6611 ns/op
+OverheadActual   7: 4096 op, 13600.00 ns, 3.3203 ns/op
+OverheadActual   8: 4096 op, 13400.00 ns, 3.2715 ns/op
+OverheadActual   9: 4096 op, 16300.00 ns, 3.9795 ns/op
+OverheadActual  10: 4096 op, 13500.00 ns, 3.2959 ns/op
+OverheadActual  11: 4096 op, 10900.00 ns, 2.6611 ns/op
+OverheadActual  12: 4096 op, 10100.00 ns, 2.4658 ns/op
+OverheadActual  13: 4096 op, 12200.00 ns, 2.9785 ns/op
+OverheadActual  14: 4096 op, 11800.00 ns, 2.8809 ns/op
+OverheadActual  15: 4096 op, 11200.00 ns, 2.7344 ns/op
+OverheadActual  16: 4096 op, 12500.00 ns, 3.0518 ns/op
+OverheadActual  17: 4096 op, 15200.00 ns, 3.7109 ns/op
+OverheadActual  18: 4096 op, 16300.00 ns, 3.9795 ns/op
+OverheadActual  19: 4096 op, 16000.00 ns, 3.9063 ns/op
+OverheadActual  20: 4096 op, 11300.00 ns, 2.7588 ns/op
+
+WorkloadWarmup   1: 4096 op, 747905400.00 ns, 182.5941 us/op
+WorkloadWarmup   2: 4096 op, 643820100.00 ns, 157.1826 us/op
+WorkloadWarmup   3: 4096 op, 657088800.00 ns, 160.4221 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 658170000.00 ns, 160.6860 us/op
+WorkloadActual   2: 4096 op, 627734000.00 ns, 153.2554 us/op
+WorkloadActual   3: 4096 op, 622207800.00 ns, 151.9062 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 658156550.00 ns, 160.6828 us/op
+WorkloadResult   2: 4096 op, 627720550.00 ns, 153.2521 us/op
+WorkloadResult   3: 4096 op, 622194350.00 ns, 151.9029 us/op
+// GC:  0 0 0 23962352 4096
+// Threading:  27994 5 4096
+
+// AfterAll
+// Benchmark Process 82252 has exited with code 0.
+
+Mean = 155.279 μs, StdErr = 2.730 μs (1.76%), N = 3, StdDev = 4.728 μs
+Min = 151.903 μs, Q1 = 152.578 μs, Median = 153.252 μs, Q3 = 156.967 μs, Max = 160.683 μs
+IQR = 4.390 μs, LowerFence = 145.993 μs, UpperFence = 163.552 μs
+ConfidenceInterval = [69.024 μs; 241.534 μs] (CI 99.9%), Margin = 86.255 μs (55.55% of Mean)
+Skewness = 0.35, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 7 (58.3%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=1024]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2092 2084 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.MqttClient_Publish(PayloadSize: 1024)" --job ShortRun --benchmarkId 5 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 505100.00 ns, 505.1000 us/op
+WorkloadJitting  1: 1 op, 19203100.00 ns, 19.2031 ms/op
+
+OverheadJitting  2: 16 op, 470500.00 ns, 29.4063 us/op
+WorkloadJitting  2: 16 op, 4541100.00 ns, 283.8188 us/op
+
+WorkloadPilot    1: 16 op, 4213800.00 ns, 263.3625 us/op
+WorkloadPilot    2: 32 op, 6375000.00 ns, 199.2188 us/op
+WorkloadPilot    3: 64 op, 16926100.00 ns, 264.4703 us/op
+WorkloadPilot    4: 128 op, 26797100.00 ns, 209.3523 us/op
+WorkloadPilot    5: 256 op, 59269700.00 ns, 231.5223 us/op
+WorkloadPilot    6: 512 op, 103426000.00 ns, 202.0039 us/op
+WorkloadPilot    7: 1024 op, 206398100.00 ns, 201.5606 us/op
+WorkloadPilot    8: 2048 op, 427464000.00 ns, 208.7227 us/op
+WorkloadPilot    9: 4096 op, 804868800.00 ns, 196.5012 us/op
+
+OverheadWarmup   1: 4096 op, 27100.00 ns, 6.6162 ns/op
+OverheadWarmup   2: 4096 op, 19100.00 ns, 4.6631 ns/op
+OverheadWarmup   3: 4096 op, 20200.00 ns, 4.9316 ns/op
+OverheadWarmup   4: 4096 op, 23500.00 ns, 5.7373 ns/op
+OverheadWarmup   5: 4096 op, 21300.00 ns, 5.2002 ns/op
+OverheadWarmup   6: 4096 op, 20200.00 ns, 4.9316 ns/op
+OverheadWarmup   7: 4096 op, 20600.00 ns, 5.0293 ns/op
+OverheadWarmup   8: 4096 op, 20500.00 ns, 5.0049 ns/op
+
+OverheadActual   1: 4096 op, 19700.00 ns, 4.8096 ns/op
+OverheadActual   2: 4096 op, 19300.00 ns, 4.7119 ns/op
+OverheadActual   3: 4096 op, 18100.00 ns, 4.4189 ns/op
+OverheadActual   4: 4096 op, 19800.00 ns, 4.8340 ns/op
+OverheadActual   5: 4096 op, 21600.00 ns, 5.2734 ns/op
+OverheadActual   6: 4096 op, 21700.00 ns, 5.2979 ns/op
+OverheadActual   7: 4096 op, 22400.00 ns, 5.4688 ns/op
+OverheadActual   8: 4096 op, 20400.00 ns, 4.9805 ns/op
+OverheadActual   9: 4096 op, 20700.00 ns, 5.0537 ns/op
+OverheadActual  10: 4096 op, 21200.00 ns, 5.1758 ns/op
+OverheadActual  11: 4096 op, 20600.00 ns, 5.0293 ns/op
+OverheadActual  12: 4096 op, 21200.00 ns, 5.1758 ns/op
+OverheadActual  13: 4096 op, 20600.00 ns, 5.0293 ns/op
+OverheadActual  14: 4096 op, 21800.00 ns, 5.3223 ns/op
+OverheadActual  15: 4096 op, 21100.00 ns, 5.1514 ns/op
+OverheadActual  16: 4096 op, 22500.00 ns, 5.4932 ns/op
+OverheadActual  17: 4096 op, 23500.00 ns, 5.7373 ns/op
+OverheadActual  18: 4096 op, 24500.00 ns, 5.9814 ns/op
+OverheadActual  19: 4096 op, 20700.00 ns, 5.0537 ns/op
+OverheadActual  20: 4096 op, 22700.00 ns, 5.5420 ns/op
+
+WorkloadWarmup   1: 4096 op, 725621500.00 ns, 177.1537 us/op
+WorkloadWarmup   2: 4096 op, 586857300.00 ns, 143.2757 us/op
+WorkloadWarmup   3: 4096 op, 544052200.00 ns, 132.8252 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 556419100.00 ns, 135.8445 us/op
+WorkloadActual   2: 4096 op, 527360700.00 ns, 128.7502 us/op
+WorkloadActual   3: 4096 op, 613732600.00 ns, 149.8371 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 556397950.00 ns, 135.8393 us/op
+WorkloadResult   2: 4096 op, 527339550.00 ns, 128.7450 us/op
+WorkloadResult   3: 4096 op, 613711450.00 ns, 149.8319 us/op
+// GC:  0 0 0 19201432 4096
+// Threading:  36857 10 4096
+
+// AfterAll
+// Benchmark Process 19584 has exited with code 0.
+
+Mean = 138.139 μs, StdErr = 6.195 μs (4.48%), N = 3, StdDev = 10.730 μs
+Min = 128.745 μs, Q1 = 132.292 μs, Median = 135.839 μs, Q3 = 142.836 μs, Max = 149.832 μs
+IQR = 10.543 μs, LowerFence = 116.477 μs, UpperFence = 158.651 μs
+ConfidenceInterval = [-57.614 μs; 333.891 μs] (CI 99.9%), Margin = 195.752 μs (141.71% of Mean)
+Skewness = 0.2, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 6 (50.0%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=4096]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2120 2180 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.Mqttnet_Publish(PayloadSize: 4096)" --job ShortRun --benchmarkId 6 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 307500.00 ns, 307.5000 us/op
+WorkloadJitting  1: 1 op, 20524600.00 ns, 20.5246 ms/op
+
+OverheadJitting  2: 16 op, 298700.00 ns, 18.6688 us/op
+WorkloadJitting  2: 16 op, 5419100.00 ns, 338.6938 us/op
+
+WorkloadPilot    1: 16 op, 3972800.00 ns, 248.3000 us/op
+WorkloadPilot    2: 32 op, 7108200.00 ns, 222.1313 us/op
+WorkloadPilot    3: 64 op, 13666100.00 ns, 213.5328 us/op
+WorkloadPilot    4: 128 op, 22307500.00 ns, 174.2773 us/op
+WorkloadPilot    5: 256 op, 47236400.00 ns, 184.5172 us/op
+WorkloadPilot    6: 512 op, 109270400.00 ns, 213.4188 us/op
+WorkloadPilot    7: 1024 op, 211746600.00 ns, 206.7838 us/op
+WorkloadPilot    8: 2048 op, 425349500.00 ns, 207.6902 us/op
+WorkloadPilot    9: 4096 op, 814310500.00 ns, 198.8063 us/op
+
+OverheadWarmup   1: 4096 op, 14300.00 ns, 3.4912 ns/op
+OverheadWarmup   2: 4096 op, 20400.00 ns, 4.9805 ns/op
+OverheadWarmup   3: 4096 op, 20000.00 ns, 4.8828 ns/op
+OverheadWarmup   4: 4096 op, 19900.00 ns, 4.8584 ns/op
+OverheadWarmup   5: 4096 op, 19900.00 ns, 4.8584 ns/op
+OverheadWarmup   6: 4096 op, 27600.00 ns, 6.7383 ns/op
+
+OverheadActual   1: 4096 op, 22200.00 ns, 5.4199 ns/op
+OverheadActual   2: 4096 op, 20600.00 ns, 5.0293 ns/op
+OverheadActual   3: 4096 op, 19100.00 ns, 4.6631 ns/op
+OverheadActual   4: 4096 op, 9700.00 ns, 2.3682 ns/op
+OverheadActual   5: 4096 op, 10600.00 ns, 2.5879 ns/op
+OverheadActual   6: 4096 op, 19400.00 ns, 4.7363 ns/op
+OverheadActual   7: 4096 op, 10000.00 ns, 2.4414 ns/op
+OverheadActual   8: 4096 op, 10700.00 ns, 2.6123 ns/op
+OverheadActual   9: 4096 op, 11800.00 ns, 2.8809 ns/op
+OverheadActual  10: 4096 op, 17500.00 ns, 4.2725 ns/op
+OverheadActual  11: 4096 op, 20600.00 ns, 5.0293 ns/op
+OverheadActual  12: 4096 op, 20500.00 ns, 5.0049 ns/op
+OverheadActual  13: 4096 op, 18800.00 ns, 4.5898 ns/op
+OverheadActual  14: 4096 op, 12000.00 ns, 2.9297 ns/op
+OverheadActual  15: 4096 op, 16900.00 ns, 4.1260 ns/op
+OverheadActual  16: 4096 op, 17400.00 ns, 4.2480 ns/op
+OverheadActual  17: 4096 op, 17200.00 ns, 4.1992 ns/op
+OverheadActual  18: 4096 op, 22900.00 ns, 5.5908 ns/op
+OverheadActual  19: 4096 op, 20500.00 ns, 5.0049 ns/op
+OverheadActual  20: 4096 op, 20700.00 ns, 5.0537 ns/op
+
+WorkloadWarmup   1: 4096 op, 734948300.00 ns, 179.4307 us/op
+WorkloadWarmup   2: 4096 op, 602511600.00 ns, 147.0976 us/op
+WorkloadWarmup   3: 4096 op, 663227400.00 ns, 161.9208 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 625232500.00 ns, 152.6447 us/op
+WorkloadActual   2: 4096 op, 622467800.00 ns, 151.9697 us/op
+WorkloadActual   3: 4096 op, 667271100.00 ns, 162.9080 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 625214350.00 ns, 152.6402 us/op
+WorkloadResult   2: 4096 op, 622449650.00 ns, 151.9652 us/op
+WorkloadResult   3: 4096 op, 667252950.00 ns, 162.9036 us/op
+// GC:  1 0 0 49179392 4096
+// Threading:  25440 3 4096
+
+// AfterAll
+// Benchmark Process 15764 has exited with code 0.
+
+Mean = 155.836 μs, StdErr = 3.539 μs (2.27%), N = 3, StdDev = 6.130 μs
+Min = 151.965 μs, Q1 = 152.303 μs, Median = 152.640 μs, Q3 = 157.772 μs, Max = 162.904 μs
+IQR = 5.469 μs, LowerFence = 144.099 μs, UpperFence = 165.976 μs
+ConfidenceInterval = [44.008 μs; 267.665 μs] (CI 99.9%), Margin = 111.828 μs (71.76% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 5 (41.7%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=4096]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2116 1264 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.MqttClient_Publish(PayloadSize: 4096)" --job ShortRun --benchmarkId 7 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 352700.00 ns, 352.7000 us/op
+WorkloadJitting  1: 1 op, 19101800.00 ns, 19.1018 ms/op
+
+OverheadJitting  2: 16 op, 447600.00 ns, 27.9750 us/op
+WorkloadJitting  2: 16 op, 4156300.00 ns, 259.7688 us/op
+
+WorkloadPilot    1: 16 op, 3539000.00 ns, 221.1875 us/op
+WorkloadPilot    2: 32 op, 7427200.00 ns, 232.1000 us/op
+WorkloadPilot    3: 64 op, 19516200.00 ns, 304.9406 us/op
+WorkloadPilot    4: 128 op, 28180700.00 ns, 220.1617 us/op
+WorkloadPilot    5: 256 op, 52661700.00 ns, 205.7098 us/op
+WorkloadPilot    6: 512 op, 108005300.00 ns, 210.9479 us/op
+WorkloadPilot    7: 1024 op, 217712800.00 ns, 212.6102 us/op
+WorkloadPilot    8: 2048 op, 443593700.00 ns, 216.5985 us/op
+WorkloadPilot    9: 4096 op, 849275000.00 ns, 207.3425 us/op
+
+OverheadWarmup   1: 4096 op, 19100.00 ns, 4.6631 ns/op
+OverheadWarmup   2: 4096 op, 12800.00 ns, 3.1250 ns/op
+OverheadWarmup   3: 4096 op, 13700.00 ns, 3.3447 ns/op
+OverheadWarmup   4: 4096 op, 12400.00 ns, 3.0273 ns/op
+OverheadWarmup   5: 4096 op, 15000.00 ns, 3.6621 ns/op
+OverheadWarmup   6: 4096 op, 14500.00 ns, 3.5400 ns/op
+
+OverheadActual   1: 4096 op, 10800.00 ns, 2.6367 ns/op
+OverheadActual   2: 4096 op, 11300.00 ns, 2.7588 ns/op
+OverheadActual   3: 4096 op, 16300.00 ns, 3.9795 ns/op
+OverheadActual   4: 4096 op, 16500.00 ns, 4.0283 ns/op
+OverheadActual   5: 4096 op, 12000.00 ns, 2.9297 ns/op
+OverheadActual   6: 4096 op, 16600.00 ns, 4.0527 ns/op
+OverheadActual   7: 4096 op, 16600.00 ns, 4.0527 ns/op
+OverheadActual   8: 4096 op, 11600.00 ns, 2.8320 ns/op
+OverheadActual   9: 4096 op, 13400.00 ns, 3.2715 ns/op
+OverheadActual  10: 4096 op, 16500.00 ns, 4.0283 ns/op
+OverheadActual  11: 4096 op, 14700.00 ns, 3.5889 ns/op
+OverheadActual  12: 4096 op, 15800.00 ns, 3.8574 ns/op
+OverheadActual  13: 4096 op, 17600.00 ns, 4.2969 ns/op
+OverheadActual  14: 4096 op, 13000.00 ns, 3.1738 ns/op
+OverheadActual  15: 4096 op, 14000.00 ns, 3.4180 ns/op
+OverheadActual  16: 4096 op, 11700.00 ns, 2.8564 ns/op
+OverheadActual  17: 4096 op, 15900.00 ns, 3.8818 ns/op
+OverheadActual  18: 4096 op, 17000.00 ns, 4.1504 ns/op
+OverheadActual  19: 4096 op, 15800.00 ns, 3.8574 ns/op
+OverheadActual  20: 4096 op, 14400.00 ns, 3.5156 ns/op
+
+WorkloadWarmup   1: 4096 op, 776124600.00 ns, 189.4835 us/op
+WorkloadWarmup   2: 4096 op, 643834500.00 ns, 157.1862 us/op
+WorkloadWarmup   3: 4096 op, 575000900.00 ns, 140.3811 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 561058200.00 ns, 136.9771 us/op
+WorkloadActual   2: 4096 op, 559573400.00 ns, 136.6146 us/op
+WorkloadActual   3: 4096 op, 575459200.00 ns, 140.4930 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 561042950.00 ns, 136.9734 us/op
+WorkloadResult   2: 4096 op, 559558150.00 ns, 136.6109 us/op
+WorkloadResult   3: 4096 op, 575443950.00 ns, 140.4892 us/op
+// GC:  1 0 0 44661104 4096
+// Threading:  36854 18 4096
+
+// AfterAll
+// Benchmark Process 66476 has exited with code 0.
+
+Mean = 138.024 μs, StdErr = 1.237 μs (0.90%), N = 3, StdDev = 2.142 μs
+Min = 136.611 μs, Q1 = 136.792 μs, Median = 136.973 μs, Q3 = 138.731 μs, Max = 140.489 μs
+IQR = 1.939 μs, LowerFence = 133.883 μs, UpperFence = 141.640 μs
+ConfidenceInterval = [98.943 μs; 177.106 μs] (CI 99.9%), Margin = 39.082 μs (28.32% of Mean)
+Skewness = 0.37, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 4 (33.3%) benchmark(s) to run. Estimated finish 2026-06-17 13:38 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=16384]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2156 1076 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.Mqttnet_Publish(PayloadSize: 16384)" --job ShortRun --benchmarkId 8 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 295800.00 ns, 295.8000 us/op
+WorkloadJitting  1: 1 op, 15434900.00 ns, 15.4349 ms/op
+
+OverheadJitting  2: 16 op, 289800.00 ns, 18.1125 us/op
+WorkloadJitting  2: 16 op, 5522200.00 ns, 345.1375 us/op
+
+WorkloadPilot    1: 16 op, 4181600.00 ns, 261.3500 us/op
+WorkloadPilot    2: 32 op, 6900600.00 ns, 215.6438 us/op
+WorkloadPilot    3: 64 op, 16360300.00 ns, 255.6297 us/op
+WorkloadPilot    4: 128 op, 29850800.00 ns, 233.2094 us/op
+WorkloadPilot    5: 256 op, 60104700.00 ns, 234.7840 us/op
+WorkloadPilot    6: 512 op, 124102800.00 ns, 242.3883 us/op
+WorkloadPilot    7: 1024 op, 260190900.00 ns, 254.0927 us/op
+WorkloadPilot    8: 2048 op, 506684100.00 ns, 247.4043 us/op
+
+OverheadWarmup   1: 2048 op, 10100.00 ns, 4.9316 ns/op
+OverheadWarmup   2: 2048 op, 8500.00 ns, 4.1504 ns/op
+OverheadWarmup   3: 2048 op, 8100.00 ns, 3.9551 ns/op
+OverheadWarmup   4: 2048 op, 7900.00 ns, 3.8574 ns/op
+OverheadWarmup   5: 2048 op, 7500.00 ns, 3.6621 ns/op
+OverheadWarmup   6: 2048 op, 6900.00 ns, 3.3691 ns/op
+OverheadWarmup   7: 2048 op, 8600.00 ns, 4.1992 ns/op
+OverheadWarmup   8: 2048 op, 7000.00 ns, 3.4180 ns/op
+OverheadWarmup   9: 2048 op, 8800.00 ns, 4.2969 ns/op
+OverheadWarmup  10: 2048 op, 7800.00 ns, 3.8086 ns/op
+
+OverheadActual   1: 2048 op, 7800.00 ns, 3.8086 ns/op
+OverheadActual   2: 2048 op, 5000.00 ns, 2.4414 ns/op
+OverheadActual   3: 2048 op, 8400.00 ns, 4.1016 ns/op
+OverheadActual   4: 2048 op, 8100.00 ns, 3.9551 ns/op
+OverheadActual   5: 2048 op, 9400.00 ns, 4.5898 ns/op
+OverheadActual   6: 2048 op, 7200.00 ns, 3.5156 ns/op
+OverheadActual   7: 2048 op, 8500.00 ns, 4.1504 ns/op
+OverheadActual   8: 2048 op, 6200.00 ns, 3.0273 ns/op
+OverheadActual   9: 2048 op, 6900.00 ns, 3.3691 ns/op
+OverheadActual  10: 2048 op, 7600.00 ns, 3.7109 ns/op
+OverheadActual  11: 2048 op, 6800.00 ns, 3.3203 ns/op
+OverheadActual  12: 2048 op, 8500.00 ns, 4.1504 ns/op
+OverheadActual  13: 2048 op, 6500.00 ns, 3.1738 ns/op
+OverheadActual  14: 2048 op, 9200.00 ns, 4.4922 ns/op
+OverheadActual  15: 2048 op, 6700.00 ns, 3.2715 ns/op
+OverheadActual  16: 2048 op, 9500.00 ns, 4.6387 ns/op
+OverheadActual  17: 2048 op, 8300.00 ns, 4.0527 ns/op
+OverheadActual  18: 2048 op, 11100.00 ns, 5.4199 ns/op
+OverheadActual  19: 2048 op, 7200.00 ns, 3.5156 ns/op
+OverheadActual  20: 2048 op, 6300.00 ns, 3.0762 ns/op
+
+WorkloadWarmup   1: 2048 op, 447698000.00 ns, 218.6025 us/op
+WorkloadWarmup   2: 2048 op, 419957000.00 ns, 205.0571 us/op
+WorkloadWarmup   3: 2048 op, 368105300.00 ns, 179.7389 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 2048 op, 366174500.00 ns, 178.7961 us/op
+WorkloadActual   2: 2048 op, 372146600.00 ns, 181.7122 us/op
+WorkloadActual   3: 2048 op, 354445700.00 ns, 173.0692 us/op
+
+// AfterActualRun
+WorkloadResult   1: 2048 op, 366166800.00 ns, 178.7924 us/op
+WorkloadResult   2: 2048 op, 372138900.00 ns, 181.7084 us/op
+WorkloadResult   3: 2048 op, 354438000.00 ns, 173.0654 us/op
+// GC:  2 0 0 75367000 2048
+// Threading:  13246 6 2048
+
+// AfterAll
+// Benchmark Process 63760 has exited with code 0.
+
+Mean = 177.855 μs, StdErr = 2.539 μs (1.43%), N = 3, StdDev = 4.397 μs
+Min = 173.065 μs, Q1 = 175.929 μs, Median = 178.792 μs, Q3 = 180.250 μs, Max = 181.708 μs
+IQR = 4.322 μs, LowerFence = 169.447 μs, UpperFence = 186.733 μs
+ConfidenceInterval = [97.637 μs; 258.074 μs] (CI 99.9%), Margin = 80.218 μs (45.10% of Mean)
+Skewness = -0.2, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 3 (25.0%) benchmark(s) to run. Estimated finish 2026-06-17 13:37 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=16384]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 1336 1948 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.MqttClient_Publish(PayloadSize: 16384)" --job ShortRun --benchmarkId 9 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 362500.00 ns, 362.5000 us/op
+WorkloadJitting  1: 1 op, 17297200.00 ns, 17.2972 ms/op
+
+OverheadJitting  2: 16 op, 351500.00 ns, 21.9688 us/op
+WorkloadJitting  2: 16 op, 4281500.00 ns, 267.5938 us/op
+
+WorkloadPilot    1: 16 op, 3830800.00 ns, 239.4250 us/op
+WorkloadPilot    2: 32 op, 7675200.00 ns, 239.8500 us/op
+WorkloadPilot    3: 64 op, 15059800.00 ns, 235.3094 us/op
+WorkloadPilot    4: 128 op, 28831600.00 ns, 225.2469 us/op
+WorkloadPilot    5: 256 op, 62980100.00 ns, 246.0160 us/op
+WorkloadPilot    6: 512 op, 121774100.00 ns, 237.8400 us/op
+WorkloadPilot    7: 1024 op, 232929700.00 ns, 227.4704 us/op
+WorkloadPilot    8: 2048 op, 480781600.00 ns, 234.7566 us/op
+WorkloadPilot    9: 4096 op, 864199800.00 ns, 210.9863 us/op
+
+OverheadWarmup   1: 4096 op, 20100.00 ns, 4.9072 ns/op
+OverheadWarmup   2: 4096 op, 21700.00 ns, 5.2979 ns/op
+OverheadWarmup   3: 4096 op, 21900.00 ns, 5.3467 ns/op
+OverheadWarmup   4: 4096 op, 23100.00 ns, 5.6396 ns/op
+OverheadWarmup   5: 4096 op, 19500.00 ns, 4.7607 ns/op
+OverheadWarmup   6: 4096 op, 19800.00 ns, 4.8340 ns/op
+OverheadWarmup   7: 4096 op, 19600.00 ns, 4.7852 ns/op
+
+OverheadActual   1: 4096 op, 18800.00 ns, 4.5898 ns/op
+OverheadActual   2: 4096 op, 11200.00 ns, 2.7344 ns/op
+OverheadActual   3: 4096 op, 21400.00 ns, 5.2246 ns/op
+OverheadActual   4: 4096 op, 19600.00 ns, 4.7852 ns/op
+OverheadActual   5: 4096 op, 16400.00 ns, 4.0039 ns/op
+OverheadActual   6: 4096 op, 20500.00 ns, 5.0049 ns/op
+OverheadActual   7: 4096 op, 19000.00 ns, 4.6387 ns/op
+OverheadActual   8: 4096 op, 20200.00 ns, 4.9316 ns/op
+OverheadActual   9: 4096 op, 19500.00 ns, 4.7607 ns/op
+OverheadActual  10: 4096 op, 19700.00 ns, 4.8096 ns/op
+OverheadActual  11: 4096 op, 16800.00 ns, 4.1016 ns/op
+OverheadActual  12: 4096 op, 18600.00 ns, 4.5410 ns/op
+OverheadActual  13: 4096 op, 17300.00 ns, 4.2236 ns/op
+OverheadActual  14: 4096 op, 11000.00 ns, 2.6855 ns/op
+OverheadActual  15: 4096 op, 11100.00 ns, 2.7100 ns/op
+OverheadActual  16: 4096 op, 10800.00 ns, 2.6367 ns/op
+OverheadActual  17: 4096 op, 13600.00 ns, 3.3203 ns/op
+OverheadActual  18: 4096 op, 13100.00 ns, 3.1982 ns/op
+OverheadActual  19: 4096 op, 11200.00 ns, 2.7344 ns/op
+OverheadActual  20: 4096 op, 11600.00 ns, 2.8320 ns/op
+
+WorkloadWarmup   1: 4096 op, 722848200.00 ns, 176.4766 us/op
+WorkloadWarmup   2: 4096 op, 695866100.00 ns, 169.8892 us/op
+WorkloadWarmup   3: 4096 op, 605769000.00 ns, 147.8928 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 4096 op, 571025500.00 ns, 139.4105 us/op
+WorkloadActual   2: 4096 op, 609803100.00 ns, 148.8777 us/op
+WorkloadActual   3: 4096 op, 632410700.00 ns, 154.3971 us/op
+
+// AfterActualRun
+WorkloadResult   1: 4096 op, 571008450.00 ns, 139.4064 us/op
+WorkloadResult   2: 4096 op, 609786050.00 ns, 148.8735 us/op
+WorkloadResult   3: 4096 op, 632393650.00 ns, 154.3930 us/op
+// GC:  5 0 0 146208944 4096
+// Threading:  36854 33 4096
+
+// AfterAll
+// Benchmark Process 35856 has exited with code 0.
+
+Mean = 147.558 μs, StdErr = 4.376 μs (2.97%), N = 3, StdDev = 7.579 μs
+Min = 139.406 μs, Q1 = 144.140 μs, Median = 148.874 μs, Q3 = 151.633 μs, Max = 154.393 μs
+IQR = 7.493 μs, LowerFence = 132.900 μs, UpperFence = 162.873 μs
+ConfidenceInterval = [9.280 μs; 285.835 μs] (CI 99.9%), Margin = 138.278 μs (93.71% of Mean)
+Skewness = -0.17, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 2 (16.7%) benchmark(s) to run. Estimated finish 2026-06-17 13:37 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=65536]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 2148 1880 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.Mqttnet_Publish(PayloadSize: 65536)" --job ShortRun --benchmarkId 10 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 296400.00 ns, 296.4000 us/op
+WorkloadJitting  1: 1 op, 15951600.00 ns, 15.9516 ms/op
+
+OverheadJitting  2: 16 op, 374900.00 ns, 23.4313 us/op
+WorkloadJitting  2: 16 op, 23149600.00 ns, 1.4469 ms/op
+
+WorkloadPilot    1: 16 op, 4994400.00 ns, 312.1500 us/op
+WorkloadPilot    2: 32 op, 8049300.00 ns, 251.5406 us/op
+WorkloadPilot    3: 64 op, 29378900.00 ns, 459.0453 us/op
+WorkloadPilot    4: 128 op, 33463200.00 ns, 261.4313 us/op
+WorkloadPilot    5: 256 op, 75136400.00 ns, 293.5016 us/op
+WorkloadPilot    6: 512 op, 156212800.00 ns, 305.1031 us/op
+WorkloadPilot    7: 1024 op, 337224300.00 ns, 329.3206 us/op
+WorkloadPilot    8: 2048 op, 631882200.00 ns, 308.5362 us/op
+
+OverheadWarmup   1: 2048 op, 13300.00 ns, 6.4941 ns/op
+OverheadWarmup   2: 2048 op, 11000.00 ns, 5.3711 ns/op
+OverheadWarmup   3: 2048 op, 8000.00 ns, 3.9063 ns/op
+OverheadWarmup   4: 2048 op, 9200.00 ns, 4.4922 ns/op
+OverheadWarmup   5: 2048 op, 11700.00 ns, 5.7129 ns/op
+OverheadWarmup   6: 2048 op, 8200.00 ns, 4.0039 ns/op
+OverheadWarmup   7: 2048 op, 8200.00 ns, 4.0039 ns/op
+OverheadWarmup   8: 2048 op, 9600.00 ns, 4.6875 ns/op
+
+OverheadActual   1: 2048 op, 10700.00 ns, 5.2246 ns/op
+OverheadActual   2: 2048 op, 9400.00 ns, 4.5898 ns/op
+OverheadActual   3: 2048 op, 12800.00 ns, 6.2500 ns/op
+OverheadActual   4: 2048 op, 10000.00 ns, 4.8828 ns/op
+OverheadActual   5: 2048 op, 8900.00 ns, 4.3457 ns/op
+OverheadActual   6: 2048 op, 11400.00 ns, 5.5664 ns/op
+OverheadActual   7: 2048 op, 11300.00 ns, 5.5176 ns/op
+OverheadActual   8: 2048 op, 9400.00 ns, 4.5898 ns/op
+OverheadActual   9: 2048 op, 9800.00 ns, 4.7852 ns/op
+OverheadActual  10: 2048 op, 10400.00 ns, 5.0781 ns/op
+OverheadActual  11: 2048 op, 10300.00 ns, 5.0293 ns/op
+OverheadActual  12: 2048 op, 11300.00 ns, 5.5176 ns/op
+OverheadActual  13: 2048 op, 10400.00 ns, 5.0781 ns/op
+OverheadActual  14: 2048 op, 8500.00 ns, 4.1504 ns/op
+OverheadActual  15: 2048 op, 11300.00 ns, 5.5176 ns/op
+OverheadActual  16: 2048 op, 11400.00 ns, 5.5664 ns/op
+OverheadActual  17: 2048 op, 8200.00 ns, 4.0039 ns/op
+OverheadActual  18: 2048 op, 11400.00 ns, 5.5664 ns/op
+OverheadActual  19: 2048 op, 10700.00 ns, 5.2246 ns/op
+OverheadActual  20: 2048 op, 13700.00 ns, 6.6895 ns/op
+
+WorkloadWarmup   1: 2048 op, 633721400.00 ns, 309.4343 us/op
+WorkloadWarmup   2: 2048 op, 552518300.00 ns, 269.7843 us/op
+WorkloadWarmup   3: 2048 op, 536585200.00 ns, 262.0045 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 2048 op, 556951100.00 ns, 271.9488 us/op
+WorkloadActual   2: 2048 op, 551119000.00 ns, 269.1011 us/op
+WorkloadActual   3: 2048 op, 536339600.00 ns, 261.8846 us/op
+
+// AfterActualRun
+WorkloadResult   1: 2048 op, 556940550.00 ns, 271.9436 us/op
+WorkloadResult   2: 2048 op, 551108450.00 ns, 269.0959 us/op
+WorkloadResult   3: 2048 op, 536329050.00 ns, 261.8794 us/op
+// GC:  10 1 0 278531704 2048
+// Threading:  13819 5 2048
+
+// AfterAll
+// Benchmark Process 60592 has exited with code 0.
+
+Mean = 267.640 μs, StdErr = 2.995 μs (1.12%), N = 3, StdDev = 5.188 μs
+Min = 261.879 μs, Q1 = 265.488 μs, Median = 269.096 μs, Q3 = 270.520 μs, Max = 271.944 μs
+IQR = 5.032 μs, LowerFence = 257.940 μs, UpperFence = 278.068 μs
+ConfidenceInterval = [172.996 μs; 362.283 μs] (CI 99.9%), Margin = 94.644 μs (35.36% of Mean)
+Skewness = -0.26, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 1 (8.3%) benchmark(s) to run. Estimated finish 2026-06-17 13:37 (0h 0m from now) **
+Setup power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// **************************
+// Benchmark: PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=65536]
+// *** Execute ***
+// Launch: 1 / 1
+// Execute: dotnet d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2.dll --anonymousPipes 1336 1948 --benchmarkName "Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark.MqttClient_Publish(PayloadSize: 65536)" --job ShortRun --benchmarkId 11 in D:\git\marcschier\mqtt-client\tests\Mqtt.Client.Benchmarks\bin\Release\net10.0\d7f0ecc4-6ec4-4e6d-8669-ff113e2ab7b2\bin\Release\net10.0
+// BeforeAnythingElse
+
+// Benchmark Process Environment Information:
+// BenchmarkDotNet v0.14.0
+// Runtime=.NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+// GC=Concurrent Server
+// HardwareIntrinsics=AVX-512F+CD+BW+DQ+VL,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT VectorSize=256
+// Job: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
+
+OverheadJitting  1: 1 op, 515300.00 ns, 515.3000 us/op
+WorkloadJitting  1: 1 op, 22272300.00 ns, 22.2723 ms/op
+
+OverheadJitting  2: 16 op, 469100.00 ns, 29.3188 us/op
+WorkloadJitting  2: 16 op, 8756500.00 ns, 547.2813 us/op
+
+WorkloadPilot    1: 16 op, 22470800.00 ns, 1.4044 ms/op
+WorkloadPilot    2: 32 op, 43307000.00 ns, 1.3533 ms/op
+WorkloadPilot    3: 64 op, 24573300.00 ns, 383.9578 us/op
+WorkloadPilot    4: 128 op, 135798700.00 ns, 1.0609 ms/op
+WorkloadPilot    5: 256 op, 169638500.00 ns, 662.6504 us/op
+WorkloadPilot    6: 512 op, 284427100.00 ns, 555.5217 us/op
+WorkloadPilot    7: 1024 op, 465267500.00 ns, 454.3628 us/op
+WorkloadPilot    8: 2048 op, 693623800.00 ns, 338.6835 us/op
+
+OverheadWarmup   1: 2048 op, 9700.00 ns, 4.7363 ns/op
+OverheadWarmup   2: 2048 op, 8200.00 ns, 4.0039 ns/op
+OverheadWarmup   3: 2048 op, 7800.00 ns, 3.8086 ns/op
+OverheadWarmup   4: 2048 op, 9100.00 ns, 4.4434 ns/op
+OverheadWarmup   5: 2048 op, 8500.00 ns, 4.1504 ns/op
+OverheadWarmup   6: 2048 op, 8500.00 ns, 4.1504 ns/op
+OverheadWarmup   7: 2048 op, 8200.00 ns, 4.0039 ns/op
+
+OverheadActual   1: 2048 op, 7700.00 ns, 3.7598 ns/op
+OverheadActual   2: 2048 op, 8000.00 ns, 3.9063 ns/op
+OverheadActual   3: 2048 op, 5800.00 ns, 2.8320 ns/op
+OverheadActual   4: 2048 op, 6400.00 ns, 3.1250 ns/op
+OverheadActual   5: 2048 op, 7000.00 ns, 3.4180 ns/op
+OverheadActual   6: 2048 op, 6400.00 ns, 3.1250 ns/op
+OverheadActual   7: 2048 op, 8200.00 ns, 4.0039 ns/op
+OverheadActual   8: 2048 op, 6100.00 ns, 2.9785 ns/op
+OverheadActual   9: 2048 op, 6100.00 ns, 2.9785 ns/op
+OverheadActual  10: 2048 op, 8100.00 ns, 3.9551 ns/op
+OverheadActual  11: 2048 op, 5900.00 ns, 2.8809 ns/op
+OverheadActual  12: 2048 op, 6300.00 ns, 3.0762 ns/op
+OverheadActual  13: 2048 op, 6300.00 ns, 3.0762 ns/op
+OverheadActual  14: 2048 op, 6200.00 ns, 3.0273 ns/op
+OverheadActual  15: 2048 op, 8500.00 ns, 4.1504 ns/op
+OverheadActual  16: 2048 op, 8400.00 ns, 4.1016 ns/op
+OverheadActual  17: 2048 op, 7000.00 ns, 3.4180 ns/op
+OverheadActual  18: 2048 op, 6700.00 ns, 3.2715 ns/op
+OverheadActual  19: 2048 op, 7200.00 ns, 3.5156 ns/op
+OverheadActual  20: 2048 op, 10900.00 ns, 5.3223 ns/op
+
+WorkloadWarmup   1: 2048 op, 639268100.00 ns, 312.1426 us/op
+WorkloadWarmup   2: 2048 op, 600602300.00 ns, 293.2628 us/op
+WorkloadWarmup   3: 2048 op, 556101400.00 ns, 271.5339 us/op
+
+// BeforeActualRun
+WorkloadActual   1: 2048 op, 545477000.00 ns, 266.3462 us/op
+WorkloadActual   2: 2048 op, 529241300.00 ns, 258.4186 us/op
+WorkloadActual   3: 2048 op, 545756800.00 ns, 266.4828 us/op
+
+// AfterActualRun
+WorkloadResult   1: 2048 op, 545470150.00 ns, 266.3428 us/op
+WorkloadResult   2: 2048 op, 529234450.00 ns, 258.4153 us/op
+WorkloadResult   3: 2048 op, 545749950.00 ns, 266.4795 us/op
+// GC:  10 1 0 276480592 2048
+// Threading:  20482 3 2048
+
+// AfterAll
+// Benchmark Process 62920 has exited with code 0.
+
+Mean = 263.746 μs, StdErr = 2.666 μs (1.01%), N = 3, StdDev = 4.617 μs
+Min = 258.415 μs, Q1 = 262.379 μs, Median = 266.343 μs, Q3 = 266.411 μs, Max = 266.479 μs
+IQR = 4.032 μs, LowerFence = 256.331 μs, UpperFence = 272.459 μs
+ConfidenceInterval = [179.516 μs; 347.976 μs] (CI 99.9%), Margin = 84.230 μs (31.94% of Mean)
+Skewness = -0.38, Kurtosis = 0.67, MValue = 2
+
+// ** Remained 0 (0.0%) benchmark(s) to run. Estimated finish 2026-06-17 13:37 (0h 0m from now) **
+Successfully reverted power plan (GUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c FriendlyName: High performance)
+// ***** BenchmarkRunner: Finish  *****
+
+// * Export *
+  BenchmarkDotNet.Artifacts\results\Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark-report-github.md
+  BenchmarkDotNet.Artifacts\results\Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark-report.csv
+  BenchmarkDotNet.Artifacts\results\Mqtt.Client.Benchmarks.EndToEnd.PublishQoS1Benchmark-report-full.json
+
+// * Detailed results *
+PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=64]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 150.922 μs, StdErr = 1.021 μs (0.68%), N = 3, StdDev = 1.768 μs
+Min = 149.245 μs, Q1 = 149.999 μs, Median = 150.752 μs, Q3 = 151.761 μs, Max = 152.769 μs
+IQR = 1.762 μs, LowerFence = 147.356 μs, UpperFence = 154.404 μs
+ConfidenceInterval = [118.665 μs; 183.180 μs] (CI 99.9%), Margin = 32.257 μs (21.37% of Mean)
+Skewness = 0.1, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[148.390 μs ; 154.378 μs) | @@@
+---------------------------------------------------
+
+PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=64]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 121.931 μs, StdErr = 0.984 μs (0.81%), N = 3, StdDev = 1.705 μs
+Min = 119.980 μs, Q1 = 121.330 μs, Median = 122.680 μs, Q3 = 122.907 μs, Max = 123.133 μs
+IQR = 1.576 μs, LowerFence = 118.965 μs, UpperFence = 125.271 μs
+ConfidenceInterval = [90.830 μs; 153.032 μs] (CI 99.9%), Margin = 31.101 μs (25.51% of Mean)
+Skewness = -0.35, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[118.429 μs ; 121.355 μs) | @
+[121.355 μs ; 124.684 μs) | @@
+---------------------------------------------------
+
+PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=256]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 152.927 μs, StdErr = 3.237 μs (2.12%), N = 3, StdDev = 5.607 μs
+Min = 148.688 μs, Q1 = 149.749 μs, Median = 150.810 μs, Q3 = 155.047 μs, Max = 159.284 μs
+IQR = 5.298 μs, LowerFence = 141.802 μs, UpperFence = 162.995 μs
+ConfidenceInterval = [50.643 μs; 255.212 μs] (CI 99.9%), Margin = 102.284 μs (66.88% of Mean)
+Skewness = 0.32, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[144.647 μs ; 154.851 μs) | @@
+[154.851 μs ; 164.386 μs) | @
+---------------------------------------------------
+
+PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=256]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 128.993 μs, StdErr = 2.693 μs (2.09%), N = 3, StdDev = 4.664 μs
+Min = 124.996 μs, Q1 = 126.430 μs, Median = 127.863 μs, Q3 = 130.991 μs, Max = 134.118 μs
+IQR = 4.561 μs, LowerFence = 119.589 μs, UpperFence = 137.832 μs
+ConfidenceInterval = [43.897 μs; 214.088 μs] (CI 99.9%), Margin = 85.096 μs (65.97% of Mean)
+Skewness = 0.23, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[122.185 μs ; 130.675 μs) | @@
+[130.675 μs ; 138.363 μs) | @
+---------------------------------------------------
+
+PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=1024]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 155.279 μs, StdErr = 2.730 μs (1.76%), N = 3, StdDev = 4.728 μs
+Min = 151.903 μs, Q1 = 152.578 μs, Median = 153.252 μs, Q3 = 156.967 μs, Max = 160.683 μs
+IQR = 4.390 μs, LowerFence = 145.993 μs, UpperFence = 163.552 μs
+ConfidenceInterval = [69.024 μs; 241.534 μs] (CI 99.9%), Margin = 86.255 μs (55.55% of Mean)
+Skewness = 0.35, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[147.600 μs ; 156.880 μs) | @@
+[156.880 μs ; 164.985 μs) | @
+---------------------------------------------------
+
+PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=1024]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 138.139 μs, StdErr = 6.195 μs (4.48%), N = 3, StdDev = 10.730 μs
+Min = 128.745 μs, Q1 = 132.292 μs, Median = 135.839 μs, Q3 = 142.836 μs, Max = 149.832 μs
+IQR = 10.543 μs, LowerFence = 116.477 μs, UpperFence = 158.651 μs
+ConfidenceInterval = [-57.614 μs; 333.891 μs] (CI 99.9%), Margin = 195.752 μs (141.71% of Mean)
+Skewness = 0.2, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[122.528 μs ; 142.057 μs) | @@
+[142.057 μs ; 159.596 μs) | @
+---------------------------------------------------
+
+PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=4096]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 155.836 μs, StdErr = 3.539 μs (2.27%), N = 3, StdDev = 6.130 μs
+Min = 151.965 μs, Q1 = 152.303 μs, Median = 152.640 μs, Q3 = 157.772 μs, Max = 162.904 μs
+IQR = 5.469 μs, LowerFence = 144.099 μs, UpperFence = 165.976 μs
+ConfidenceInterval = [44.008 μs; 267.665 μs] (CI 99.9%), Margin = 111.828 μs (71.76% of Mean)
+Skewness = 0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[151.856 μs ; 163.013 μs) | @@@
+---------------------------------------------------
+
+PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=4096]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 138.024 μs, StdErr = 1.237 μs (0.90%), N = 3, StdDev = 2.142 μs
+Min = 136.611 μs, Q1 = 136.792 μs, Median = 136.973 μs, Q3 = 138.731 μs, Max = 140.489 μs
+IQR = 1.939 μs, LowerFence = 133.883 μs, UpperFence = 141.640 μs
+ConfidenceInterval = [98.943 μs; 177.106 μs] (CI 99.9%), Margin = 39.082 μs (28.32% of Mean)
+Skewness = 0.37, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[136.601 μs ; 140.500 μs) | @@@
+---------------------------------------------------
+
+PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=16384]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 177.855 μs, StdErr = 2.539 μs (1.43%), N = 3, StdDev = 4.397 μs
+Min = 173.065 μs, Q1 = 175.929 μs, Median = 178.792 μs, Q3 = 180.250 μs, Max = 181.708 μs
+IQR = 4.322 μs, LowerFence = 169.447 μs, UpperFence = 186.733 μs
+ConfidenceInterval = [97.637 μs; 258.074 μs] (CI 99.9%), Margin = 80.218 μs (45.10% of Mean)
+Skewness = -0.2, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[169.064 μs ; 176.249 μs) | @
+[176.249 μs ; 185.710 μs) | @@
+---------------------------------------------------
+
+PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=16384]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 147.558 μs, StdErr = 4.376 μs (2.97%), N = 3, StdDev = 7.579 μs
+Min = 139.406 μs, Q1 = 144.140 μs, Median = 148.874 μs, Q3 = 151.633 μs, Max = 154.393 μs
+IQR = 7.493 μs, LowerFence = 132.900 μs, UpperFence = 162.873 μs
+ConfidenceInterval = [9.280 μs; 285.835 μs] (CI 99.9%), Margin = 138.278 μs (93.71% of Mean)
+Skewness = -0.17, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[132.509 μs ; 144.736 μs) | @
+[144.736 μs ; 158.531 μs) | @@
+---------------------------------------------------
+
+PublishQoS1Benchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=65536]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 267.640 μs, StdErr = 2.995 μs (1.12%), N = 3, StdDev = 5.188 μs
+Min = 261.879 μs, Q1 = 265.488 μs, Median = 269.096 μs, Q3 = 270.520 μs, Max = 271.944 μs
+IQR = 5.032 μs, LowerFence = 257.940 μs, UpperFence = 278.068 μs
+ConfidenceInterval = [172.996 μs; 362.283 μs] (CI 99.9%), Margin = 94.644 μs (35.36% of Mean)
+Skewness = -0.26, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[257.158 μs ; 265.799 μs) | @
+[265.799 μs ; 276.665 μs) | @@
+---------------------------------------------------
+
+PublishQoS1Benchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3) [PayloadSize=65536]
+Runtime = .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL; GC = Concurrent Server
+Mean = 263.746 μs, StdErr = 2.666 μs (1.01%), N = 3, StdDev = 4.617 μs
+Min = 258.415 μs, Q1 = 262.379 μs, Median = 266.343 μs, Q3 = 266.411 μs, Max = 266.479 μs
+IQR = 4.032 μs, LowerFence = 256.331 μs, UpperFence = 272.459 μs
+ConfidenceInterval = [179.516 μs; 347.976 μs] (CI 99.9%), Margin = 84.230 μs (31.94% of Mean)
+Skewness = -0.38, Kurtosis = 0.67, MValue = 2
+-------------------- Histogram --------------------
+[258.246 μs ; 266.649 μs) | @@@
+---------------------------------------------------
+
+// * Summary *
+
+BenchmarkDotNet v0.14.0, Windows 11 (10.0.26200.8655)
+Intel Xeon W-2235 CPU 3.80GHz, 1 CPU, 12 logical and 6 physical cores
+.NET SDK 10.0.301
+  [Host]   : .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+  ShortRun : .NET 10.0.9 (10.0.926.27113), X64 RyuJIT AVX-512F+CD+BW+DQ+VL
+
+Job=ShortRun  IterationCount=3  LaunchCount=1  
+WarmupCount=3  
+
+| Method      | PayloadSize | Mean     | Error     | StdDev   | Ratio | RatioSD | Gen0   | Gen1   | Allocated | Alloc Ratio |
+|------------ |------------ |---------:|----------:|---------:|------:|--------:|-------:|-------:|----------:|------------:|
+| MQTTnet     | 64          | 150.9 μs |  32.26 μs |  1.77 μs |  1.00 |    0.01 |      - |      - |   3.83 KB |        1.00 |
+| Mqtt.Client | 64          | 121.9 μs |  31.10 μs |  1.70 μs |  0.81 |    0.01 |      - |      - |    2.7 KB |        0.71 |
+|             |             |          |           |          |       |         |        |        |           |             |
+| MQTTnet     | 256         | 152.9 μs | 102.28 μs |  5.61 μs |  1.00 |    0.04 |      - |      - |   4.21 KB |        1.00 |
+| Mqtt.Client | 256         | 129.0 μs |  85.10 μs |  4.66 μs |  0.84 |    0.04 |      - |      - |   3.08 KB |        0.73 |
+|             |             |          |           |          |       |         |        |        |           |             |
+| MQTTnet     | 1024        | 155.3 μs |  86.26 μs |  4.73 μs |  1.00 |    0.04 |      - |      - |   5.71 KB |        1.00 |
+| Mqtt.Client | 1024        | 138.1 μs | 195.75 μs | 10.73 μs |  0.89 |    0.06 |      - |      - |   4.58 KB |        0.80 |
+|             |             |          |           |          |       |         |        |        |           |             |
+| MQTTnet     | 4096        | 155.8 μs | 111.83 μs |  6.13 μs |  1.00 |    0.05 | 0.2441 |      - |  11.73 KB |        1.00 |
+| Mqtt.Client | 4096        | 138.0 μs |  39.08 μs |  2.14 μs |  0.89 |    0.03 | 0.2441 |      - |  10.65 KB |        0.91 |
+|             |             |          |           |          |       |         |        |        |           |             |
+| MQTTnet     | 16384       | 177.9 μs |  80.22 μs |  4.40 μs |  1.00 |    0.03 | 0.9766 |      - |  35.94 KB |        1.00 |
+| Mqtt.Client | 16384       | 147.6 μs | 138.28 μs |  7.58 μs |  0.83 |    0.04 | 1.2207 |      - |  34.86 KB |        0.97 |
+|             |             |          |           |          |       |         |        |        |           |             |
+| MQTTnet     | 65536       | 267.6 μs |  94.64 μs |  5.19 μs |  1.00 |    0.02 | 4.8828 | 0.4883 | 132.81 KB |        1.00 |
+| Mqtt.Client | 65536       | 263.7 μs |  84.23 μs |  4.62 μs |  0.99 |    0.02 | 4.8828 | 0.4883 | 131.84 KB |        0.99 |
+
+// * Legends *
+  PayloadSize : Value of the 'PayloadSize' parameter
+  Mean        : Arithmetic mean of all measurements
+  Error       : Half of 99.9% confidence interval
+  StdDev      : Standard deviation of all measurements
+  Ratio       : Mean of the ratio distribution ([Current]/[Baseline])
+  RatioSD     : Standard deviation of the ratio distribution ([Current]/[Baseline])
+  Gen0        : GC Generation 0 collects per 1000 operations
+  Gen1        : GC Generation 1 collects per 1000 operations
+  Allocated   : Allocated memory per single operation (managed only, inclusive, 1KB = 1024B)
+  Alloc Ratio : Allocated memory ratio distribution ([Current]/[Baseline])
+  1 μs        : 1 Microsecond (0.000001 sec)
+
+// * Diagnostic Output - MemoryDiagnoser *
+
+
+// ***** BenchmarkRunner: End *****
+Run time: 00:01:24 (84.04 sec), executed benchmarks: 12
+
+Global total time: 00:01:50 (110.56 sec), executed benchmarks: 12
+// * Artifacts cleanup *
+Artifacts cleanup is finished

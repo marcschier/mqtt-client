@@ -1,0 +1,3 @@
+// Validating benchmarks:
+//    * Only 1 [GlobalSetupAttribute] in a class can have an empty target applied to it, class PublishQoS0Benchmark has 2
+
