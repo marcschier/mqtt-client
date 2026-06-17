@@ -54,12 +54,18 @@ public sealed class MqttClient : IAsyncDisposable
     public event EventHandler<MqttDisconnectedEventArgs>? Disconnected;
 
     public MqttClient(MqttClientOptions options, ILoggerFactory? loggerFactory = null, IPersistentSessionStore? persistence = null)
+        : this(options, transportFactory: null, loggerFactory, persistence) { }
+
+    /// <summary>
+    /// Internal ctor allowing tests to inject a fake <see cref="IMqttTransportFactory"/>.
+    /// </summary>
+    internal MqttClient(MqttClientOptions options, IMqttTransportFactory? transportFactory, ILoggerFactory? loggerFactory = null, IPersistentSessionStore? persistence = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<MqttClient>();
         _metrics = new MqttMetrics();
         _persistence = persistence ?? new InMemorySessionStore();
-        _transportFactory = CreateTransportFactory(options);
+        _transportFactory = transportFactory ?? CreateTransportFactory(options);
         _outbound = Channel.CreateBounded<OutboundEnvelope>(new BoundedChannelOptions(1024)
         {
             FullMode = BoundedChannelFullMode.Wait,
@@ -73,16 +79,22 @@ public sealed class MqttClient : IAsyncDisposable
     /// <summary>Fluent builder entry point.</summary>
     public static MqttClientBuilder CreateBuilder() => new();
 
-    private static IMqttTransportFactory CreateTransportFactory(MqttClientOptions o) => o.Transport switch
+    private static IMqttTransportFactory CreateTransportFactory(MqttClientOptions o)
     {
-        MqttTransportType.Tcp => new TcpTransportFactory(o.Host, o.Port),
-        MqttTransportType.Tls => new TlsTransportFactory(o.Host, o.Port, ApplySecureTlsDefaults(o.Tls, o.Host)),
-        MqttTransportType.WebSocket => new WebSocketTransportFactory(
-            new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{(string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath)}")),
-        MqttTransportType.WebSocketSecure => new WebSocketTransportFactory(
-            new Uri($"wss://{o.Host}:{(o.Port == 1883 ? 443 : o.Port)}{(string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath)}")),
-        _ => throw new NotSupportedException($"Transport {o.Transport} is not implemented."),
-    };
+        // Pause threshold scales with MaxIncomingPacketSize so a user who raises the cap also
+        // gets enough buffer headroom; minimum 1 MiB to avoid pathologically small thresholds.
+        var pauseThreshold = Math.Max(1024 * 1024, o.MaxIncomingPacketSize * 2);
+        return o.Transport switch
+        {
+            MqttTransportType.Tcp => new TcpTransportFactory(o.Host, o.Port, pauseThreshold),
+            MqttTransportType.Tls => new TlsTransportFactory(o.Host, o.Port, ApplySecureTlsDefaults(o.Tls, o.Host)),
+            MqttTransportType.WebSocket => new WebSocketTransportFactory(
+                new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{(string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath)}")),
+            MqttTransportType.WebSocketSecure => new WebSocketTransportFactory(
+                new Uri($"wss://{o.Host}:{(o.Port == 1883 ? 443 : o.Port)}{(string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath)}")),
+            _ => throw new NotSupportedException($"Transport {o.Transport} is not implemented."),
+        };
+    }
 
     /// <summary>
     /// Returns secure defaults for <see cref="System.Net.Security.SslClientAuthenticationOptions"/>:
@@ -211,11 +223,37 @@ public sealed class MqttClient : IAsyncDisposable
     }
 
     private async Task WriteRawAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct)
+        => await WriteRawAsync(bytes, ReadOnlyMemory<byte>.Empty, ct).ConfigureAwait(false);
+
+    private async Task WriteRawAsync(ReadOnlyMemory<byte> headerBytes, ReadOnlyMemory<byte> payload, CancellationToken ct)
     {
         var output = _transport!.Output;
-        bytes.CopyTo(output.GetMemory(bytes.Length));
-        output.Advance(bytes.Length);
-        _metrics.BytesSent.Add(bytes.Length);
+        if (!headerBytes.IsEmpty)
+        {
+            headerBytes.CopyTo(output.GetMemory(headerBytes.Length));
+            output.Advance(headerBytes.Length);
+        }
+        if (!payload.IsEmpty)
+        {
+            // Write payload in slices that fit the pipe's current segment without forcing a copy
+            // through an intermediate writer; PipeWriter pools segments internally.
+            var remaining = payload;
+            while (!remaining.IsEmpty)
+            {
+                var dst = output.GetMemory(Math.Min(remaining.Length, 16 * 1024));
+                var n = Math.Min(dst.Length, remaining.Length);
+                if (n == 0)
+                {
+                    // Defensive: PipeWriter contract guarantees GetMemory returns >= sizeHint, so
+                    // this should never happen; throw rather than spin forever.
+                    throw new MqttConnectionException("PipeWriter returned zero-length buffer.");
+                }
+                remaining.Span.Slice(0, n).CopyTo(dst.Span);
+                output.Advance(n);
+                remaining = remaining.Slice(n);
+            }
+        }
+        _metrics.BytesSent.Add(headerBytes.Length + payload.Length);
         var result = await output.FlushAsync(ct).ConfigureAwait(false);
         if (result.IsCompleted) throw new MqttConnectionException("Transport closed during write.");
     }
@@ -228,7 +266,7 @@ public sealed class MqttClient : IAsyncDisposable
             {
                 try
                 {
-                    await WriteRawAsync(env.Bytes, ct).ConfigureAwait(false);
+                    await WriteRawAsync(env.Bytes, env.Payload, ct).ConfigureAwait(false);
                     env.OnSent?.TrySetResult(null);
                 }
                 catch (Exception ex)
@@ -505,21 +543,21 @@ public sealed class MqttClient : IAsyncDisposable
             Properties = properties,
         };
 
-        var w = new MqttBufferWriter(payload.Length + 32);
-        MqttPacketEncoder.EncodePublish(packet, _options.ProtocolVersion, w);
+        // Encode header only into a small rented buffer; the payload is sent as a separate
+        // pipe write to avoid a large memcpy through MqttBufferWriter for big payloads.
+        var w = new MqttBufferWriter(128);
+        MqttPacketEncoder.EncodePublishHeader(packet, _options.ProtocolVersion, w);
 
         if (qos == MqttQoS.AtMostOnce)
         {
-            await EnqueueAsync(new OutboundEnvelope(w), cancellationToken).ConfigureAwait(false);
+            await EnqueueAsync(new OutboundEnvelope(w, payload), cancellationToken).ConfigureAwait(false);
             return new MqttPublishResult(MqttReasonCode.Success);
         }
 
-        // QoS 1 + QoS 2 both wait on a pending ack via the same TCS; the dispatcher routes
-        // intermediate PUBREC -> PUBREL and only completes on PUBACK (QoS1) / PUBCOMP (QoS2).
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingAcks[packetId] = tcs;
         var sw = Stopwatch.StartNew();
-        await EnqueueAsync(new OutboundEnvelope(w), cancellationToken).ConfigureAwait(false);
+        await EnqueueAsync(new OutboundEnvelope(w, payload), cancellationToken).ConfigureAwait(false);
         using var reg = cancellationToken.Register(static s => ((TaskCompletionSource<object?>)s!).TrySetCanceled(), tcs);
         var ack = (PubAckPacket?)await tcs.Task.ConfigureAwait(false);
         _metrics.PublishAckLatency.Record(sw.Elapsed.TotalMilliseconds);
@@ -530,22 +568,27 @@ public sealed class MqttClient : IAsyncDisposable
     public bool TryPublish(string topic, ReadOnlySpan<byte> payload, bool retain = false)
     {
         EnsureConnected();
+        // For TryPublish we materialise the payload to a pooled byte[] so the envelope can
+        // outlive the calling stack frame; the caller's span is not retained.
+        var pooled = System.Buffers.ArrayPool<byte>.Shared.Rent(payload.Length);
+        payload.CopyTo(pooled);
         var packet = new PublishPacket
         {
             Topic = topic,
             QoS = MqttQoS.AtMostOnce,
             Retain = retain,
             PacketId = 0,
-            Payload = payload.ToArray(),
+            Payload = new ReadOnlyMemory<byte>(pooled, 0, payload.Length),
         };
-        var w = new MqttBufferWriter(payload.Length + 16);
-        MqttPacketEncoder.EncodePublish(packet, _options.ProtocolVersion, w);
-        if (_outbound.Writer.TryWrite(new OutboundEnvelope(w)))
+        var w = new MqttBufferWriter(128);
+        MqttPacketEncoder.EncodePublishHeader(packet, _options.ProtocolVersion, w);
+        var envelope = new OutboundEnvelope(w, packet.Payload, pooled, _options.ClearPooledBuffers);
+        if (_outbound.Writer.TryWrite(envelope))
         {
             _metrics.Publishes.Add(1);
             return true;
         }
-        w.Dispose();
+        envelope.Dispose();
         return false;
     }
 
@@ -561,7 +604,8 @@ public sealed class MqttClient : IAsyncDisposable
         var sub = new MqttSubscription(topicFilter, options, async s =>
         {
             lock (_subLock) { _trie.Remove(s.TopicFilter, s); }
-            try { await UnsubscribeOnServerAsync(s.TopicFilter, CancellationToken.None).ConfigureAwait(false); } catch { }
+            using var cts = new CancellationTokenSource(_options.OperationTimeout);
+            try { await UnsubscribeOnServerAsync(s.TopicFilter, cts.Token).ConfigureAwait(false); } catch { }
         });
         lock (_subLock) { _trie.Add(topicFilter, sub); }
 
@@ -591,7 +635,18 @@ public sealed class MqttClient : IAsyncDisposable
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingAcks[packetId] = tcs;
         await EnqueueAsync(new OutboundEnvelope(w), ct).ConfigureAwait(false);
-        await tcs.Task.ConfigureAwait(false);
+        // Bounded wait so a broker that never acks UNSUBSCRIBE doesn't hang the disposing
+        // subscription. Local trie removal already happened; the server-side ack is best-effort.
+        // Honor both the caller's ct and a sane timeout, *and* the client-shutdown signal so
+        // disposing the client unblocks any pending unsubscribe immediately.
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _loopCts?.Token ?? CancellationToken.None);
+        var timeoutTask = Task.Delay(_options.OperationTimeout, linkedCts.Token);
+        var completed = await Task.WhenAny(tcs.Task, timeoutTask).ConfigureAwait(false);
+        if (completed == timeoutTask)
+        {
+            _pendingAcks.TryRemove(packetId, out _);
+            _packetIds.Release(packetId);
+        }
     }
 
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
@@ -627,10 +682,33 @@ public sealed class MqttClient : IAsyncDisposable
     private sealed class OutboundEnvelope : IDisposable
     {
         private readonly MqttBufferWriter _writer;
-        public OutboundEnvelope(MqttBufferWriter writer) { _writer = writer; Bytes = writer.WrittenMemory; }
+        private readonly byte[]? _pooledPayload;
+        private readonly bool _clearOnReturn;
+        public OutboundEnvelope(MqttBufferWriter writer)
+        {
+            _writer = writer;
+            Bytes = writer.WrittenMemory;
+            Payload = ReadOnlyMemory<byte>.Empty;
+        }
+        public OutboundEnvelope(MqttBufferWriter writer, ReadOnlyMemory<byte> payload, byte[]? pooledPayload = null, bool clearOnReturn = false)
+        {
+            _writer = writer;
+            Bytes = writer.WrittenMemory;
+            Payload = payload;
+            _pooledPayload = pooledPayload;
+            _clearOnReturn = clearOnReturn;
+        }
         public ReadOnlyMemory<byte> Bytes { get; }
+        public ReadOnlyMemory<byte> Payload { get; }
         public TaskCompletionSource<object?>? OnSent { get; init; }
-        public void Dispose() => _writer.Dispose();
+        public void Dispose()
+        {
+            _writer.Dispose();
+            if (_pooledPayload is not null)
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(_pooledPayload, clearArray: _clearOnReturn);
+            }
+        }
     }
 }
 

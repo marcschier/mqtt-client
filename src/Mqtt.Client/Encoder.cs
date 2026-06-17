@@ -76,6 +76,17 @@ internal static class MqttPacketEncoder
     }
 
     public static void EncodePublish(PublishPacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+        => EncodePublishCore(packet, version, writer, includePayload: true);
+
+    /// <summary>
+    /// Encodes only the fixed + variable header of a PUBLISH (omitting the payload bytes); the
+    /// remaining-length field is patched as if the payload had been written. Use together with a
+    /// vectored write of the actual payload to avoid copying large payloads through the writer.
+    /// </summary>
+    public static void EncodePublishHeader(PublishPacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+        => EncodePublishCore(packet, version, writer, includePayload: false);
+
+    private static void EncodePublishCore(PublishPacket packet, MqttProtocolVersion version, MqttBufferWriter writer, bool includePayload)
     {
         var v5 = version == MqttProtocolVersion.V500;
         byte firstByte = (byte)((byte)MqttPacketType.Publish << 4);
@@ -84,7 +95,7 @@ internal static class MqttPacketEncoder
         if (packet.Retain) firstByte |= 0x01;
 
         var hdrOffset = writer.WriteFixedHeaderStart(firstByte);
-        var payloadStart = writer.WrittenCount;
+        var headerStart = writer.WrittenCount;
 
         writer.WriteString(packet.Topic);
         if (packet.QoS != MqttQoS.AtMostOnce)
@@ -98,8 +109,19 @@ internal static class MqttPacketEncoder
             writer.WriteVarInt((uint)props.WrittenCount);
             writer.WriteBytes(props.WrittenSpan);
         }
-        writer.WriteBytes(packet.Payload.Span);
-        writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
+
+        var headerLen = writer.WrittenCount - headerStart;
+        if (includePayload)
+        {
+            writer.WriteBytes(packet.Payload.Span);
+            writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - headerStart);
+        }
+        else
+        {
+            // checked: caller-supplied Payload.Length is untrusted; PatchRemainingLength also
+            // enforces the MQTT 268_435_455 cap, but defending in depth here as well.
+            writer.PatchRemainingLength(hdrOffset, checked(headerLen + packet.Payload.Length));
+        }
     }
 
     private static void WritePublishProperties(MqttBufferWriter p, MqttPublishProperties pp)

@@ -15,12 +15,12 @@ internal sealed class TcpTransport : IMqttTransport
     private readonly StreamPipeReader _reader;
     private readonly StreamPipeWriter _writer;
 
-    public TcpTransport(Socket socket)
+    public TcpTransport(Socket socket, int pauseWriterThreshold = 1024 * 1024)
     {
         _socket = socket;
         _stream = new NetworkStream(socket, ownsSocket: true);
-        _reader = new StreamPipeReader(_stream);
-        _writer = new StreamPipeWriter(_stream);
+        _reader = new StreamPipeReader(_stream, pauseWriterThreshold);
+        _writer = new StreamPipeWriter(_stream, pauseWriterThreshold);
         RemoteAddress = (socket.RemoteEndPoint?.ToString());
     }
 
@@ -40,11 +40,13 @@ internal sealed class TcpTransportFactory : IMqttTransportFactory
 {
     private readonly string _host;
     private readonly int _port;
+    private readonly int _pauseThreshold;
 
-    public TcpTransportFactory(string host, int port)
+    public TcpTransportFactory(string host, int port, int pauseThreshold = 1024 * 1024)
     {
         _host = host;
         _port = port;
+        _pauseThreshold = pauseThreshold;
     }
 
     public async ValueTask<IMqttTransport> ConnectAsync(CancellationToken cancellationToken)
@@ -60,7 +62,7 @@ internal sealed class TcpTransportFactory : IMqttTransportFactory
 #else
             await socket.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
 #endif
-            return new TcpTransport(socket);
+            return new TcpTransport(socket, _pauseThreshold);
         }
         catch
         {
@@ -76,14 +78,22 @@ internal sealed class TcpTransportFactory : IMqttTransportFactory
 /// </summary>
 internal sealed class StreamPipeReader : IAsyncDisposable
 {
-    private readonly Pipe _pipe = new(new PipeOptions(useSynchronizationContext: false));
+    // Larger segments reduce allocation churn for large payloads (one segment instead of many).
+    private const int MinSegmentSize = 8 * 1024;
+
+    private readonly Pipe _pipe;
     private readonly System.IO.Stream _stream;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _pumpTask;
 
-    public StreamPipeReader(System.IO.Stream stream)
+    public StreamPipeReader(System.IO.Stream stream, int pauseWriterThreshold = 1024 * 1024)
     {
         _stream = stream;
+        _pipe = new Pipe(new PipeOptions(
+            pauseWriterThreshold: pauseWriterThreshold,
+            resumeWriterThreshold: pauseWriterThreshold / 2,
+            minimumSegmentSize: MinSegmentSize,
+            useSynchronizationContext: false));
         _pumpTask = PumpAsync(_cts.Token);
     }
 
@@ -96,7 +106,7 @@ internal sealed class StreamPipeReader : IAsyncDisposable
         {
             while (!ct.IsCancellationRequested)
             {
-                var mem = writer.GetMemory(4096);
+                var mem = writer.GetMemory(MinSegmentSize);
                 var n = await _stream.ReadAsync(mem, ct).ConfigureAwait(false);
                 if (n == 0)
                 {
@@ -129,14 +139,19 @@ internal sealed class StreamPipeReader : IAsyncDisposable
 
 internal sealed class StreamPipeWriter : IAsyncDisposable
 {
-    private readonly Pipe _pipe = new(new PipeOptions(useSynchronizationContext: false));
+    private readonly Pipe _pipe;
     private readonly System.IO.Stream _stream;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _pumpTask;
 
-    public StreamPipeWriter(System.IO.Stream stream)
+    public StreamPipeWriter(System.IO.Stream stream, int pauseWriterThreshold = 1024 * 1024)
     {
         _stream = stream;
+        _pipe = new Pipe(new PipeOptions(
+            pauseWriterThreshold: pauseWriterThreshold,
+            resumeWriterThreshold: pauseWriterThreshold / 2,
+            minimumSegmentSize: 8 * 1024,
+            useSynchronizationContext: false));
         _pumpTask = PumpAsync(_cts.Token);
     }
 

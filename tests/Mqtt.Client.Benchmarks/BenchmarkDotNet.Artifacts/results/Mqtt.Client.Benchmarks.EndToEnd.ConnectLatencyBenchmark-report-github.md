@@ -10,7 +10,7 @@ Job=ShortRun  IterationCount=3  LaunchCount=1
 WarmupCount=3  
 
 ```
-| Method      | Mean     | Error    | StdDev    | Ratio | RatioSD | Allocated | Alloc Ratio |
-|------------ |---------:|---------:|----------:|------:|--------:|----------:|------------:|
-| MQTTnet     | 4.771 ms | 5.709 ms | 0.3129 ms |  1.00 |    0.08 |  37.43 KB |        1.00 |
-| Mqtt.Client | 4.976 ms | 6.358 ms | 0.3485 ms |  1.05 |    0.09 |  43.58 KB |        1.16 |
+| Method      | Mean     | Error     | StdDev    | Ratio | RatioSD | Allocated | Alloc Ratio |
+|------------ |---------:|----------:|----------:|------:|--------:|----------:|------------:|
+| MQTTnet     | 5.034 ms | 12.430 ms | 0.6813 ms |  1.01 |    0.17 |  37.28 KB |        1.00 |
+| Mqtt.Client | 4.296 ms |  3.268 ms | 0.1791 ms |  0.86 |    0.10 |  47.73 KB |        1.28 |

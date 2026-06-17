@@ -12,12 +12,14 @@ namespace Mqtt.Client.Benchmarks.EndToEnd;
 
 /// <summary>
 /// Subscribes (via the client under test) then publishes via a separate publisher connection and
-/// measures end-to-end receive throughput.
+/// measures end-to-end receive throughput. Both the MQTTnet and Mqtt.Client paths use a
+/// pre-built application message so the only work measured per iteration is publish + receive.
 /// </summary>
 public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
 {
     private MqttnetClient _publisher = null!;
-    private MqttApplicationMessage _publishMessage = null!;
+    private MqttApplicationMessage _publishMessageMqttnet = null!;
+    private MqttApplicationMessage _publishMessageOurs = null!;
     private Mqtt.Client.MqttSubscription _ourSub = null!;
     private Channel<int> _mqttnetReceived = null!;
 
@@ -25,7 +27,7 @@ public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
     private string TopicOurs => $"{TopicPrefix}/recv/ours";
 
     [GlobalSetup]
-        public override async Task Setup()
+    public override async Task Setup()
     {
         await base.Setup();
 
@@ -36,13 +38,13 @@ public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
             .WithClientId($"bench-pub-{Guid.NewGuid():N}")
             .WithCleanStart(true).Build());
 
-        _publishMessage = new MqttApplicationMessageBuilder()
-            .WithTopic(TopicMqttnet)
-            .WithPayload(Payload)
-            .WithQualityOfServiceLevel(MqttnetQoS.AtMostOnce)
-            .Build();
+        _publishMessageMqttnet = new MqttApplicationMessageBuilder()
+            .WithTopic(TopicMqttnet).WithPayload(Payload)
+            .WithQualityOfServiceLevel(MqttnetQoS.AtMostOnce).Build();
+        _publishMessageOurs = new MqttApplicationMessageBuilder()
+            .WithTopic(TopicOurs).WithPayload(Payload)
+            .WithQualityOfServiceLevel(MqttnetQoS.AtMostOnce).Build();
 
-        // MQTTnet subscriber side
         _mqttnetReceived = Channel.CreateUnbounded<int>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
         MqttnetClient.ApplicationMessageReceivedAsync += async ev =>
         {
@@ -51,7 +53,6 @@ public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
         };
         await MqttnetClient.SubscribeAsync(TopicMqttnet, MqttnetQoS.AtMostOnce);
 
-        // Ours
         _ourSub = await OurClient.SubscribeAsync(TopicOurs,
             new Mqtt.Client.MqttSubscriptionOptions { QoS = Mqtt.Client.MqttQoS.AtMostOnce, Capacity = 4096 });
     }
@@ -59,24 +60,19 @@ public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
     [Benchmark(Baseline = true, Description = "MQTTnet receive")]
     public async Task Mqttnet_Receive()
     {
-        await _publisher.PublishAsync(_publishMessage);
+        await _publisher.PublishAsync(_publishMessageMqttnet);
         await _mqttnetReceived.Reader.ReadAsync();
     }
 
     [Benchmark(Description = "Mqtt.Client receive")]
     public async Task MqttClient_Receive()
     {
-        var m = new MqttApplicationMessageBuilder()
-            .WithTopic(TopicOurs)
-            .WithPayload(Payload)
-            .WithQualityOfServiceLevel(MqttnetQoS.AtMostOnce)
-            .Build();
-        await _publisher.PublishAsync(m);
+        await _publisher.PublishAsync(_publishMessageOurs);
         await _ourSub.Reader.ReadAsync();
     }
 
     [GlobalCleanup]
-        public override async Task Cleanup()
+    public override async Task Cleanup()
     {
         try { await _publisher.DisconnectAsync(); } catch { }
         _publisher.Dispose();

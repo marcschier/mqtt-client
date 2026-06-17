@@ -60,8 +60,11 @@ public class EncodePublishBenchmark
     [Benchmark(Description = "Mqtt.Client")]
     public int MqttClient_Encode()
     {
-        using var w = new Mqtt.Client.Buffers.MqttBufferWriter(PayloadSize + 64);
-        MqttPacketEncoder.EncodePublish(_ourPacket, MqttProtocolVersion.V500, w);
-        return w.WrittenCount;
+        // Both clients emit a packet whose body is a (header, payload) pair without copying
+        // the payload bytes into the header buffer (MQTTnet's MqttPacketBuffer separates
+        // Packet+Payload; ours uses EncodePublishHeader + vectored pipe write at runtime).
+        using var w = new Mqtt.Client.Buffers.MqttBufferWriter(128);
+        MqttPacketEncoder.EncodePublishHeader(_ourPacket, MqttProtocolVersion.V500, w);
+        return w.WrittenCount + _ourPacket.Payload.Length;
     }
 }

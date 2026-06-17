@@ -62,6 +62,14 @@ public sealed class MqttClientOptions
     /// </summary>
     public int MaxIncomingPacketSize { get; set; } = 1 * 1024 * 1024;
 
+    /// <summary>
+    /// When true, payload bytes are zeroed before their pooled buffer is returned to the
+    /// <see cref="System.Buffers.ArrayPool{T}"/> in <see cref="MqttClient.TryPublish"/>. Default
+    /// is <c>false</c> for performance; set to <c>true</c> if your payloads carry secrets and you
+    /// want to minimise the window during which they could be observed by another pool tenant.
+    /// </summary>
+    public bool ClearPooledBuffers { get; set; }
+
     /// <summary>Network operation timeout used for connect/disconnect/publish acks.</summary>
     public TimeSpan OperationTimeout { get; set; } = TimeSpan.FromSeconds(30);
 }
