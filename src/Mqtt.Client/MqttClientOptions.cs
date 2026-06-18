@@ -79,6 +79,14 @@ public sealed class MqttClientOptions
 
     /// <summary>Network operation timeout used for connect/disconnect/publish acks.</summary>
     public TimeSpan OperationTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>MQTT 5 enhanced authentication handler. When non-null on a v5 connect, the
+    /// client drives the SASL-style multi-round-trip auth exchange with the broker.</summary>
+    public IMqttAuthenticationHandler? AuthenticationHandler { get; set; }
+
+    /// <summary>Maximum number of inbound AUTH 0x18 roundtrips per handshake before the
+    /// client aborts the exchange with Protocol Error. Defends against broker-driven loops.</summary>
+    public int MaxAuthRoundTrips { get; set; } = 5;
 }
 
 public enum MqttTransportType

@@ -47,5 +47,6 @@ public sealed class MqttConnectResult
     public bool SharedSubscriptionAvailable { get; init; } = true;
     public ushort? TopicAliasMaximum { get; init; }
     public string? ReasonString { get; init; }
+    public byte[]? AuthenticationData { get; init; }
     public bool IsSuccess => (byte)ReasonCode < 0x80;
 }

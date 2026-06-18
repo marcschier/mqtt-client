@@ -23,6 +23,27 @@ internal sealed class FakeBroker
         _version = version;
     }
 
+    /// <summary>Reads and decodes the next AUTH packet sent by the client (also handles CONNECT).</summary>
+    public async Task<object?> ReadDecodedPacketAsync(CancellationToken ct = default)
+    {
+        var reader = _transport.FromClient;
+        while (true)
+        {
+            var result = await reader.ReadAsync(ct).ConfigureAwait(false);
+            var buffer = result.Buffer;
+            if (MqttPacketDecoder.TryDecode(buffer, _version, out var packet, out _, out var consumed))
+            {
+                reader.AdvanceTo(consumed);
+                return packet;
+            }
+            reader.AdvanceTo(buffer.Start, buffer.End);
+            if (result.IsCompleted)
+            {
+                throw new InvalidOperationException("Pipe closed before a packet arrived.");
+            }
+        }
+    }
+
     public async Task<ClientPacket> ReadPacketAsync(CancellationToken ct = default)
     {
         var reader = _transport.FromClient;
@@ -213,6 +234,57 @@ internal sealed class FakeBroker
     {
         var bytes = new byte[] { 0xD0, 0x00 };
         await SendBytesAsync(bytes, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends an AUTH packet from broker to client.</summary>
+    public async Task SendAuthAsync(MqttReasonCode rc, string method, ReadOnlyMemory<byte> data, CancellationToken ct = default)
+    {
+        var pkt = new AuthPacket
+        {
+            ReasonCode = rc,
+            AuthenticationMethod = method,
+            AuthenticationData = data.IsEmpty ? null : data.ToArray(),
+        };
+        using var w = new MqttBufferWriter(64 + data.Length);
+        MqttPacketEncoder.EncodeAuth(pkt, w);
+        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends CONNACK with optional AuthenticationMethod/Data for the auth flow.</summary>
+    public async Task SendConnAckWithAuthAsync(MqttReasonCode rc, string? method = null, ReadOnlyMemory<byte> data = default, CancellationToken ct = default)
+    {
+        // CONNACK with v5 properties (method/data) — encode manually since the client codec is one-way.
+        using var props = new MqttBufferWriter(64 + data.Length);
+        if (method is not null)
+        {
+            props.WriteByte(0x15); // AuthenticationMethod
+            props.WriteString(method);
+        }
+        if (!data.IsEmpty)
+        {
+            props.WriteByte(0x16); // AuthenticationData
+            props.WriteBinaryData(data.Span);
+        }
+        var propsBytes = props.WrittenMemory;
+        var propsLen = propsBytes.Length;
+
+        using var w = new MqttBufferWriter(8 + propsLen);
+        w.WriteByte(0x20);
+        var remaining = 2 + VarIntSize(propsLen) + propsLen;
+        w.WriteVarInt((uint)remaining);
+        w.WriteByte(0); // session present
+        w.WriteByte((byte)rc);
+        w.WriteVarInt((uint)propsLen);
+        if (propsLen > 0) w.WriteBytes(propsBytes.Span);
+        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+    }
+
+    private static int VarIntSize(int value)
+    {
+        if (value < 128) return 1;
+        if (value < 16384) return 2;
+        if (value < 2097152) return 3;
+        return 4;
     }
 
     private async Task SendAckLikeAsync(byte firstByte, ushort packetId, MqttReasonCode rc, CancellationToken ct)

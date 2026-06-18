@@ -4,6 +4,33 @@ class Mqtt.Client.DependencyInjection.MqttClientServiceCollectionExtensions
   Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClient(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Action`1[Mqtt.Client.MqttClientOptions])
   Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClient(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.String, System.Action`1[Mqtt.Client.MqttClientOptions])
   Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClientHostedReconnect(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+interface Mqtt.Client.IMqttAuthenticationHandler
+  System.String Method
+  System.String get_Method()
+  System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttAuthenticationResult] ContinueAsync(System.Nullable`1[System.ReadOnlyMemory`1[System.Byte]], System.Threading.CancellationToken)
+class Mqtt.Client.MqttAuthenticationException
+  Mqtt.Client.Protocol.MqttReasonCode ReasonCode
+  Mqtt.Client.Protocol.MqttReasonCode get_ReasonCode()
+  System.String ReasonString
+  System.String get_ReasonString()
+  Void .ctor(Mqtt.Client.Protocol.MqttReasonCode, System.String)
+struct Mqtt.Client.MqttAuthenticationResult
+  Mqtt.Client.MqttAuthenticationResult Abort(Mqtt.Client.Protocol.MqttReasonCode, System.String)
+  Mqtt.Client.MqttAuthenticationResult Continue(System.ReadOnlyMemory`1[System.Byte])
+  Mqtt.Client.MqttAuthenticationResult Final(System.ReadOnlyMemory`1[System.Byte])
+  Mqtt.Client.MqttAuthenticationResultKind Kind
+  Mqtt.Client.MqttAuthenticationResultKind get_Kind()
+  Mqtt.Client.Protocol.MqttReasonCode ReasonCode
+  Mqtt.Client.Protocol.MqttReasonCode get_ReasonCode()
+  System.ReadOnlyMemory`1[System.Byte] Data
+  System.ReadOnlyMemory`1[System.Byte] get_Data()
+  System.String ReasonString
+  System.String get_ReasonString()
+enum Mqtt.Client.MqttAuthenticationResultKind
+  Byte value__
+  Mqtt.Client.MqttAuthenticationResultKind Abort
+  Mqtt.Client.MqttAuthenticationResultKind Continue
+  Mqtt.Client.MqttAuthenticationResultKind Final
 class Mqtt.Client.MqttClient
   Boolean TryPublish(System.String, System.ReadOnlySpan`1[System.Byte], Boolean)
   Mqtt.Client.MqttClientBuilder CreateBuilder()
@@ -14,6 +41,7 @@ class Mqtt.Client.MqttClient
   System.EventHandler`1[Mqtt.Client.MqttDisconnectedEventArgs] Disconnected
   System.Threading.Tasks.Task DisconnectAsync(System.Threading.CancellationToken)
   System.Threading.Tasks.Task`1[Mqtt.Client.MqttConnectResult] ConnectAsync(System.Threading.CancellationToken)
+  System.Threading.Tasks.Task`1[System.Nullable`1[System.ReadOnlyMemory`1[System.Byte]]] ReauthenticateAsync(Mqtt.Client.IMqttAuthenticationHandler, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask DisposeAsync()
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttPublishResult] PublishAsync(System.String, System.ReadOnlyMemory`1[System.Byte], Mqtt.Client.MqttQoS, Boolean, Mqtt.Client.MqttPublishProperties, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttSubscription] SubscribeAsync(System.String, Mqtt.Client.MqttSubscriptionOptions, System.Threading.CancellationToken)
@@ -28,6 +56,7 @@ class Mqtt.Client.MqttClientBuilder
   Mqtt.Client.MqttClient Build()
   Mqtt.Client.MqttClientBuilder Configure(System.Action`1[Mqtt.Client.MqttClientOptions])
   Mqtt.Client.MqttClientBuilder ConnectTo(System.String)
+  Mqtt.Client.MqttClientBuilder WithAuthentication(Mqtt.Client.IMqttAuthenticationHandler)
   Mqtt.Client.MqttClientBuilder WithCleanStart(Boolean)
   Mqtt.Client.MqttClientBuilder WithClientCertificate(System.Security.Cryptography.X509Certificates.X509Certificate2)
   Mqtt.Client.MqttClientBuilder WithClientId(System.String)
@@ -49,11 +78,15 @@ class Mqtt.Client.MqttClientOptions
   Byte[] Password
   Byte[] get_Password()
   Int32 DefaultSubscriptionCapacity
+  Int32 MaxAuthRoundTrips
   Int32 MaxIncomingPacketSize
   Int32 Port
   Int32 get_DefaultSubscriptionCapacity()
+  Int32 get_MaxAuthRoundTrips()
   Int32 get_MaxIncomingPacketSize()
   Int32 get_Port()
+  Mqtt.Client.IMqttAuthenticationHandler AuthenticationHandler
+  Mqtt.Client.IMqttAuthenticationHandler get_AuthenticationHandler()
   Mqtt.Client.MqttLastWill Will
   Mqtt.Client.MqttLastWill get_Will()
   Mqtt.Client.MqttProtocolVersion ProtocolVersion
@@ -81,12 +114,14 @@ class Mqtt.Client.MqttClientOptions
   UInt16 get_ReceiveMaximum()
   UInt16 get_TopicAliasMaximum()
   Void .ctor()
+  Void set_AuthenticationHandler(Mqtt.Client.IMqttAuthenticationHandler)
   Void set_CleanStart(Boolean)
   Void set_ClearPooledBuffers(Boolean)
   Void set_ClientId(System.String)
   Void set_DefaultSubscriptionCapacity(Int32)
   Void set_Host(System.String)
   Void set_KeepAliveSeconds(UInt16)
+  Void set_MaxAuthRoundTrips(Int32)
   Void set_MaxIncomingPacketSize(Int32)
   Void set_OperationTimeout(System.TimeSpan)
   Void set_Password(Byte[])
@@ -111,6 +146,8 @@ class Mqtt.Client.MqttConnectResult
   Boolean get_SessionPresent()
   Boolean get_SharedSubscriptionAvailable()
   Boolean get_WildcardSubscriptionAvailable()
+  Byte[] AuthenticationData
+  Byte[] get_AuthenticationData()
   Mqtt.Client.MqttQoS MaximumQoS
   Mqtt.Client.MqttQoS get_MaximumQoS()
   Mqtt.Client.Protocol.MqttReasonCode ReasonCode
@@ -129,6 +166,7 @@ class Mqtt.Client.MqttConnectResult
   System.String get_ReasonString()
   Void .ctor()
   Void set_AssignedClientId(System.String)
+  Void set_AuthenticationData(Byte[])
   Void set_MaximumPacketSize(System.Nullable`1[System.UInt32])
   Void set_MaximumQoS(Mqtt.Client.MqttQoS)
   Void set_ReasonCode(Mqtt.Client.Protocol.MqttReasonCode)

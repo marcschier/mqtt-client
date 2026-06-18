@@ -118,6 +118,13 @@ public sealed class MqttClientBuilder
         return this;
     }
 
+    /// <summary>Configures an MQTT 5 enhanced authentication handler. Driven on CONNECT and re-auth.</summary>
+    public MqttClientBuilder WithAuthentication(IMqttAuthenticationHandler handler)
+    {
+        _options.AuthenticationHandler = handler ?? throw new ArgumentNullException(nameof(handler));
+        return this;
+    }
+
     public MqttClientBuilder Configure(Action<MqttClientOptions> configure)
     {
         configure?.Invoke(_options);
