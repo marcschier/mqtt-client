@@ -3,8 +3,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Mqtt.Client.Protocol;
-
 namespace Mqtt.Client;
 
 /// <summary>
@@ -29,7 +27,9 @@ public interface IMqttAuthenticationHandler
         CancellationToken cancellationToken);
 }
 
-/// <summary>Result of an <see cref="IMqttAuthenticationHandler.ContinueAsync"/> call.</summary>
+/// <summary>
+/// Result of an <see cref="IMqttAuthenticationHandler.ContinueAsync"/> call.
+/// </summary>
 public readonly struct MqttAuthenticationResult
 {
     private MqttAuthenticationResult(
@@ -59,8 +59,10 @@ public readonly struct MqttAuthenticationResult
             MqttReasonCode.ContinueAuthentication,
             null);
 
-    /// <summary>Send <paramref name="data"/> as the final client message. The broker is expected to
-    /// respond with CONNACK 0x00 (connect path) or AUTH 0x00 (re-auth path).</summary>
+    /// <summary>
+    /// Send <paramref name="data"/> as the final client message. The broker is expected to
+    /// respond with CONNACK 0x00 (connect path) or AUTH 0x00 (re-auth path).
+    /// </summary>
     public static MqttAuthenticationResult Final(ReadOnlyMemory<byte> data = default)
         => new(MqttAuthenticationResultKind.Final, data, MqttReasonCode.Success, null);
 
@@ -80,7 +82,9 @@ public enum MqttAuthenticationResultKind : byte
     Abort = 2,
 }
 
-/// <summary>Raised when MQTT 5 enhanced authentication fails.</summary>
+/// <summary>
+/// Raised when MQTT 5 enhanced authentication fails.
+/// </summary>
 public sealed class MqttAuthenticationException : Exception
 {
     public MqttAuthenticationException(MqttReasonCode reasonCode, string? reasonString = null)

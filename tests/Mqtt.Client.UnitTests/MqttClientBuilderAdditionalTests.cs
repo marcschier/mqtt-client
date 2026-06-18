@@ -2,8 +2,6 @@
 
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Logging.Abstractions;
-using Mqtt.Client.Persistence;
-
 namespace Mqtt.Client.UnitTests;
 
 public class MqttClientBuilderAdditionalTests

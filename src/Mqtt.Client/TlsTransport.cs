@@ -9,7 +9,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Mqtt.Client.Transport;
+namespace Mqtt.Client;
 
 /// <summary>
 /// Connects over TCP+TLS (MQTTS / WebSocket-secure variant left for a future transport).

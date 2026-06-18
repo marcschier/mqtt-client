@@ -3,9 +3,11 @@
 using System;
 using System.Diagnostics.Metrics;
 
-namespace Mqtt.Client.Diagnostics;
+namespace Mqtt.Client;
 
-/// <summary>System.Diagnostics.Metrics instrumentation for Mqtt.Client.</summary>
+/// <summary>
+/// System.Diagnostics.Metrics instrumentation for Mqtt.Client.
+/// </summary>
 internal sealed class MqttMetrics : IDisposable
 {
     public const string MeterName = "Mqtt.Client";

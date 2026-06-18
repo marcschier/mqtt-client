@@ -5,7 +5,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 
-namespace Mqtt.Client.Benchmarks.Reporting;
+namespace Mqtt.Client.Benchmarks;
 
 /// <summary>
 /// Post-benchmark processor: walks BenchmarkDotNet.Artifacts/results, extracts a short summary,

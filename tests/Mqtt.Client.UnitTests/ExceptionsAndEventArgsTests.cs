@@ -1,7 +1,5 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-using Mqtt.Client.Protocol;
-
 namespace Mqtt.Client.UnitTests;
 
 public class ExceptionsAndEventArgsTests

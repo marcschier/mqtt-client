@@ -1,8 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.Collections.Generic;
-using Mqtt.Client.Subscriptions;
-
 namespace Mqtt.Client.UnitTests;
 
 public class TopicFilterTrieTests

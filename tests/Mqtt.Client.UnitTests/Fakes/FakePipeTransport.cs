@@ -1,9 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.IO.Pipelines;
-using Mqtt.Client.Transport;
-
-namespace Mqtt.Client.UnitTests.Fakes;
+namespace Mqtt.Client.UnitTests;
 
 /// <summary>
 /// In-process <see cref="IMqttTransport"/> backed by two paired <see cref="Pipe"/>s.

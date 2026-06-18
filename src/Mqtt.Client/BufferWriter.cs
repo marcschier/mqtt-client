@@ -6,7 +6,7 @@ using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Mqtt.Client.Buffers;
+namespace Mqtt.Client;
 
 /// <summary>
 /// Pooled buffer writer for MQTT control packets. Wraps an <see cref="ArrayPool{T}"/> rented array
@@ -96,7 +96,9 @@ internal sealed class MqttBufferWriter : IDisposable
         WriteBytes(value);
     }
 
-    /// <summary>Writes a Variable Byte Integer (per [MQTT-1.5.5]).</summary>
+    /// <summary>
+    /// Writes a Variable Byte Integer (per [MQTT-1.5.5]).
+    /// </summary>
     public void WriteVarInt(uint value)
     {
         if (value > 268_435_455u)
@@ -131,7 +133,9 @@ internal sealed class MqttBufferWriter : IDisposable
         return offset;
     }
 
-    /// <summary>Patches a remaining-length VarInt at the given offset.</summary>
+    /// <summary>
+    /// Patches a remaining-length VarInt at the given offset.
+    /// </summary>
     public void PatchRemainingLength(int lengthFieldOffset, int remainingLength)
     {
         if ((uint)remainingLength > 268_435_455u)

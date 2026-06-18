@@ -1,10 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using Mqtt.Client;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
-
 namespace Mqtt.Client.FuzzTests;
 
 /// <summary>

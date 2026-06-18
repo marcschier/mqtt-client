@@ -2,9 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using Mqtt.Client.Protocol;
-
-namespace Mqtt.Client.Protocol.Packets;
+namespace Mqtt.Client;
 
 internal sealed class ConnectPacket
 {

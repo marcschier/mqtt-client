@@ -4,7 +4,7 @@ using BenchmarkDotNet.Attributes;
 using MQTTnet;
 using MqttnetQoS = MQTTnet.Protocol.MqttQualityOfServiceLevel;
 
-namespace Mqtt.Client.Benchmarks.EndToEnd;
+namespace Mqtt.Client.Benchmarks;
 
 public class PublishQoS0Benchmark : BrokerBenchmarkBase
 {

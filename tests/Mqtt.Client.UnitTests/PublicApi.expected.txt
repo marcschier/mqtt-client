@@ -1,27 +1,36 @@
-interface Mqtt.Client.DependencyInjection.IMqttClientFactory
-  Mqtt.Client.MqttClient Create(System.String)
-class Mqtt.Client.DependencyInjection.MqttClientServiceCollectionExtensions
-  Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClient(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Action`1[Mqtt.Client.MqttClientOptions])
-  Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClient(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.String, System.Action`1[Mqtt.Client.MqttClientOptions])
-  Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClientHostedReconnect(Microsoft.Extensions.DependencyInjection.IServiceCollection)
+class Mqtt.Client.FileSessionStore
+  System.String Directory
+  System.String get_Directory()
+  System.Threading.Tasks.ValueTask ClearAsync()
+  System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
+  System.Threading.Tasks.ValueTask SavePendingPublishAsync(UInt16, Mqtt.Client.MqttMessage)
+  System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.UInt16,Mqtt.Client.MqttMessage]]] ListPendingPublishesAsync()
+  Void .ctor(System.String)
 interface Mqtt.Client.IMqttAuthenticationHandler
   System.String Method
   System.String get_Method()
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttAuthenticationResult] ContinueAsync(System.Nullable`1[System.ReadOnlyMemory`1[System.Byte]], System.Threading.CancellationToken)
+interface Mqtt.Client.IMqttClientFactory
+  Mqtt.Client.MqttClient Create(System.String)
+interface Mqtt.Client.IPersistentSessionStore
+  System.Threading.Tasks.ValueTask ClearAsync()
+  System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
+  System.Threading.Tasks.ValueTask SavePendingPublishAsync(UInt16, Mqtt.Client.MqttMessage)
+  System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.UInt16,Mqtt.Client.MqttMessage]]] ListPendingPublishesAsync()
 class Mqtt.Client.MqttAuthenticationException
-  Mqtt.Client.Protocol.MqttReasonCode ReasonCode
-  Mqtt.Client.Protocol.MqttReasonCode get_ReasonCode()
+  Mqtt.Client.MqttReasonCode ReasonCode
+  Mqtt.Client.MqttReasonCode get_ReasonCode()
   System.String ReasonString
   System.String get_ReasonString()
-  Void .ctor(Mqtt.Client.Protocol.MqttReasonCode, System.String)
+  Void .ctor(Mqtt.Client.MqttReasonCode, System.String)
 struct Mqtt.Client.MqttAuthenticationResult
-  Mqtt.Client.MqttAuthenticationResult Abort(Mqtt.Client.Protocol.MqttReasonCode, System.String)
+  Mqtt.Client.MqttAuthenticationResult Abort(Mqtt.Client.MqttReasonCode, System.String)
   Mqtt.Client.MqttAuthenticationResult Continue(System.ReadOnlyMemory`1[System.Byte])
   Mqtt.Client.MqttAuthenticationResult Final(System.ReadOnlyMemory`1[System.Byte])
   Mqtt.Client.MqttAuthenticationResultKind Kind
   Mqtt.Client.MqttAuthenticationResultKind get_Kind()
-  Mqtt.Client.Protocol.MqttReasonCode ReasonCode
-  Mqtt.Client.Protocol.MqttReasonCode get_ReasonCode()
+  Mqtt.Client.MqttReasonCode ReasonCode
+  Mqtt.Client.MqttReasonCode get_ReasonCode()
   System.ReadOnlyMemory`1[System.Byte] Data
   System.ReadOnlyMemory`1[System.Byte] get_Data()
   System.String ReasonString
@@ -45,7 +54,7 @@ class Mqtt.Client.MqttClient
   System.Threading.Tasks.ValueTask DisposeAsync()
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttPublishResult] PublishAsync(System.String, System.ReadOnlyMemory`1[System.Byte], Mqtt.Client.MqttQoS, Boolean, Mqtt.Client.MqttPublishProperties, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttSubscription] SubscribeAsync(System.String, Mqtt.Client.MqttSubscriptionOptions, System.Threading.CancellationToken)
-  Void .ctor(Mqtt.Client.MqttClientOptions, Microsoft.Extensions.Logging.ILoggerFactory, Mqtt.Client.Persistence.IPersistentSessionStore)
+  Void .ctor(Mqtt.Client.MqttClientOptions, Microsoft.Extensions.Logging.ILoggerFactory, Mqtt.Client.IPersistentSessionStore)
   Void add_Connected(System.EventHandler`1[Mqtt.Client.MqttConnectResult])
   Void add_Disconnected(System.EventHandler`1[Mqtt.Client.MqttDisconnectedEventArgs])
   Void add_StateChanged(System.EventHandler`1[Mqtt.Client.MqttConnectionState])
@@ -65,7 +74,7 @@ class Mqtt.Client.MqttClientBuilder
   Mqtt.Client.MqttClientBuilder WithKeepAlive(UInt16)
   Mqtt.Client.MqttClientBuilder WithLastWill(Mqtt.Client.MqttLastWill)
   Mqtt.Client.MqttClientBuilder WithLogging(Microsoft.Extensions.Logging.ILoggerFactory)
-  Mqtt.Client.MqttClientBuilder WithPersistence(Mqtt.Client.Persistence.IPersistentSessionStore)
+  Mqtt.Client.MqttClientBuilder WithPersistence(Mqtt.Client.IPersistentSessionStore)
   Mqtt.Client.MqttClientBuilder WithProtocol(Mqtt.Client.MqttProtocolVersion)
   Mqtt.Client.MqttClientBuilder WithReconnect(Mqtt.Client.MqttReconnectPolicy)
   Mqtt.Client.MqttClientBuilder WithTls(System.Action`1[System.Net.Security.SslClientAuthenticationOptions])
@@ -135,6 +144,10 @@ class Mqtt.Client.MqttClientOptions
   Void set_Username(System.String)
   Void set_WebSocketPath(System.String)
   Void set_Will(Mqtt.Client.MqttLastWill)
+class Mqtt.Client.MqttClientServiceCollectionExtensions
+  Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClient(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.Action`1[Mqtt.Client.MqttClientOptions])
+  Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClient(Microsoft.Extensions.DependencyInjection.IServiceCollection, System.String, System.Action`1[Mqtt.Client.MqttClientOptions])
+  Microsoft.Extensions.DependencyInjection.IServiceCollection AddMqttClientHostedReconnect(Microsoft.Extensions.DependencyInjection.IServiceCollection)
 class Mqtt.Client.MqttConnectResult
   Boolean IsSuccess
   Boolean RetainAvailable
@@ -150,8 +163,8 @@ class Mqtt.Client.MqttConnectResult
   Byte[] get_AuthenticationData()
   Mqtt.Client.MqttQoS MaximumQoS
   Mqtt.Client.MqttQoS get_MaximumQoS()
-  Mqtt.Client.Protocol.MqttReasonCode ReasonCode
-  Mqtt.Client.Protocol.MqttReasonCode get_ReasonCode()
+  Mqtt.Client.MqttReasonCode ReasonCode
+  Mqtt.Client.MqttReasonCode get_ReasonCode()
   System.Nullable`1[System.UInt16] ReceiveMaximum
   System.Nullable`1[System.UInt16] ServerKeepAlive
   System.Nullable`1[System.UInt16] TopicAliasMaximum
@@ -169,7 +182,7 @@ class Mqtt.Client.MqttConnectResult
   Void set_AuthenticationData(Byte[])
   Void set_MaximumPacketSize(System.Nullable`1[System.UInt32])
   Void set_MaximumQoS(Mqtt.Client.MqttQoS)
-  Void set_ReasonCode(Mqtt.Client.Protocol.MqttReasonCode)
+  Void set_ReasonCode(Mqtt.Client.MqttReasonCode)
   Void set_ReasonString(System.String)
   Void set_ReceiveMaximum(System.Nullable`1[System.UInt16])
   Void set_RetainAvailable(Boolean)
@@ -275,16 +288,61 @@ class Mqtt.Client.MqttPublishProperties
 struct Mqtt.Client.MqttPublishResult
   Boolean IsSuccess
   Boolean get_IsSuccess()
-  Mqtt.Client.Protocol.MqttReasonCode ReasonCode
-  Mqtt.Client.Protocol.MqttReasonCode get_ReasonCode()
+  Mqtt.Client.MqttReasonCode ReasonCode
+  Mqtt.Client.MqttReasonCode get_ReasonCode()
   System.String ReasonString
   System.String get_ReasonString()
-  Void .ctor(Mqtt.Client.Protocol.MqttReasonCode, System.String)
+  Void .ctor(Mqtt.Client.MqttReasonCode, System.String)
 enum Mqtt.Client.MqttQoS
   Byte value__
   Mqtt.Client.MqttQoS AtLeastOnce
   Mqtt.Client.MqttQoS AtMostOnce
   Mqtt.Client.MqttQoS ExactlyOnce
+enum Mqtt.Client.MqttReasonCode
+  Byte value__
+  Mqtt.Client.MqttReasonCode AdministrativeAction
+  Mqtt.Client.MqttReasonCode BadAuthenticationMethod
+  Mqtt.Client.MqttReasonCode BadUserNameOrPassword
+  Mqtt.Client.MqttReasonCode Banned
+  Mqtt.Client.MqttReasonCode ClientIdentifierNotValid
+  Mqtt.Client.MqttReasonCode ConnectionRateExceeded
+  Mqtt.Client.MqttReasonCode ContinueAuthentication
+  Mqtt.Client.MqttReasonCode DisconnectWithWill
+  Mqtt.Client.MqttReasonCode GrantedQoS1
+  Mqtt.Client.MqttReasonCode GrantedQoS2
+  Mqtt.Client.MqttReasonCode ImplementationSpecificError
+  Mqtt.Client.MqttReasonCode KeepAliveTimeout
+  Mqtt.Client.MqttReasonCode MalformedPacket
+  Mqtt.Client.MqttReasonCode MaximumConnectTime
+  Mqtt.Client.MqttReasonCode MessageRateTooHigh
+  Mqtt.Client.MqttReasonCode NoMatchingSubscribers
+  Mqtt.Client.MqttReasonCode NoSubscriptionExisted
+  Mqtt.Client.MqttReasonCode NotAuthorized
+  Mqtt.Client.MqttReasonCode PacketIdentifierInUse
+  Mqtt.Client.MqttReasonCode PacketIdentifierNotFound
+  Mqtt.Client.MqttReasonCode PacketTooLarge
+  Mqtt.Client.MqttReasonCode PayloadFormatInvalid
+  Mqtt.Client.MqttReasonCode ProtocolError
+  Mqtt.Client.MqttReasonCode QoSNotSupported
+  Mqtt.Client.MqttReasonCode QuotaExceeded
+  Mqtt.Client.MqttReasonCode ReAuthenticate
+  Mqtt.Client.MqttReasonCode ReceiveMaximumExceeded
+  Mqtt.Client.MqttReasonCode RetainNotSupported
+  Mqtt.Client.MqttReasonCode ServerBusy
+  Mqtt.Client.MqttReasonCode ServerMoved
+  Mqtt.Client.MqttReasonCode ServerShuttingDown
+  Mqtt.Client.MqttReasonCode ServerUnavailable
+  Mqtt.Client.MqttReasonCode SessionTakenOver
+  Mqtt.Client.MqttReasonCode SharedSubscriptionsNotSupported
+  Mqtt.Client.MqttReasonCode SubscriptionIdentifiersNotSupported
+  Mqtt.Client.MqttReasonCode Success
+  Mqtt.Client.MqttReasonCode TopicAliasInvalid
+  Mqtt.Client.MqttReasonCode TopicFilterInvalid
+  Mqtt.Client.MqttReasonCode TopicNameInvalid
+  Mqtt.Client.MqttReasonCode UnspecifiedError
+  Mqtt.Client.MqttReasonCode UnsupportedProtocolVersion
+  Mqtt.Client.MqttReasonCode UseAnotherServer
+  Mqtt.Client.MqttReasonCode WildcardSubscriptionsNotSupported
 class Mqtt.Client.MqttReconnectPolicy
   Double BackoffFactor
   Double JitterFactor
@@ -351,61 +409,3 @@ struct Mqtt.Client.MqttUserProperty
   Void Deconstruct(System.String ByRef, System.String ByRef)
   Void set_Name(System.String)
   Void set_Value(System.String)
-class Mqtt.Client.Persistence.FileSessionStore
-  System.String Directory
-  System.String get_Directory()
-  System.Threading.Tasks.ValueTask ClearAsync()
-  System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
-  System.Threading.Tasks.ValueTask SavePendingPublishAsync(UInt16, Mqtt.Client.MqttMessage)
-  System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.UInt16,Mqtt.Client.MqttMessage]]] ListPendingPublishesAsync()
-  Void .ctor(System.String)
-interface Mqtt.Client.Persistence.IPersistentSessionStore
-  System.Threading.Tasks.ValueTask ClearAsync()
-  System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
-  System.Threading.Tasks.ValueTask SavePendingPublishAsync(UInt16, Mqtt.Client.MqttMessage)
-  System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.UInt16,Mqtt.Client.MqttMessage]]] ListPendingPublishesAsync()
-enum Mqtt.Client.Protocol.MqttReasonCode
-  Byte value__
-  Mqtt.Client.Protocol.MqttReasonCode AdministrativeAction
-  Mqtt.Client.Protocol.MqttReasonCode BadAuthenticationMethod
-  Mqtt.Client.Protocol.MqttReasonCode BadUserNameOrPassword
-  Mqtt.Client.Protocol.MqttReasonCode Banned
-  Mqtt.Client.Protocol.MqttReasonCode ClientIdentifierNotValid
-  Mqtt.Client.Protocol.MqttReasonCode ConnectionRateExceeded
-  Mqtt.Client.Protocol.MqttReasonCode ContinueAuthentication
-  Mqtt.Client.Protocol.MqttReasonCode DisconnectWithWill
-  Mqtt.Client.Protocol.MqttReasonCode GrantedQoS1
-  Mqtt.Client.Protocol.MqttReasonCode GrantedQoS2
-  Mqtt.Client.Protocol.MqttReasonCode ImplementationSpecificError
-  Mqtt.Client.Protocol.MqttReasonCode KeepAliveTimeout
-  Mqtt.Client.Protocol.MqttReasonCode MalformedPacket
-  Mqtt.Client.Protocol.MqttReasonCode MaximumConnectTime
-  Mqtt.Client.Protocol.MqttReasonCode MessageRateTooHigh
-  Mqtt.Client.Protocol.MqttReasonCode NoMatchingSubscribers
-  Mqtt.Client.Protocol.MqttReasonCode NoSubscriptionExisted
-  Mqtt.Client.Protocol.MqttReasonCode NotAuthorized
-  Mqtt.Client.Protocol.MqttReasonCode PacketIdentifierInUse
-  Mqtt.Client.Protocol.MqttReasonCode PacketIdentifierNotFound
-  Mqtt.Client.Protocol.MqttReasonCode PacketTooLarge
-  Mqtt.Client.Protocol.MqttReasonCode PayloadFormatInvalid
-  Mqtt.Client.Protocol.MqttReasonCode ProtocolError
-  Mqtt.Client.Protocol.MqttReasonCode QoSNotSupported
-  Mqtt.Client.Protocol.MqttReasonCode QuotaExceeded
-  Mqtt.Client.Protocol.MqttReasonCode ReAuthenticate
-  Mqtt.Client.Protocol.MqttReasonCode ReceiveMaximumExceeded
-  Mqtt.Client.Protocol.MqttReasonCode RetainNotSupported
-  Mqtt.Client.Protocol.MqttReasonCode ServerBusy
-  Mqtt.Client.Protocol.MqttReasonCode ServerMoved
-  Mqtt.Client.Protocol.MqttReasonCode ServerShuttingDown
-  Mqtt.Client.Protocol.MqttReasonCode ServerUnavailable
-  Mqtt.Client.Protocol.MqttReasonCode SessionTakenOver
-  Mqtt.Client.Protocol.MqttReasonCode SharedSubscriptionsNotSupported
-  Mqtt.Client.Protocol.MqttReasonCode SubscriptionIdentifiersNotSupported
-  Mqtt.Client.Protocol.MqttReasonCode Success
-  Mqtt.Client.Protocol.MqttReasonCode TopicAliasInvalid
-  Mqtt.Client.Protocol.MqttReasonCode TopicFilterInvalid
-  Mqtt.Client.Protocol.MqttReasonCode TopicNameInvalid
-  Mqtt.Client.Protocol.MqttReasonCode UnspecifiedError
-  Mqtt.Client.Protocol.MqttReasonCode UnsupportedProtocolVersion
-  Mqtt.Client.Protocol.MqttReasonCode UseAnotherServer
-  Mqtt.Client.Protocol.MqttReasonCode WildcardSubscriptionsNotSupported

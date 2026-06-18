@@ -62,7 +62,9 @@ public sealed class MqttSubscription : IAsyncDisposable
     /// </summary>
     public uint? Identifier { get; internal set; }
 
-    /// <summary>Channel reader exposing inbound messages.</summary>
+    /// <summary>
+    /// Channel reader exposing inbound messages.
+    /// </summary>
     public ChannelReader<MqttMessage> Reader => _channel.Reader;
 
     internal ChannelWriter<MqttMessage> Writer => _channel.Writer;
@@ -75,7 +77,9 @@ public sealed class MqttSubscription : IAsyncDisposable
     }
 }
 
-/// <summary>Convenience extensions for consuming subscriptions.</summary>
+/// <summary>
+/// Convenience extensions for consuming subscriptions.
+/// </summary>
 public static class MqttSubscriptionExtensions
 {
     /// <summary>

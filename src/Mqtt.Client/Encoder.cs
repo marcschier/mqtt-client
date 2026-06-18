@@ -1,12 +1,11 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.Collections.Generic;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Protocol.Packets;
+namespace Mqtt.Client;
 
-namespace Mqtt.Client.Protocol;
-
-/// <summary>Stateless encoder for MQTT control packets (3.1.1 and 5.0).</summary>
+/// <summary>
+/// Stateless encoder for MQTT control packets (3.1.1 and 5.0).
+/// </summary>
 internal static class MqttPacketEncoder
 {
     private const byte CleanStartFlag = 0x02;

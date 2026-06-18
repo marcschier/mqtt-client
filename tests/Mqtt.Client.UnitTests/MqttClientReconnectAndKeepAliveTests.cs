@@ -1,8 +1,5 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-using Mqtt.Client.Transport;
-using Mqtt.Client.UnitTests.Fakes;
-
 namespace Mqtt.Client.UnitTests;
 
 public class MqttClientReconnectAndKeepAliveTests

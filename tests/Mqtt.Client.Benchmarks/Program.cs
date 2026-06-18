@@ -3,9 +3,6 @@
 using System.Reflection;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
-using Mqtt.Client.Benchmarks.Infrastructure;
-using Mqtt.Client.Benchmarks.Reporting;
-
 namespace Mqtt.Client.Benchmarks;
 
 public static class Program

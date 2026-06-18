@@ -1,14 +1,15 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using BenchmarkDotNet.Attributes;
-using Mqtt.Client.Benchmarks.Infrastructure;
 using MQTTnet;
 using MqttnetProtocolVersion = MQTTnet.Formatter.MqttProtocolVersion;
 using MqttnetClientFactory = MQTTnet.MqttClientFactory;
 
-namespace Mqtt.Client.Benchmarks.EndToEnd;
+namespace Mqtt.Client.Benchmarks;
 
-/// <summary>Connect + Disconnect latency. New client per iteration to capture full handshake cost.</summary>
+/// <summary>
+/// Connect + Disconnect latency. New client per iteration to capture full handshake cost.
+/// </summary>
 public class ConnectLatencyBenchmark
 {
     private InProcessBroker _broker = null!;

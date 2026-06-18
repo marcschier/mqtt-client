@@ -5,7 +5,7 @@ using System.IO.Pipelines;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Mqtt.Client.Transport;
+namespace Mqtt.Client;
 
 /// <summary>
 /// Abstraction over an underlying byte-stream transport (TCP/TLS/WebSocket).
@@ -19,7 +19,9 @@ internal interface IMqttTransport : IAsyncDisposable
     string? RemoteAddress { get; }
 }
 
-/// <summary>Factory for creating new transport instances on (re)connect.</summary>
+/// <summary>
+/// Factory for creating new transport instances on (re)connect.
+/// </summary>
 internal interface IMqttTransportFactory
 {
     ValueTask<IMqttTransport> ConnectAsync(CancellationToken cancellationToken);

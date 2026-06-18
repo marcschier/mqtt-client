@@ -2,9 +2,7 @@
 
 using System.Buffers;
 using Mqtt.Client;
-using Mqtt.Client.Protocol;
-
-namespace Mqtt.Client.FuzzTests.Harnesses;
+namespace Mqtt.Client.FuzzTests;
 
 /// <summary>
 /// libFuzzer harness for <see cref="MqttPacketDecoder.TryDecode"/>.

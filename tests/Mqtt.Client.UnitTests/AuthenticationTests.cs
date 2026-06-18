@@ -1,10 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.Text;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
-using Mqtt.Client.UnitTests.Fakes;
-
 namespace Mqtt.Client.UnitTests;
 
 public class AuthenticationTests

@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using MQTTnet.Server;
 using MQTTnet;
 
-namespace Mqtt.Client.Benchmarks.Infrastructure;
+namespace Mqtt.Client.Benchmarks;
 
 /// <summary>
 /// Hosts an in-process MQTTnet.Server on a random ephemeral port for benchmarks. If the

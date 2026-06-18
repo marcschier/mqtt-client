@@ -2,9 +2,11 @@
 
 using Microsoft.Extensions.Logging;
 
-namespace Mqtt.Client.Diagnostics;
+namespace Mqtt.Client;
 
-/// <summary>Source-generated logging for Mqtt.Client.</summary>
+/// <summary>
+/// Source-generated logging for Mqtt.Client.
+/// </summary>
 internal static partial class MqttLog
 {
     [LoggerMessage(

@@ -2,11 +2,7 @@
 
 using System.Buffers;
 using Mqtt.Client;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
-
-namespace Mqtt.Client.FuzzTests.Harnesses;
+namespace Mqtt.Client.FuzzTests;
 
 /// <summary>
 /// libFuzzer harness for codec round-tripping. Interprets fuzz input as the payload of a

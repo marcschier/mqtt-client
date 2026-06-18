@@ -5,11 +5,11 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Microsoft.Extensions.Logging;
-using Mqtt.Client.Persistence;
-
 namespace Mqtt.Client;
 
-/// <summary>Fluent builder for <see cref="MqttClient"/>.</summary>
+/// <summary>
+/// Fluent builder for <see cref="MqttClient"/>.
+/// </summary>
 public sealed class MqttClientBuilder
 {
     private readonly MqttClientOptions _options = new();

@@ -2,16 +2,13 @@
 
 using System.Buffers;
 using BenchmarkDotNet.Attributes;
-using Mqtt.Client.Benchmarks.Infrastructure;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
 using MQTTnet.Adapter;
 using MQTTnet.Formatter;
 using MQTTnet.Packets;
 using MqttnetProtocolVersion = MQTTnet.Formatter.MqttProtocolVersion;
 using MqttnetQoS = MQTTnet.Protocol.MqttQualityOfServiceLevel;
 
-namespace Mqtt.Client.Benchmarks.Codec;
+namespace Mqtt.Client.Benchmarks;
 
 public class DecodePublishBenchmark
 {
@@ -28,7 +25,7 @@ public class DecodePublishBenchmark
         var payload = new byte[PayloadSize];
         new Random(42).NextBytes(payload);
         // Encode once with our encoder; both decoders read the same bytes (codec is identical on the wire).
-        using var w = new Mqtt.Client.Buffers.MqttBufferWriter(PayloadSize + 64);
+        using var w = new Mqtt.Client.MqttBufferWriter(PayloadSize + 64);
         MqttPacketEncoder.EncodePublish(new PublishPacket
         {
             Topic = "bench/decode",

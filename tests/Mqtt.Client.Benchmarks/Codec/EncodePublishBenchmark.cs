@@ -2,16 +2,12 @@
 
 using System.Buffers;
 using BenchmarkDotNet.Attributes;
-using Mqtt.Client.Benchmarks.Infrastructure;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
 using MQTTnet.Formatter;
 using MQTTnet.Packets;
 using MqttnetProtocolVersion = MQTTnet.Formatter.MqttProtocolVersion;
 using MqttnetQoS = MQTTnet.Protocol.MqttQualityOfServiceLevel;
 
-namespace Mqtt.Client.Benchmarks.Codec;
+namespace Mqtt.Client.Benchmarks;
 
 public class EncodePublishBenchmark
 {
@@ -67,7 +63,7 @@ public class EncodePublishBenchmark
         // Both clients emit a packet whose body is a (header, payload) pair without copying
         // the payload bytes into the header buffer (MQTTnet's MqttPacketBuffer separates
         // Packet+Payload; ours uses EncodePublishHeader + vectored pipe write at runtime).
-        using var w = new Mqtt.Client.Buffers.MqttBufferWriter(128);
+        using var w = new Mqtt.Client.MqttBufferWriter(128);
         MqttPacketEncoder.EncodePublishHeader(_ourPacket, MqttProtocolVersion.V500, w);
         return w.WrittenCount + _ourPacket.Payload.Length;
     }

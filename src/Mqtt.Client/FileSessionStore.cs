@@ -7,7 +7,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Mqtt.Client.Persistence;
+namespace Mqtt.Client;
 
 /// <summary>
 /// File-system-backed <see cref="IPersistentSessionStore"/>. Each pending publish is stored as

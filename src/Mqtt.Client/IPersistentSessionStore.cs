@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Mqtt.Client.Persistence;
+namespace Mqtt.Client;
 
 /// <summary>
 /// Pluggable store for QoS&gt;0 in-flight publishes and pending subscriptions across reconnects.

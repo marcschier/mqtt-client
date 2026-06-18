@@ -1,11 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.Buffers;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
-
-namespace Mqtt.Client.UnitTests.Fakes;
+namespace Mqtt.Client.UnitTests;
 
 /// <summary>
 /// Helper that drives a <see cref="FakePipeTransport"/> as if it were an MQTT broker. Tests
@@ -25,7 +21,9 @@ internal sealed class FakeBroker
         _version = version;
     }
 
-    /// <summary>Reads and decodes the next AUTH packet sent by the client (also handles CONNECT).</summary>
+    /// <summary>
+    /// Reads and decodes the next AUTH packet sent by the client (also handles CONNECT).
+    /// </summary>
     public async Task<object?> ReadDecodedPacketAsync(CancellationToken ct = default)
     {
         var reader = _transport.FromClient;
@@ -244,7 +242,9 @@ internal sealed class FakeBroker
         await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
     }
 
-    /// <summary>MQTT 5 variant: sends a PUBLISH with one or more SubscriptionIdentifier properties.</summary>
+    /// <summary>
+    /// MQTT 5 variant: sends a PUBLISH with one or more SubscriptionIdentifier properties.
+    /// </summary>
     public async Task SendPublishWithSubIdsAsync(
         string topic,
         IReadOnlyList<uint> subscriptionIds,
@@ -272,7 +272,9 @@ internal sealed class FakeBroker
         await SendBytesAsync(bytes, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Sends an AUTH packet from broker to client.</summary>
+    /// <summary>
+    /// Sends an AUTH packet from broker to client.
+    /// </summary>
     public async Task SendAuthAsync(
         MqttReasonCode rc,
         string method,
@@ -290,7 +292,9 @@ internal sealed class FakeBroker
         await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
     }
 
-    /// <summary>Sends CONNACK with optional AuthenticationMethod/Data for the auth flow.</summary>
+    /// <summary>
+    /// Sends CONNACK with optional AuthenticationMethod/Data for the auth flow.
+    /// </summary>
     public async Task SendConnAckWithAuthAsync(
         MqttReasonCode rc,
         string? method = null,

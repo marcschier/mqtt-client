@@ -15,7 +15,9 @@ public sealed class MqttProtocolException : Exception
         Exception innerException) : base(message, innerException) { }
 }
 
-/// <summary>Exception thrown when the connection is closed unexpectedly or by the broker.</summary>
+/// <summary>
+/// Exception thrown when the connection is closed unexpectedly or by the broker.
+/// </summary>
 public sealed class MqttConnectionException : Exception
 {
     public MqttConnectionException(string message) : base(message) { }

@@ -8,11 +8,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Mqtt.Client.Persistence;
+namespace Mqtt.Client;
 
-namespace Mqtt.Client.DependencyInjection;
-
-/// <summary>Registers <see cref="MqttClient"/> with <see cref="IServiceCollection"/>.</summary>
+/// <summary>
+/// Registers <see cref="MqttClient"/> with <see cref="IServiceCollection"/>.
+/// </summary>
 public static class MqttClientServiceCollectionExtensions
 {
     /// <summary>

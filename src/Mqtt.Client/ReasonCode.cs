@@ -1,6 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-namespace Mqtt.Client.Protocol;
+namespace Mqtt.Client;
 
 /// <summary>
 /// MQTT v5 reason codes used across CONNACK / PUBACK / SUBACK / DISCONNECT / AUTH.

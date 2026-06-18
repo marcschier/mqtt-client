@@ -1,6 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-namespace Mqtt.Client.Protocol;
+namespace Mqtt.Client;
 
 internal enum MqttPacketType : byte
 {

@@ -10,14 +10,6 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Diagnostics;
-using Mqtt.Client.Persistence;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
-using Mqtt.Client.Subscriptions;
-using Mqtt.Client.Transport;
-
 namespace Mqtt.Client;
 
 /// <summary>
@@ -53,10 +45,14 @@ public sealed class MqttClient : IAsyncDisposable
     private int _state; // MqttConnectionState
     private int _manualDisconnect;
 
-    /// <summary>Raised after a successful connect.</summary>
+    /// <summary>
+    /// Raised after a successful connect.
+    /// </summary>
     public event EventHandler<MqttConnectResult>? Connected;
 
-    /// <summary>Raised on disconnect (broker- or client-initiated, or transport failure).</summary>
+    /// <summary>
+    /// Raised on disconnect (broker- or client-initiated, or transport failure).
+    /// </summary>
     public event EventHandler<MqttDisconnectedEventArgs>? Disconnected;
 
     /// <summary>
@@ -104,7 +100,9 @@ public sealed class MqttClient : IAsyncDisposable
 
     public MqttConnectionState State => (MqttConnectionState)Volatile.Read(ref _state);
 
-    /// <summary>Fluent builder entry point.</summary>
+    /// <summary>
+    /// Fluent builder entry point.
+    /// </summary>
     public static MqttClientBuilder CreateBuilder() => new();
 
     private static IMqttTransportFactory CreateTransportFactory(MqttClientOptions o)
@@ -763,7 +761,9 @@ public sealed class MqttClient : IAsyncDisposable
         }
     }
 
-    /// <summary>Publishes a message at the requested QoS. For QoS&gt;0, awaits the ack.</summary>
+    /// <summary>
+    /// Publishes a message at the requested QoS. For QoS&gt;0, awaits the ack.
+    /// </summary>
     public async ValueTask<MqttPublishResult> PublishAsync(
         string topic,
         ReadOnlyMemory<byte> payload,
@@ -1068,9 +1068,11 @@ public sealed class MqttClient : IAsyncDisposable
         _metrics.Dispose();
     }
 
-    /// <summary>An outbound packet pending serialization. Owns the rented header buffer
+    /// <summary>
+    /// An outbound packet pending serialization. Owns the rented header buffer
     /// (via <see cref="MqttBufferWriter"/>) and an optional pooled payload buffer; both go back
-    /// to <c>ArrayPool&lt;byte&gt;.Shared</c> on Dispose.</summary>
+    /// to <c>ArrayPool&lt;byte&gt;.Shared</c> on Dispose.
+    /// </summary>
     private static OutboundEnvelope NewEnvelopeFrom(MqttBufferWriter writer)
         => new(writer);
 

@@ -5,11 +5,6 @@
 
 using System.Buffers;
 using Mqtt.Client;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
-using Mqtt.Client.Subscriptions;
-
 Console.WriteLine("Mqtt.Client AOT smoke test");
 
 // Builder + options

@@ -1,9 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.Text;
-using Mqtt.Client.Subscriptions;
-
-namespace Mqtt.Client.FuzzTests.Harnesses;
+namespace Mqtt.Client.FuzzTests;
 
 /// <summary>
 /// libFuzzer harness for <see cref="TopicFilterTrie{T}"/>. Splits fuzz input into a topic filter

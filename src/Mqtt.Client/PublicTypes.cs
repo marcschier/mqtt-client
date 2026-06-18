@@ -5,10 +5,14 @@ using System.Collections.Generic;
 
 namespace Mqtt.Client;
 
-/// <summary>User property (MQTT v5 only). Multiple instances are allowed per packet.</summary>
+/// <summary>
+/// User property (MQTT v5 only). Multiple instances are allowed per packet.
+/// </summary>
 public readonly record struct MqttUserProperty(string Name, string Value);
 
-/// <summary>Optional MQTT v5 properties for an outbound or inbound PUBLISH.</summary>
+/// <summary>
+/// Optional MQTT v5 properties for an outbound or inbound PUBLISH.
+/// </summary>
 public sealed class MqttPublishProperties
 {
     public byte? PayloadFormatIndicator { get; init; }

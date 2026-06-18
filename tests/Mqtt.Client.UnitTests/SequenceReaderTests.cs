@@ -1,8 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.Buffers;
-using Mqtt.Client.Buffers;
-
 namespace Mqtt.Client.UnitTests;
 
 public class SequenceReaderTests

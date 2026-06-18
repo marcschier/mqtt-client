@@ -1,14 +1,13 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using BenchmarkDotNet.Attributes;
-using Mqtt.Client.Benchmarks.Infrastructure;
 using MQTTnet;
 using MqttnetProtocolVersion = MQTTnet.Formatter.MqttProtocolVersion;
 using MqttnetQoS = MQTTnet.Protocol.MqttQualityOfServiceLevel;
 using MqttnetClient = MQTTnet.IMqttClient;
 using MqttnetClientFactory = MQTTnet.MqttClientFactory;
 
-namespace Mqtt.Client.Benchmarks.EndToEnd;
+namespace Mqtt.Client.Benchmarks;
 
 /// <summary>
 /// Base class wiring up an in-process MQTTnet broker and a paired Mqtt.Client / MQTTnet client

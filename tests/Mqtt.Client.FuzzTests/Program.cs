@@ -1,6 +1,5 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-using Mqtt.Client.FuzzTests.Harnesses;
 using SharpFuzz;
 
 namespace Mqtt.Client.FuzzTests;

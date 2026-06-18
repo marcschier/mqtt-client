@@ -3,7 +3,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Mqtt.Client.Subscriptions;
+namespace Mqtt.Client;
 
 /// <summary>
 /// Topic-filter trie supporting MQTT wildcards <c>+</c> (single level) and <c>#</c> (multi-level).
@@ -13,7 +13,9 @@ internal sealed class TopicFilterTrie<T> where T : class
 {
     private readonly Node _root = new();
 
-    /// <summary>Adds <paramref name="value"/> under <paramref name="topicFilter"/>.</summary>
+    /// <summary>
+    /// Adds <paramref name="value"/> under <paramref name="topicFilter"/>.
+    /// </summary>
     public void Add(string topicFilter, T value)
     {
         if (string.IsNullOrEmpty(topicFilter))

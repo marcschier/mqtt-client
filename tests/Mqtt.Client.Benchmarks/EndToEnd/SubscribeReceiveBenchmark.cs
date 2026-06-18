@@ -8,7 +8,7 @@ using MqttnetQoS = MQTTnet.Protocol.MqttQualityOfServiceLevel;
 using MqttnetClient = MQTTnet.IMqttClient;
 using MqttnetClientFactory = MQTTnet.MqttClientFactory;
 
-namespace Mqtt.Client.Benchmarks.EndToEnd;
+namespace Mqtt.Client.Benchmarks;
 
 /// <summary>
 /// Subscribes (via the client under test) then publishes via a separate publisher connection and

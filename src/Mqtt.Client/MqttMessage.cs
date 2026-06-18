@@ -1,8 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System;
-using Mqtt.Client.Protocol;
-
 namespace Mqtt.Client;
 
 /// <summary>
@@ -18,7 +16,9 @@ public sealed class MqttMessage
     public MqttPublishProperties? Properties { get; init; }
 }
 
-/// <summary>Result of a QoS&gt;0 publish (carries the broker reason code for MQTT v5).</summary>
+/// <summary>
+/// Result of a QoS&gt;0 publish (carries the broker reason code for MQTT v5).
+/// </summary>
 public readonly struct MqttPublishResult
 {
     public MqttPublishResult(MqttReasonCode reasonCode, string? reasonString = null)
@@ -32,7 +32,9 @@ public readonly struct MqttPublishResult
     public bool IsSuccess => (byte)ReasonCode < 0x80;
 }
 
-/// <summary>Outcome of CONNECT.</summary>
+/// <summary>
+/// Outcome of CONNECT.
+/// </summary>
 public sealed class MqttConnectResult
 {
     public required MqttReasonCode ReasonCode { get; init; }

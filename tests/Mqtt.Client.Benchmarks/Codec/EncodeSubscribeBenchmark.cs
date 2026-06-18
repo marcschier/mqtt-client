@@ -1,15 +1,12 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using BenchmarkDotNet.Attributes;
-using Mqtt.Client.Benchmarks.Infrastructure;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Protocol.Packets;
 using MQTTnet.Formatter;
 using MQTTnet.Packets;
 using MqttnetProtocolVersion = MQTTnet.Formatter.MqttProtocolVersion;
 using MqttnetQoS = MQTTnet.Protocol.MqttQualityOfServiceLevel;
 
-namespace Mqtt.Client.Benchmarks.Codec;
+namespace Mqtt.Client.Benchmarks;
 
 public class EncodeSubscribeBenchmark
 {
@@ -59,7 +56,7 @@ public class EncodeSubscribeBenchmark
     [Benchmark(Description = "Mqtt.Client")]
     public int MqttClient_Encode()
     {
-        using var w = new Mqtt.Client.Buffers.MqttBufferWriter(64);
+        using var w = new Mqtt.Client.MqttBufferWriter(64);
         MqttPacketEncoder.EncodeSubscribe(_ourPacket, MqttProtocolVersion.V500, w);
         return w.WrittenCount;
     }

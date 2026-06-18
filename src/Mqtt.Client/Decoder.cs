@@ -3,10 +3,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using Mqtt.Client.Buffers;
-using Mqtt.Client.Protocol.Packets;
-
-namespace Mqtt.Client.Protocol;
+namespace Mqtt.Client;
 
 /// <summary>
 /// Tries to decode a single MQTT control packet from buffered bytes. Returns false when not enough

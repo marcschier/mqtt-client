@@ -2,9 +2,6 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Mqtt.Client.DependencyInjection;
-using Mqtt.Client.Persistence;
-
 namespace Mqtt.Client.UnitTests;
 
 public class ServiceCollectionExtensionsTests

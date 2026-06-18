@@ -2,9 +2,6 @@
 
 using System.Buffers;
 using System.Text;
-using Mqtt.Client.Protocol;
-using Mqtt.Client.Subscriptions;
-
 namespace Mqtt.Client.UnitTests;
 
 /// <summary>

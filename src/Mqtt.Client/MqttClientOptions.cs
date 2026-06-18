@@ -5,16 +5,24 @@ using System.Net.Security;
 
 namespace Mqtt.Client;
 
-/// <summary>Options controlling client connection and protocol behavior.</summary>
+/// <summary>
+/// Options controlling client connection and protocol behavior.
+/// </summary>
 public sealed class MqttClientOptions
 {
-    /// <summary>Broker host name (TCP/WS hostname).</summary>
+    /// <summary>
+    /// Broker host name (TCP/WS hostname).
+    /// </summary>
     public string Host { get; set; } = "localhost";
 
-    /// <summary>Broker port. Defaults: 1883 (TCP), 8883 (TLS), 80 (WS), 443 (WSS).</summary>
+    /// <summary>
+    /// Broker port. Defaults: 1883 (TCP), 8883 (TLS), 80 (WS), 443 (WSS).
+    /// </summary>
     public int Port { get; set; } = 1883;
 
-    /// <summary>Underlying transport.</summary>
+    /// <summary>
+    /// Underlying transport.
+    /// </summary>
     public MqttTransportType Transport { get; set; } = MqttTransportType.Tcp;
 
     /// <summary>
@@ -23,7 +31,9 @@ public sealed class MqttClientOptions
     /// </summary>
     public SslClientAuthenticationOptions? Tls { get; set; }
 
-    /// <summary>Protocol version to use.</summary>
+    /// <summary>
+    /// Protocol version to use.
+    /// </summary>
     public MqttProtocolVersion ProtocolVersion { get; set; } = MqttProtocolVersion.V500;
 
     /// <summary>
@@ -31,22 +41,34 @@ public sealed class MqttClientOptions
     /// </summary>
     public string ClientId { get; set; } = string.Empty;
 
-    /// <summary>Whether to start a clean session.</summary>
+    /// <summary>
+    /// Whether to start a clean session.
+    /// </summary>
     public bool CleanStart { get; set; } = true;
 
-    /// <summary>Keep-alive interval, seconds. 0 disables.</summary>
+    /// <summary>
+    /// Keep-alive interval, seconds. 0 disables.
+    /// </summary>
     public ushort KeepAliveSeconds { get; set; } = 60;
 
-    /// <summary>Username for password auth.</summary>
+    /// <summary>
+    /// Username for password auth.
+    /// </summary>
     public string? Username { get; set; }
 
-    /// <summary>Password for password auth.</summary>
+    /// <summary>
+    /// Password for password auth.
+    /// </summary>
     public byte[]? Password { get; set; }
 
-    /// <summary>Last-will message.</summary>
+    /// <summary>
+    /// Last-will message.
+    /// </summary>
     public MqttLastWill? Will { get; set; }
 
-    /// <summary>Auto-reconnect policy. Null = no auto-reconnect (manual).</summary>
+    /// <summary>
+    /// Auto-reconnect policy. Null = no auto-reconnect (manual).
+    /// </summary>
     public MqttReconnectPolicy? Reconnect { get; set; } = MqttReconnectPolicy.Exponential();
 
     /// <summary>
@@ -59,7 +81,9 @@ public sealed class MqttClientOptions
     /// </summary>
     public int DefaultSubscriptionCapacity { get; set; } = 1024;
 
-    /// <summary>Optional path for WebSocket transports (default: <c>/mqtt</c>).</summary>
+    /// <summary>
+    /// Optional path for WebSocket transports (default: <c>/mqtt</c>).
+    /// </summary>
     public string? WebSocketPath { get; set; }
 
     /// <summary>
@@ -86,11 +110,15 @@ public sealed class MqttClientOptions
     /// </summary>
     public bool ClearPooledBuffers { get; set; }
 
-    /// <summary>Network operation timeout used for connect/disconnect/publish acks.</summary>
+    /// <summary>
+    /// Network operation timeout used for connect/disconnect/publish acks.
+    /// </summary>
     public TimeSpan OperationTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
-    /// <summary>MQTT 5 enhanced authentication handler. When non-null on a v5 connect, the
-    /// client drives the SASL-style multi-round-trip auth exchange with the broker.</summary>
+    /// <summary>
+    /// MQTT 5 enhanced authentication handler. When non-null on a v5 connect, the client drives
+    /// the SASL-style multi-round-trip auth exchange with the broker.
+    /// </summary>
     public IMqttAuthenticationHandler? AuthenticationHandler { get; set; }
 
     /// <summary>
@@ -108,7 +136,9 @@ public enum MqttTransportType
     WebSocketSecure = 3,
 }
 
-/// <summary>Reconnect strategy.</summary>
+/// <summary>
+/// Reconnect strategy.
+/// </summary>
 public sealed class MqttReconnectPolicy
 {
     public TimeSpan InitialDelay { get; init; } = TimeSpan.FromMilliseconds(500);

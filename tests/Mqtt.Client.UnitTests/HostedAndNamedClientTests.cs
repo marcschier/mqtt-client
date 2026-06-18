@@ -2,10 +2,6 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Mqtt.Client.DependencyInjection;
-using Mqtt.Client.Transport;
-using Mqtt.Client.UnitTests.Fakes;
-
 using MeOpts = Microsoft.Extensions.Options;
 
 namespace Mqtt.Client.UnitTests;

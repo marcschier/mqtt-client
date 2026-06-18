@@ -2,7 +2,7 @@
 
 using System.Diagnostics;
 
-namespace Mqtt.Client.Diagnostics;
+namespace Mqtt.Client;
 
 internal static class MqttActivitySource
 {
