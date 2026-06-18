@@ -20,4 +20,8 @@
     <ProjectReference Include="..\..\src\Mqtt.Client\Mqtt.Client.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="PublicApi.expected.txt" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
 </Project>

@@ -670,14 +670,20 @@ public sealed class MqttClient : IAsyncDisposable
         options ??= new MqttSubscriptionOptions { Capacity = _options.DefaultSubscriptionCapacity };
         MqttLog.Subscribing(_logger, topicFilter, options.QoS);
 
+        // MQTT 5 shared subscriptions ($share/group/<filter>): strip the prefix when registering
+        // in the local trie so inbound publishes match against the underlying topic filter, but
+        // keep the original filter on the wire so the broker performs the shared-distribution.
+        var matchFilter = StripSharedSubscriptionPrefix(topicFilter);
+
         var sub = new MqttSubscription(topicFilter, options, async s =>
         {
-            lock (_subLock) { _trie.Remove(s.TopicFilter, s); }
+            var mf = StripSharedSubscriptionPrefix(s.TopicFilter);
+            lock (_subLock) { _trie.Remove(mf, s); }
             if (s.Identifier is { } id) _subsById.TryRemove(id, out _);
             using var cts = new CancellationTokenSource(_options.OperationTimeout);
             try { await UnsubscribeOnServerAsync(s.TopicFilter, cts.Token).ConfigureAwait(false); } catch { }
         });
-        lock (_subLock) { _trie.Add(topicFilter, sub); }
+        lock (_subLock) { _trie.Add(matchFilter, sub); }
 
         uint? subId = null;
         if (_options.ProtocolVersion == MqttProtocolVersion.V500)
@@ -745,6 +751,19 @@ public sealed class MqttClient : IAsyncDisposable
         {
             throw new InvalidOperationException($"Client is not connected (state={State}).");
         }
+    }
+
+    /// <summary>
+    /// Strips the <c>$share/&lt;group&gt;/</c> prefix from a shared-subscription filter, returning
+    /// the underlying topic filter used for local routing. Non-shared filters pass through unchanged.
+    /// </summary>
+    internal static string StripSharedSubscriptionPrefix(string topicFilter)
+    {
+        if (topicFilter is null || topicFilter.Length < 8) return topicFilter!;
+        if (!topicFilter.StartsWith("$share/", StringComparison.Ordinal)) return topicFilter;
+        var slash = topicFilter.IndexOf('/', 7);
+        if (slash < 0 || slash == topicFilter.Length - 1) return topicFilter;
+        return topicFilter.Substring(slash + 1);
     }
 
     public async ValueTask DisposeAsync()
