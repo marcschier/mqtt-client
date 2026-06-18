@@ -1,6 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 namespace Mqtt.Client;
 
@@ -58,7 +59,20 @@ internal sealed class PublishPacket
     public MqttQoS QoS { get; init; }
     public bool Retain { get; init; }
     public bool Duplicate { get; init; }
-    public required ReadOnlyMemory<byte> Payload { get; init; }
+
+    /// <summary>
+    /// Payload bytes. May span multiple segments (e.g. when a caller publishes pre-chunked data).
+    /// </summary>
+    public ReadOnlySequence<byte> Payload { get; init; }
+
+    /// <summary>
+    /// Convenience setter that wraps a contiguous <see cref="ReadOnlyMemory{T}"/> as the payload.
+    /// </summary>
+    public ReadOnlyMemory<byte> PayloadMemory
+    {
+        init => Payload = new ReadOnlySequence<byte>(value);
+    }
+
     public MqttPublishProperties? Properties { get; init; }   // v5 only
 }
 

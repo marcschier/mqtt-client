@@ -22,7 +22,7 @@ var pub = new PublishPacket
 {
     Topic = "smoke/aot",
     QoS = MqttQoS.AtMostOnce,
-    Payload = new byte[] { 1, 2, 3, 4 },
+    PayloadMemory = new byte[] { 1, 2, 3, 4 },
 };
 MqttPacketEncoder.EncodePublish(pub, MqttProtocolVersion.V500, w);
 var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(w.WrittenMemory),

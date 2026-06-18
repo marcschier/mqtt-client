@@ -76,7 +76,7 @@ internal static class CorpusGenerator
             Topic = topic,
             QoS = qos,
             PacketId = qos == MqttQoS.AtMostOnce ? (ushort)0 : (ushort)1,
-            Payload = payload,
+            PayloadMemory = payload,
         };
         using var w = new MqttBufferWriter(payload.Length + 32);
         MqttPacketEncoder.EncodePublish(packet, MqttProtocolVersion.V500, w);

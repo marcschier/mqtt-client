@@ -19,7 +19,7 @@ public class CodecAllPacketsTests
             Will = new MqttLastWill
             {
                 Topic = "last/will",
-                Payload = new byte[] { 1, 2, 3 },
+                PayloadMemory = new byte[] { 1, 2, 3 },
                 QoS = MqttQoS.AtLeastOnce,
                 Retain = true,
             },
@@ -46,7 +46,7 @@ public class CodecAllPacketsTests
             Topic = "topic",
             QoS = MqttQoS.AtLeastOnce,
             PacketId = 7,
-            Payload = new byte[] { 0x01, 0x02 },
+            PayloadMemory = new byte[] { 0x01, 0x02 },
             Properties = new MqttPublishProperties
             {
                 PayloadFormatIndicator = 1,
@@ -83,7 +83,7 @@ public class CodecAllPacketsTests
         {
             Topic = "big",
             QoS = MqttQoS.AtMostOnce,
-            Payload = payload,
+            PayloadMemory = payload,
         };
         using var w = new MqttBufferWriter(128);
         MqttPacketEncoder.EncodePublishHeader(pkt, MqttProtocolVersion.V500, w);
@@ -97,8 +97,8 @@ public class CodecAllPacketsTests
             MqttProtocolVersion.V500, out var decoded, out _, out _);
         await Assert.That(ok).IsTrue();
         var d = (PublishPacket)decoded!;
-        await Assert.That(d.Payload.Length).IsEqualTo(payload.Length);
-        await Assert.That(d.Payload.Span.SequenceEqual(payload)).IsTrue();
+        await Assert.That((int)d.Payload.Length).IsEqualTo(payload.Length);
+        await Assert.That(d.Payload.FirstSpan.SequenceEqual(payload)).IsTrue();
     }
 
     [Test]

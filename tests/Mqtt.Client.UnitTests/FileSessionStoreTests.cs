@@ -20,7 +20,7 @@ public class FileSessionStoreTests
             var store = new FileSessionStore(dir);
             var msg = new MqttMessage {
                 Topic = "a/b",
-                Payload = new byte[] { 1, 2, 3 },
+                PayloadMemory = new byte[] { 1, 2, 3 },
                 QoS = MqttQoS.AtLeastOnce,
                 Retain = true };
             await store.SavePendingPublishAsync(42, msg);
@@ -32,7 +32,7 @@ public class FileSessionStoreTests
             await Assert.That(list[0].Message.QoS).IsEqualTo(MqttQoS.AtLeastOnce);
             await Assert.That(list[0].Message.Retain).IsTrue();
             await Assert.That(
-                list[0].Message.Payload.ToArray().AsSpan()
+                list[0].Message.PayloadMemory.ToArray().AsSpan()
                     .SequenceEqual(new byte[] { 1, 2, 3 })).IsTrue();
         }
         finally { Directory.Delete(dir, recursive: true); }
@@ -47,10 +47,10 @@ public class FileSessionStoreTests
             var store = new FileSessionStore(dir);
             await store.SavePendingPublishAsync(
                 1,
-                new MqttMessage { Topic = "t1", Payload = new byte[] { 1 } });
+                new MqttMessage { Topic = "t1", PayloadMemory = new byte[] { 1 } });
             await store.SavePendingPublishAsync(
                 2,
-                new MqttMessage { Topic = "t2", Payload = new byte[] { 2 } });
+                new MqttMessage { Topic = "t2", PayloadMemory = new byte[] { 2 } });
 
             await store.RemovePendingPublishAsync(1);
             var list = await store.ListPendingPublishesAsync();
@@ -73,14 +73,14 @@ public class FileSessionStoreTests
             var s1 = new FileSessionStore(dir);
             await s1.SavePendingPublishAsync(
                 7,
-                new MqttMessage { Topic = "persist", Payload = new byte[] { 9, 9 } });
+                new MqttMessage { Topic = "persist", PayloadMemory = new byte[] { 9, 9 } });
 
             var s2 = new FileSessionStore(dir);
             var list = await s2.ListPendingPublishesAsync();
             await Assert.That(list.Count).IsEqualTo(1);
             await Assert.That(list[0].Message.Topic).IsEqualTo("persist");
             await Assert.That(
-                list[0].Message.Payload.ToArray().AsSpan()
+                list[0].Message.PayloadMemory.ToArray().AsSpan()
                     .SequenceEqual(new byte[] { 9, 9 })).IsTrue();
         }
         finally { Directory.Delete(dir, recursive: true); }

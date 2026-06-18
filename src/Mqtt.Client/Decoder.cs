@@ -47,6 +47,24 @@ internal static class MqttPacketDecoder
         out object? packet,
         out byte firstByte,
         out SequencePosition consumed)
+        => TryDecode(
+            buffer, version, maxPacketSize, poolPayload: false,
+            out packet, out firstByte, out consumed);
+
+    /// <summary>
+    /// As the maximum-packet-size overload, but when <paramref name="poolPayload"/> is true a
+    /// decoded PUBLISH payload is left as a zero-copy slice of <paramref name="buffer"/> (the
+    /// caller must copy it out before advancing the underlying reader). Used by the read loop when
+    /// inbound buffer reuse is enabled.
+    /// </summary>
+    public static bool TryDecode(
+        in ReadOnlySequence<byte> buffer,
+        MqttProtocolVersion version,
+        int maxPacketSize,
+        bool poolPayload,
+        out object? packet,
+        out byte firstByte,
+        out SequencePosition consumed)
     {
         packet = null;
         firstByte = 0;
@@ -82,7 +100,8 @@ internal static class MqttPacketDecoder
                 firstByte,
                 ref payloadReader,
                 version,
-                (int)remainingLength),
+                (int)remainingLength,
+                poolPayload),
             MqttPacketType.PubAck => DecodeAck(ref payloadReader, version, (int)remainingLength),
             MqttPacketType.PubRec => DecodeAck(ref payloadReader, version, (int)remainingLength),
             MqttPacketType.PubRel => DecodeAck(ref payloadReader, version, (int)remainingLength),
@@ -217,7 +236,8 @@ internal static class MqttPacketDecoder
         byte firstByte,
         ref MqttSequenceReader reader,
         MqttProtocolVersion version,
-        int totalLen)
+        int totalLen,
+        bool poolPayload)
     {
         var dup = (firstByte & 0x08) != 0;
         var qos = (MqttQoS)((firstByte >> 1) & 0x03);
@@ -239,6 +259,21 @@ internal static class MqttPacketDecoder
             }
         }
         var payloadLen = totalLen - (int)reader.Consumed;
+        if (poolPayload)
+        {
+            // Leave the payload as a zero-copy slice of the input buffer. The read loop copies it
+            // into a pooled per-subscription buffer before advancing the pipe reader.
+            return new PublishPacket
+            {
+                Topic = topic,
+                PacketId = packetId,
+                QoS = qos,
+                Retain = retain,
+                Duplicate = dup,
+                Payload = reader.ReadSequence(payloadLen),
+                Properties = props,
+            };
+        }
         var payload = new byte[payloadLen];
         reader.ReadSequence(payloadLen).CopyTo(payload);
         return new PublishPacket
@@ -248,7 +283,7 @@ internal static class MqttPacketDecoder
             QoS = qos,
             Retain = retain,
             Duplicate = dup,
-            Payload = payload,
+            PayloadMemory = payload,
             Properties = props,
         };
     }

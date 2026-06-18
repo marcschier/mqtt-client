@@ -56,7 +56,7 @@ public class CodecTests
         {
             Topic = "a/b",
             QoS = MqttQoS.AtMostOnce,
-            Payload = new byte[] { 0x01, 0x02, 0x03 },
+            PayloadMemory = new byte[] { 0x01, 0x02, 0x03 },
         };
         using var w = new MqttBufferWriter(32);
         MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V311, w);
@@ -73,7 +73,7 @@ public class CodecTests
         await Assert.That(decoded).IsNotNull();
         await Assert.That(decoded!.Topic).IsEqualTo("a/b");
         await Assert.That(decoded.QoS).IsEqualTo(MqttQoS.AtMostOnce);
-        await Assert.That(decoded.Payload.Length).IsEqualTo(3);
+        await Assert.That((int)decoded.Payload.Length).IsEqualTo(3);
     }
 
     [Test]

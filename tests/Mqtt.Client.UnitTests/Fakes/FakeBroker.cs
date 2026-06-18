@@ -210,7 +210,7 @@ internal sealed class FakeBroker
             Topic = topic,
             QoS = qos,
             PacketId = packetId,
-            Payload = payload,
+            PayloadMemory = payload,
         };
         using var w = new MqttBufferWriter(payload.Length + 32);
         MqttPacketEncoder.EncodePublish(packet, _version, w);
@@ -234,7 +234,7 @@ internal sealed class FakeBroker
             Topic = topic,
             QoS = qos,
             PacketId = packetId,
-            Payload = payload,
+            PayloadMemory = payload,
             Properties = new MqttPublishProperties { TopicAlias = alias },
         };
         using var w = new MqttBufferWriter(payload.Length + 32);
@@ -258,7 +258,7 @@ internal sealed class FakeBroker
             Topic = topic,
             QoS = qos,
             PacketId = packetId,
-            Payload = payload,
+            PayloadMemory = payload,
             Properties = new MqttPublishProperties { SubscriptionIdentifiers = subscriptionIds },
         };
         using var w = new MqttBufferWriter(payload.Length + 32);

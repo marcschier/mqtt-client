@@ -1,19 +1,61 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System;
+using System.Buffers;
+using System.Threading;
 namespace Mqtt.Client;
 
 /// <summary>
 /// A single inbound MQTT message delivered to a subscriber.
 /// </summary>
-public sealed class MqttMessage
+/// <remarks>
+/// When <see cref="MqttClientOptions.ReuseInboundBuffers"/> is enabled, the payload is backed by a
+/// pooled buffer that is returned when the message is disposed. In that mode consumers MUST dispose
+/// each message after use and MUST NOT access <see cref="Payload"/>/<see cref="PayloadMemory"/>
+/// afterwards. In the default mode the payload is garbage-collected and <see cref="Dispose"/> is a
+/// no-op, so disposal is optional and the payload may be retained indefinitely.
+/// </remarks>
+public sealed class MqttMessage : IDisposable
 {
+    private int _disposed;
+
     public required string Topic { get; init; }
-    public required ReadOnlyMemory<byte> Payload { get; init; }
+
+    /// <summary>
+    /// Payload bytes. May span multiple segments. Use <see cref="PayloadMemory"/> for a contiguous
+    /// view (zero-copy when the payload is a single segment, which is the default).
+    /// </summary>
+    public ReadOnlySequence<byte> Payload { get; init; }
+
+    /// <summary>
+    /// Contiguous view of <see cref="Payload"/>. Zero-copy when single-segment; otherwise copies
+    /// into a newly allocated array. Also usable as an initializer to set the payload from memory.
+    /// </summary>
+    public ReadOnlyMemory<byte> PayloadMemory
+    {
+        get => Payload.IsSingleSegment ? Payload.First : Payload.ToArray();
+        init => Payload = new ReadOnlySequence<byte>(value);
+    }
+
+    /// <summary>Pooled backing array to return on dispose (null in the default, GC-owned mode).</summary>
+    internal byte[]? PooledArray { get; init; }
+
     public MqttQoS QoS { get; init; }
     public bool Retain { get; init; }
     public bool Duplicate { get; init; }
     public MqttPublishProperties? Properties { get; init; }
+
+    /// <summary>
+    /// Returns the pooled payload buffer (if any) to the shared pool. Idempotent. No-op when the
+    /// payload is garbage-collected (the default mode).
+    /// </summary>
+    public void Dispose()
+    {
+        if (PooledArray is { } array && Interlocked.Exchange(ref _disposed, 1) == 0)
+        {
+            ArrayPool<byte>.Shared.Return(array);
+        }
+    }
 }
 
 /// <summary>

@@ -47,7 +47,7 @@ public class IntegrationScenariosTests
             .WithProtocol(MqttProtocolVersion.V500)
             .WithLastWill(new MqttLastWill {
                 Topic = "itest/will",
-                Payload = new byte[] { 99 },
+                PayloadMemory = new byte[] { 99 },
                 QoS = MqttQoS.AtLeastOnce })
             .Build();
         await pub.ConnectAsync(ct);
@@ -57,8 +57,8 @@ public class IntegrationScenariosTests
 
         var received = await subscription.Reader.ReadAsync(ct);
         await Assert.That(received.Topic).IsEqualTo("itest/will");
-        await Assert.That(received.Payload.Length).IsEqualTo(1);
-        await Assert.That(received.Payload.Span[0]).IsEqualTo((byte)99);
+        await Assert.That(received.PayloadMemory.Length).IsEqualTo(1);
+        await Assert.That(received.PayloadMemory.Span[0]).IsEqualTo((byte)99);
     }
 
     [Test]

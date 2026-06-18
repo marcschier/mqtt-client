@@ -138,7 +138,7 @@ public class MqttClientFakeTransportTests
         await broker.SendPublishAsync("inbound/dev1/topic", new byte[] { 0x01 }, ct: ct);
         var msg = await subscription.Reader.ReadAsync(ct);
         await Assert.That(msg.Topic).IsEqualTo("inbound/dev1/topic");
-        await Assert.That(msg.Payload.Length).IsEqualTo(1);
+        await Assert.That(msg.PayloadMemory.Length).IsEqualTo(1);
         // Skip explicit subscription dispose — the client's await using will tear down loops.
     }
 

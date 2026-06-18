@@ -10,15 +10,15 @@ public class MqttSubscriptionOverflowTests
         var sub = TestSubscription.Create(
             "a",
             new MqttSubscriptionOptions { Capacity = 2, Overflow = MqttOverflowMode.DropOldest });
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 1 } });
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 2 } });
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 3 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a", PayloadMemory = new byte[] { 1 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a", PayloadMemory = new byte[] { 2 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a", PayloadMemory = new byte[] { 3 } });
         sub.Writer.TryComplete();
 
         var seen = new List<byte>();
         await foreach (var m in sub.Reader.ReadAllAsync())
         {
-            seen.Add(m.Payload.Span[0]);
+            seen.Add(m.PayloadMemory.Span[0]);
         }
         await Assert.That(seen.Count).IsEqualTo(2);
         await Assert.That(seen[0]).IsEqualTo((byte)2);  // '1' was dropped (oldest)
@@ -34,15 +34,15 @@ public class MqttSubscriptionOverflowTests
         var sub = TestSubscription.Create(
             "a",
             new MqttSubscriptionOptions { Capacity = 2, Overflow = MqttOverflowMode.DropNewest });
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 1 } });
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 2 } });
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 3 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a", PayloadMemory = new byte[] { 1 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a", PayloadMemory = new byte[] { 2 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a", PayloadMemory = new byte[] { 3 } });
         sub.Writer.TryComplete();
 
         var seen = new List<byte>();
         await foreach (var m in sub.Reader.ReadAllAsync())
         {
-            seen.Add(m.Payload.Span[0]);
+            seen.Add(m.PayloadMemory.Span[0]);
         }
         await Assert.That(seen.Count).IsEqualTo(2);
         await Assert.That(seen[0]).IsEqualTo((byte)1);

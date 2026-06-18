@@ -31,7 +31,7 @@ public class DecodePublishBenchmark
             Topic = "bench/decode",
             QoS = Mqtt.Client.MqttQoS.AtMostOnce,
             PacketId = 0,
-            Payload = payload,
+            PayloadMemory = payload,
         }, MqttProtocolVersion.V500, w);
         _encoded = w.WrittenSpan.ToArray();
         _encodedSequence = new ReadOnlySequence<byte>(_encoded);

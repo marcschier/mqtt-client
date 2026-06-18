@@ -70,6 +70,22 @@ internal sealed class MqttBufferWriter : IDisposable
     }
 
     /// <summary>
+    /// Writes every segment of a <see cref="ReadOnlySequence{T}"/> contiguously.
+    /// </summary>
+    public void WriteBytes(in ReadOnlySequence<byte> value)
+    {
+        if (value.IsSingleSegment)
+        {
+            WriteBytes(value.FirstSpan);
+            return;
+        }
+        foreach (var segment in value)
+        {
+            WriteBytes(segment.Span);
+        }
+    }
+
+    /// <summary>
     /// Writes an MQTT UTF-8 string: 2-byte big-endian length prefix followed by UTF-8 bytes.
     /// </summary>
     public void WriteString(string value)
@@ -91,6 +107,15 @@ internal sealed class MqttBufferWriter : IDisposable
     /// Writes MQTT binary data: 2-byte big-endian length prefix followed by raw bytes.
     /// </summary>
     public void WriteBinaryData(ReadOnlySpan<byte> value)
+    {
+        WriteUInt16BigEndian(checked((ushort)value.Length));
+        WriteBytes(value);
+    }
+
+    /// <summary>
+    /// Writes MQTT binary data from a sequence: 2-byte length prefix followed by all segments.
+    /// </summary>
+    public void WriteBinaryData(in ReadOnlySequence<byte> value)
     {
         WriteUInt16BigEndian(checked((ushort)value.Length));
         WriteBytes(value);

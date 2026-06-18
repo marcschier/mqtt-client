@@ -8,7 +8,7 @@ public class InMemorySessionStoreTests
     public async Task Save_then_List_returns_message()
     {
         var store = new InMemorySessionStore();
-        var msg = new MqttMessage { Topic = "t", Payload = new byte[] { 1 } };
+        var msg = new MqttMessage { Topic = "t", PayloadMemory = new byte[] { 1 } };
         await store.SavePendingPublishAsync(7, msg);
         var list = await store.ListPendingPublishesAsync();
         await Assert.That(list.Count).IsEqualTo(1);
@@ -22,7 +22,7 @@ public class InMemorySessionStoreTests
         var store = new InMemorySessionStore();
         await store.SavePendingPublishAsync(
             1,
-            new MqttMessage { Topic = "t", Payload = ReadOnlyMemory<byte>.Empty });
+            new MqttMessage { Topic = "t", PayloadMemory = ReadOnlyMemory<byte>.Empty });
         await store.RemovePendingPublishAsync(1);
         var list = await store.ListPendingPublishesAsync();
         await Assert.That(list.Count).IsEqualTo(0);
@@ -36,7 +36,7 @@ public class InMemorySessionStoreTests
         {
             await store.SavePendingPublishAsync(
                 i,
-                new MqttMessage { Topic = "t", Payload = ReadOnlyMemory<byte>.Empty });
+                new MqttMessage { Topic = "t", PayloadMemory = ReadOnlyMemory<byte>.Empty });
         }
         await store.ClearAsync();
         var list = await store.ListPendingPublishesAsync();
@@ -49,10 +49,10 @@ public class InMemorySessionStoreTests
         var store = new InMemorySessionStore();
         await store.SavePendingPublishAsync(
             3,
-            new MqttMessage { Topic = "first", Payload = ReadOnlyMemory<byte>.Empty });
+            new MqttMessage { Topic = "first", PayloadMemory = ReadOnlyMemory<byte>.Empty });
         await store.SavePendingPublishAsync(
             3,
-            new MqttMessage { Topic = "second", Payload = ReadOnlyMemory<byte>.Empty });
+            new MqttMessage { Topic = "second", PayloadMemory = ReadOnlyMemory<byte>.Empty });
         var list = await store.ListPendingPublishesAsync();
         await Assert.That(list.Count).IsEqualTo(1);
         await Assert.That(list[0].Message.Topic).IsEqualTo("second");

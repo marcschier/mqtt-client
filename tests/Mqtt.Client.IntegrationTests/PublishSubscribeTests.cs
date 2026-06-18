@@ -74,7 +74,7 @@ public class PublishSubscribeTests
 
         var received = await sub.Reader.ReadAsync();
         await Assert.That(received.Topic).IsEqualTo("itest/qos0");
-        await Assert.That(received.Payload.Length).IsEqualTo(3);
+        await Assert.That(received.PayloadMemory.Length).IsEqualTo(3);
     }
 
     [Test]

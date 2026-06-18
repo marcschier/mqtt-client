@@ -32,7 +32,7 @@ public sealed class FileSessionStore : IPersistentSessionStore
     {
         if (message is null) throw new ArgumentNullException(nameof(message));
         var topicBytes = Encoding.UTF8.GetBytes(message.Topic);
-        var payload = message.Payload.Span;
+        var payload = message.PayloadMemory.Span;
         var bufLen = 2 + 1 + 2 + topicBytes.Length + 4 + payload.Length;
         var buf = new byte[bufLen];
         var s = buf.AsSpan();
@@ -90,7 +90,7 @@ public sealed class FileSessionStore : IPersistentSessionStore
                 s.Slice(5 + topicLen + 4, payloadLen).CopyTo(payload);
                 list.Add((packetId, new MqttMessage {
                     Topic = topic,
-                    Payload = payload,
+                    PayloadMemory = payload,
                     QoS = qos,
                     Retain = retain }));
             }

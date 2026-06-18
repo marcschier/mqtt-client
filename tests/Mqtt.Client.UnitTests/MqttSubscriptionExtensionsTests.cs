@@ -17,8 +17,8 @@ public class MqttSubscriptionExtensionsTests
         // ChannelReader<T>.ReadAllAsync surface via the Reader directly to avoid coupling to
         // internal construction.
         var sub = TestSubscription.Create("a/b", options);
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a/b", Payload = new byte[] { 1 } });
-        sub.Writer.TryWrite(new MqttMessage { Topic = "a/b", Payload = new byte[] { 2 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a/b", PayloadMemory = new byte[] { 1 } });
+        sub.Writer.TryWrite(new MqttMessage { Topic = "a/b", PayloadMemory = new byte[] { 2 } });
         sub.Writer.TryComplete();
 
         var count = 0;

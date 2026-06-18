@@ -85,7 +85,7 @@ internal static class MqttPacketEncoder
             } finally { wp.Dispose(); }
             }
             writer.WriteString(packet.Will.Topic);
-            writer.WriteBinaryData(packet.Will.Payload.Span);
+            writer.WriteBinaryData(packet.Will.Payload);
         }
         if (packet.Username is not null) writer.WriteString(packet.Username);
         if (packet.Password is not null) writer.WriteBinaryData(packet.Password);
@@ -142,14 +142,14 @@ internal static class MqttPacketEncoder
         var headerLen = writer.WrittenCount - headerStart;
         if (includePayload)
         {
-            writer.WriteBytes(packet.Payload.Span);
+            writer.WriteBytes(packet.Payload);
             writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - headerStart);
         }
         else
         {
             // checked: caller-supplied Payload.Length is untrusted; PatchRemainingLength also
             // enforces the MQTT 268_435_455 cap, but defending in depth here as well.
-            writer.PatchRemainingLength(hdrOffset, checked(headerLen + packet.Payload.Length));
+            writer.PatchRemainingLength(hdrOffset, checked(headerLen + (int)packet.Payload.Length));
         }
     }
 

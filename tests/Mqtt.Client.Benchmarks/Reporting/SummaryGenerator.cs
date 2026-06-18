@@ -163,7 +163,7 @@ public static class SummaryGenerator
         // Pair MQTTnet baseline with Mqtt.Client contender per scenario.
         var sb = new StringBuilder();
         sb.AppendLine(
-            "_Headline rows from the latest BenchmarkDotNet run (payload = 256 B). See `docs/benchmarks.md` for the full matrix._");
+            "_Headline rows from the latest BenchmarkDotNet run (PayloadMemory = 256 B). See `docs/benchmarks.md` for the full matrix._");
         sb.AppendLine();
         sb.AppendLine("| Scenario | Client | Mean | Allocated | Ratio vs MQTTnet |");
         sb.AppendLine("| --- | --- | ---: | ---: | ---: |");

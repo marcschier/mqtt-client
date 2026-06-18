@@ -1,6 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 
 namespace Mqtt.Client;
@@ -31,7 +32,23 @@ public sealed class MqttPublishProperties
 public sealed class MqttLastWill
 {
     public required string Topic { get; init; }
-    public ReadOnlyMemory<byte> Payload { get; init; }
+
+    /// <summary>
+    /// Will payload bytes. May span multiple segments. Set via this property or the
+    /// <see cref="PayloadMemory"/> convenience initializer.
+    /// </summary>
+    public ReadOnlySequence<byte> Payload { get; init; }
+
+    /// <summary>
+    /// Contiguous view of <see cref="Payload"/>, and a convenience initializer that wraps a
+    /// <see cref="ReadOnlyMemory{T}"/> as the will payload.
+    /// </summary>
+    public ReadOnlyMemory<byte> PayloadMemory
+    {
+        get => Payload.IsSingleSegment ? Payload.First : Payload.ToArray();
+        init => Payload = new ReadOnlySequence<byte>(value);
+    }
+
     public MqttQoS QoS { get; init; }
     public bool Retain { get; init; }
     public uint? DelayIntervalSeconds { get; init; }   // v5

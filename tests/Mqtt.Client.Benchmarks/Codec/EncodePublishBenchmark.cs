@@ -33,7 +33,7 @@ public class EncodePublishBenchmark
             Topic = "bench/encode",
             QoS = Mqtt.Client.MqttQoS.AtMostOnce,
             PacketId = 0,
-            Payload = _payload,
+            PayloadMemory = _payload,
         };
         _mqttnetPacket = new MqttPublishPacket
         {
@@ -65,6 +65,6 @@ public class EncodePublishBenchmark
         // Packet+Payload; ours uses EncodePublishHeader + vectored pipe write at runtime).
         using var w = new Mqtt.Client.MqttBufferWriter(128);
         MqttPacketEncoder.EncodePublishHeader(_ourPacket, MqttProtocolVersion.V500, w);
-        return w.WrittenCount + _ourPacket.Payload.Length;
+        return w.WrittenCount + (int)_ourPacket.Payload.Length;
     }
 }

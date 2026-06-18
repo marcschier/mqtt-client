@@ -126,6 +126,16 @@ public sealed class MqttClientOptions
     /// exchange with Protocol Error. Defends against broker-driven loops.
     /// </summary>
     public int MaxAuthRoundTrips { get; set; } = 5;
+
+    /// <summary>
+    /// When true, inbound PUBLISH payloads are copied into buffers rented from the shared
+    /// <see cref="System.Buffers.ArrayPool{T}"/> instead of freshly allocated arrays, eliminating
+    /// per-message GC allocations on the receive path. <see cref="MqttMessage"/> then becomes an
+    /// owner of its pooled buffer: consumers MUST dispose each message after use and MUST NOT
+    /// retain or access its payload afterwards. Default <c>false</c> (payloads are GC-owned and may
+    /// be retained freely).
+    /// </summary>
+    public bool ReuseInboundBuffers { get; set; }
 }
 
 public enum MqttTransportType

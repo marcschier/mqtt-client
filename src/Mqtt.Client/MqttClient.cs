@@ -1,6 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,8 +14,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Mqtt.Client;
 
 /// <summary>
-/// MQTT client. Channels-style API: <see cref="PublishAsync"/> / <see cref="TryPublish"/> for
-/// sending, <see cref="SubscribeAsync"/> returning a <see cref="MqttSubscription"/> with a
+/// MQTT client. Channels-style API: <c>PublishAsync</c> / <c>TryPublish</c> for sending,
+/// <see cref="SubscribeAsync"/> returning a <see cref="MqttSubscription"/> with a
 /// <see cref="System.Threading.Channels.ChannelReader{T}"/> for receiving.
 /// </summary>
 public sealed class MqttClient : IAsyncDisposable
@@ -29,7 +30,7 @@ public sealed class MqttClient : IAsyncDisposable
     private readonly TopicFilterTrie<MqttSubscription> _trie = new();
     private readonly object _subLock = new();
     private readonly PacketIdAllocator _packetIds = new();
-    private readonly ConcurrentDictionary<ushort, TaskCompletionSource<object?>> _pendingAcks
+    private readonly ConcurrentDictionary<ushort, AckCompletionSource> _pendingAcks
         = new();
 
     private readonly ConcurrentDictionary<uint, MqttSubscription> _subsById = new();
@@ -375,11 +376,11 @@ public sealed class MqttClient : IAsyncDisposable
     }
 
     private async Task WriteRawAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct)
-        => await WriteRawAsync(bytes, ReadOnlyMemory<byte>.Empty, ct).ConfigureAwait(false);
+        => await WriteRawAsync(bytes, ReadOnlySequence<byte>.Empty, ct).ConfigureAwait(false);
 
     private async Task WriteRawAsync(
         ReadOnlyMemory<byte> headerBytes,
-        ReadOnlyMemory<byte> payload,
+        ReadOnlySequence<byte> payload,
         CancellationToken ct)
     {
         var output = _transport!.Output;
@@ -388,11 +389,11 @@ public sealed class MqttClient : IAsyncDisposable
             headerBytes.CopyTo(output.GetMemory(headerBytes.Length));
             output.Advance(headerBytes.Length);
         }
-        if (!payload.IsEmpty)
+        // Write each segment in slices that fit the pipe's current segment without forcing a copy
+        // through an intermediate writer; PipeWriter pools segments internally.
+        foreach (var segment in payload)
         {
-            // Write payload in slices that fit the pipe's current segment without forcing a copy
-            // through an intermediate writer; PipeWriter pools segments internally.
-            var remaining = payload;
+            var remaining = segment;
             while (!remaining.IsEmpty)
             {
                 var dst = output.GetMemory(Math.Min(remaining.Length, 16 * 1024));
@@ -456,6 +457,7 @@ public sealed class MqttClient : IAsyncDisposable
                     buffer,
                     _options.ProtocolVersion,
                     _options.MaxIncomingPacketSize,
+                    _options.ReuseInboundBuffers,
                     out var packet,
                     out var firstByte,
                     out var consumed))
@@ -550,7 +552,7 @@ public sealed class MqttClient : IAsyncDisposable
 
     private void CompletePending(ushort packetId, object value)
     {
-        if (_pendingAcks.TryRemove(packetId, out var tcs)) tcs.TrySetResult(value);
+        if (_pendingAcks.TryRemove(packetId, out var waiter)) waiter.TrySetResult(value);
     }
 
     private void FaultPending(Exception ex)
@@ -603,16 +605,6 @@ public sealed class MqttClient : IAsyncDisposable
             }
         }
 
-        var msg = new MqttMessage
-        {
-            Topic = topic,
-            Payload = pub.Payload,
-            QoS = pub.QoS,
-            Retain = pub.Retain,
-            Duplicate = pub.Duplicate,
-            Properties = pub.Properties,
-        };
-
         // QoS1: send PUBACK after handing to subscribers.
         if (pub.QoS == MqttQoS.AtLeastOnce)
         {
@@ -624,6 +616,21 @@ public sealed class MqttClient : IAsyncDisposable
             EnqueuePubRec(pub.PacketId);
         }
 
+        // In the default (GC-owned) mode a single immutable message is shared across all matching
+        // subscriptions. With ReuseInboundBuffers, pub.Payload is a borrowed slice of the pipe
+        // buffer (valid only during this synchronous dispatch), so each subscription receives its
+        // own pooled copy that it owns and returns on dispose — never a shared pooled buffer.
+        var pooling = _options.ReuseInboundBuffers;
+        var shared = pooling ? null : new MqttMessage
+        {
+            Topic = topic,
+            Payload = pub.Payload,
+            QoS = pub.QoS,
+            Retain = pub.Retain,
+            Duplicate = pub.Duplicate,
+            Properties = pub.Properties,
+        };
+
         // MQTT 5 fast-path dispatch: if the broker echoed our SubscriptionIdentifier(s) back,
         // deliver via the id->subscription map and skip trie matching entirely.
         var sids = pub.Properties?.SubscriptionIdentifiers;
@@ -631,23 +638,48 @@ public sealed class MqttClient : IAsyncDisposable
         {
             foreach (var id in sids)
             {
-                if (_subsById.TryGetValue(id, out var sub) && !sub.Writer.TryWrite(msg))
+                if (_subsById.TryGetValue(id, out var sub))
                 {
-                    _ = sub.Writer.WriteAsync(msg).AsTask();
+                    DeliverToSubscription(sub, shared ?? BuildPooledMessage(topic, pub));
                 }
             }
             return;
         }
 
-        _trie.Match(topic, sub =>
+        _trie.Match(
+            topic, sub => DeliverToSubscription(sub, shared ?? BuildPooledMessage(topic, pub)));
+    }
+
+    private static void DeliverToSubscription(MqttSubscription sub, MqttMessage msg)
+    {
+        // Backpressure flows naturally: when Wait mode is selected and full, we block here,
+        // which in turn blocks the read loop and applies TCP backpressure.
+        if (!sub.Writer.TryWrite(msg))
         {
-            // Backpressure flows naturally: when Wait mode is selected and full, we block here,
-            // which in turn blocks the read loop and applies TCP backpressure.
-            if (!sub.Writer.TryWrite(msg))
-            {
-                _ = sub.Writer.WriteAsync(msg).AsTask();
-            }
-        });
+            _ = sub.Writer.WriteAsync(msg).AsTask();
+        }
+    }
+
+    /// <summary>
+    /// Copies a borrowed inbound payload into a freshly rented pooled buffer and wraps it in an
+    /// owning <see cref="MqttMessage"/>. Each matching subscription gets its own copy so there is
+    /// no shared pooled buffer (and therefore no double-return).
+    /// </summary>
+    private static MqttMessage BuildPooledMessage(string topic, PublishPacket pub)
+    {
+        var len = (int)pub.Payload.Length;
+        var rented = ArrayPool<byte>.Shared.Rent(Math.Max(1, len));
+        pub.Payload.CopyTo(rented.AsSpan(0, len));
+        return new MqttMessage
+        {
+            Topic = topic,
+            Payload = new ReadOnlySequence<byte>(rented, 0, len),
+            PooledArray = rented,
+            QoS = pub.QoS,
+            Retain = pub.Retain,
+            Duplicate = pub.Duplicate,
+            Properties = pub.Properties,
+        };
     }
 
     private void EnqueuePubAck(ushort packetId, MqttReasonCode rc)
@@ -764,16 +796,30 @@ public sealed class MqttClient : IAsyncDisposable
     /// <summary>
     /// Publishes a message at the requested QoS. For QoS&gt;0, awaits the ack.
     /// </summary>
-    public async ValueTask<MqttPublishResult> PublishAsync(
+    public ValueTask<MqttPublishResult> PublishAsync(
         string topic,
         ReadOnlyMemory<byte> payload,
         MqttQoS qos = MqttQoS.AtMostOnce,
         bool retain = false,
         MqttPublishProperties? properties = null,
         CancellationToken cancellationToken = default)
+        => PublishAsync(
+            topic, new ReadOnlySequence<byte>(payload), qos, retain, properties, cancellationToken);
+
+    /// <summary>
+    /// Publishes a message whose payload may span multiple buffer segments (e.g. pre-chunked or
+    /// pipelined data) without first concatenating it. For QoS&gt;0, awaits the ack.
+    /// </summary>
+    public async ValueTask<MqttPublishResult> PublishAsync(
+        string topic,
+        ReadOnlySequence<byte> payload,
+        MqttQoS qos = MqttQoS.AtMostOnce,
+        bool retain = false,
+        MqttPublishProperties? properties = null,
+        CancellationToken cancellationToken = default)
     {
         EnsureConnected();
-        MqttLog.Publishing(_logger, topic, qos, payload.Length);
+        MqttLog.Publishing(_logger, topic, qos, (int)payload.Length);
         _metrics.Publishes.Add(1);
 
         ushort packetId = qos == MqttQoS.AtMostOnce ? (ushort)0 : _packetIds.Allocate();
@@ -799,16 +845,13 @@ public sealed class MqttClient : IAsyncDisposable
             return new MqttPublishResult(MqttReasonCode.Success);
         }
 
-        var tcs = new TaskCompletionSource<object?>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingAcks[packetId] = tcs;
-        var sw = Stopwatch.StartNew();
+        var waiter = AckCompletionSource.Rent(cancellationToken);
+        _pendingAcks[packetId] = waiter;
+        var startTs = Stopwatch.GetTimestamp();
         await EnqueueAsync(NewEnvelopeFrom(w, payload), cancellationToken).ConfigureAwait(false);
-        using var reg = cancellationToken.Register(
-            static s => ((TaskCompletionSource<object?>)s!).TrySetCanceled(),
-            tcs);
-        var ack = (PubAckPacket?)await tcs.Task.ConfigureAwait(false);
-        _metrics.PublishAckLatency.Record(sw.Elapsed.TotalMilliseconds);
+        var ack = (PubAckPacket?)await waiter.ValueTask.ConfigureAwait(false);
+        var elapsedMs = (Stopwatch.GetTimestamp() - startTs) * 1000.0 / Stopwatch.Frequency;
+        _metrics.PublishAckLatency.Record(elapsedMs);
         return new MqttPublishResult(ack?.ReasonCode ?? MqttReasonCode.Success, ack?.ReasonString);
     }
 
@@ -821,7 +864,7 @@ public sealed class MqttClient : IAsyncDisposable
         EnsureConnected();
         // For TryPublish we materialise the payload to a pooled byte[] so the envelope can
         // outlive the calling stack frame; the caller's span is not retained.
-        var pooled = System.Buffers.ArrayPool<byte>.Shared.Rent(payload.Length);
+        var pooled = ArrayPool<byte>.Shared.Rent(payload.Length);
         payload.CopyTo(pooled);
         var packet = new PublishPacket
         {
@@ -829,7 +872,7 @@ public sealed class MqttClient : IAsyncDisposable
             QoS = MqttQoS.AtMostOnce,
             Retain = retain,
             PacketId = 0,
-            Payload = new ReadOnlyMemory<byte>(pooled, 0, payload.Length),
+            Payload = new ReadOnlySequence<byte>(pooled, 0, payload.Length),
         };
         var w = new MqttBufferWriter(128);
         MqttPacketEncoder.EncodePublishHeader(packet, _options.ProtocolVersion, w);
@@ -889,14 +932,10 @@ public sealed class MqttClient : IAsyncDisposable
         };
         var w = new MqttBufferWriter(64);
         MqttPacketEncoder.EncodeSubscribe(sp, _options.ProtocolVersion, w);
-        var tcs = new TaskCompletionSource<object?>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingAcks[packetId] = tcs;
+        var waiter = AckCompletionSource.Rent(cancellationToken);
+        _pendingAcks[packetId] = waiter;
         await EnqueueAsync(NewEnvelopeFrom(w), cancellationToken).ConfigureAwait(false);
-        using var reg = cancellationToken.Register(
-            static s => ((TaskCompletionSource<object?>)s!).TrySetCanceled(),
-            tcs);
-        await tcs.Task.ConfigureAwait(false);
+        await waiter.ValueTask.ConfigureAwait(false);
         return sub;
     }
 
@@ -907,23 +946,29 @@ public sealed class MqttClient : IAsyncDisposable
         var u = new UnsubscribePacket { PacketId = packetId, Topics = new[] { topicFilter } };
         var w = new MqttBufferWriter(32);
         MqttPacketEncoder.EncodeUnsubscribe(u, _options.ProtocolVersion, w);
-        var tcs = new TaskCompletionSource<object?>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingAcks[packetId] = tcs;
-        await EnqueueAsync(NewEnvelopeFrom(w), ct).ConfigureAwait(false);
         // Bounded wait so a broker that never acks UNSUBSCRIBE doesn't hang the disposing
         // subscription. Local trie removal already happened; the server-side ack is best-effort.
         // Honor both the caller's ct and a sane timeout, *and* the client-shutdown signal so
         // disposing the client unblocks any pending unsubscribe immediately.
+        using var timeoutCts = new CancellationTokenSource(_options.OperationTimeout);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
             ct,
+            timeoutCts.Token,
             _loopCts?.Token ?? CancellationToken.None);
-        var timeoutTask = Task.Delay(_options.OperationTimeout, linkedCts.Token);
-        var completed = await Task.WhenAny(tcs.Task, timeoutTask).ConfigureAwait(false);
-        if (completed == timeoutTask)
+        var waiter = AckCompletionSource.Rent(linkedCts.Token);
+        _pendingAcks[packetId] = waiter;
+        await EnqueueAsync(NewEnvelopeFrom(w), ct).ConfigureAwait(false);
+        try
         {
-            _pendingAcks.TryRemove(packetId, out _);
-            _packetIds.Release(packetId);
+            await waiter.ValueTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Timed out or client shutdown — best-effort, give up the server-side ack.
+            if (_pendingAcks.TryRemove(packetId, out _))
+            {
+                _packetIds.Release(packetId);
+            }
         }
     }
 
@@ -1078,7 +1123,7 @@ public sealed class MqttClient : IAsyncDisposable
 
     private static OutboundEnvelope NewEnvelopeFrom(
         MqttBufferWriter writer,
-        ReadOnlyMemory<byte> payload,
+        ReadOnlySequence<byte> payload,
         byte[]? pooledPayload = null,
         bool clearOnReturn = false)
         => new(writer, payload, pooledPayload, clearOnReturn);
@@ -1090,14 +1135,14 @@ public sealed class MqttClient : IAsyncDisposable
         {
             _writer = writer;
             Bytes = writer.WrittenMemory;
-            Payload = ReadOnlyMemory<byte>.Empty;
+            Payload = ReadOnlySequence<byte>.Empty;
             PooledPayload = null;
             ClearOnReturn = false;
             OnSent = null;
         }
         public OutboundEnvelope(
             MqttBufferWriter writer,
-            ReadOnlyMemory<byte> payload,
+            ReadOnlySequence<byte> payload,
             byte[]? pooledPayload = null,
             bool clearOnReturn = false,
             TaskCompletionSource<object?>? onSent = null)
@@ -1110,7 +1155,7 @@ public sealed class MqttClient : IAsyncDisposable
             OnSent = onSent;
         }
         public ReadOnlyMemory<byte> Bytes { get; }
-        public ReadOnlyMemory<byte> Payload { get; }
+        public ReadOnlySequence<byte> Payload { get; }
         public byte[]? PooledPayload { get; }
         public bool ClearOnReturn { get; }
         public TaskCompletionSource<object?>? OnSent { get; }
@@ -1119,7 +1164,7 @@ public sealed class MqttClient : IAsyncDisposable
             _writer.Dispose();
             if (PooledPayload is not null)
             {
-                System.Buffers.ArrayPool<byte>.Shared
+                ArrayPool<byte>.Shared
                     .Return(PooledPayload, clearArray: ClearOnReturn);
             }
         }

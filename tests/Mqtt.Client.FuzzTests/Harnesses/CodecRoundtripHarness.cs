@@ -26,7 +26,7 @@ internal static class CodecRoundtripHarness
             Topic = "fuzz/roundtrip",
             QoS = qos,
             PacketId = qos == MqttQoS.AtMostOnce ? (ushort)0 : (ushort)42,
-            Payload = payload,
+            PayloadMemory = payload,
         };
 
         using var writer = new MqttBufferWriter(payload.Length + 32);
@@ -43,8 +43,8 @@ internal static class CodecRoundtripHarness
         }
         if (decoded is not PublishPacket d ||
             d.Topic != "fuzz/roundtrip" ||
-            d.Payload.Length != payload.Length ||
-            !d.Payload.Span.SequenceEqual(payload))
+            (int)d.Payload.Length != payload.Length ||
+            !d.Payload.FirstSpan.SequenceEqual(payload))
         {
             throw new InvalidOperationException("Roundtrip mismatch.");
         }

@@ -36,7 +36,7 @@ public class MqttClientBuilderAdditionalTests
     [Test]
     public async Task With_methods_chain_fluently()
     {
-        var will = new MqttLastWill { Topic = "lw", Payload = ReadOnlyMemory<byte>.Empty };
+        var will = new MqttLastWill { Topic = "lw", PayloadMemory = ReadOnlyMemory<byte>.Empty };
         var policy = MqttReconnectPolicy.Fixed(TimeSpan.FromSeconds(1));
         var c = MqttClient.CreateBuilder()
             .ConnectTo("mqtt://broker")
