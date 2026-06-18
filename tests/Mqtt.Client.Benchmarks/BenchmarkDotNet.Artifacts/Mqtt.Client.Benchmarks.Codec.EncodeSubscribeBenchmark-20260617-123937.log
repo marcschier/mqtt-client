@@ -1,7 +1,0 @@
-// Validating benchmarks:
-// Benchmark EncodeSubscribeBenchmark.MQTTnet: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
-//    * ThreadingDiagnoser supports only .NET Core 3.0+
-
-// Benchmark EncodeSubscribeBenchmark.Mqtt.Client: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)
-//    * ThreadingDiagnoser supports only .NET Core 3.0+
-

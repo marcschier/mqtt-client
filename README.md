@@ -40,6 +40,29 @@ await foreach (var msg in sub.Reader.ReadAllAsync())
 await client.PublishAsync("commands/svc-1", "ping"u8.ToArray());
 ```
 
+**Low-allocation extras**
+
+```csharp
+// Publish a payload that's already split across buffers — no concatenation needed.
+ReadOnlySequence<byte> framed = BuildFramedPayload();
+await client.PublishAsync("telemetry", framed, MqttQoS.AtLeastOnce);
+
+// Opt into pooled inbound buffers for zero-GC receive paths. MqttMessage then owns a pooled
+// buffer: dispose each message after use and don't retain its payload afterwards.
+var client = MqttClient.CreateBuilder()
+    .ConnectTo("mqtt://broker:1883")
+    .Configure(o => o.ReuseInboundBuffers = true)
+    .Build();
+
+await foreach (var msg in sub.Reader.ReadAllAsync())
+{
+    using (msg)                       // returns the pooled buffer
+    {
+        Process(msg.PayloadMemory.Span);
+    }
+}
+```
+
 ## 📚 Documentation
 
 - [Quickstart](docs/quickstart.md)
@@ -110,6 +133,8 @@ _Headline rows from the latest BenchmarkDotNet ShortRun. Hardware: Intel Xeon W-
 | 64 KB | 907.1 µs | **324.9 µs** | **0.36×** | 263.0 KB | **196.1 KB** | **0.75×** |
 
 The remaining `> 1.0×` rows are within ShortRun noise (16 KB QoS 0 has stdev > 3 µs on a 55 µs mean) or one-time Connect overhead from Pipelines initialisation. Full matrix in [docs/benchmarks.md](docs/benchmarks.md).
+
+**Allocation reductions in `[Unreleased]`** — a pooled `IValueTaskSource` ack waiter replaced the per-operation `TaskCompletionSource`/`Task` for QoS > 0 publishes and subscribe/unsubscribe, lowering allocations on those paths (256 B QoS 1 ≈ 3.10 → 2.91 KB, QoS 2 ≈ 4.72 → 4.45 KB on the same hardware). Setting `ReuseInboundBuffers = true` additionally removes the per-message payload allocation on the receive path by renting from `ArrayPool<byte>` (consumers then dispose each `MqttMessage`).
 
 Both libraries are MIT-licensed; the goal of these benchmarks is to make tradeoffs visible, not to declare a winner.
 <!-- benchmarks:end -->

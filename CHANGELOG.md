@@ -8,6 +8,28 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ### Added
 - `tests/README.md`, `src/README.md` — per-folder content guides.
+- `PublishAsync(string, ReadOnlySequence<byte>, …)` overload — publish payloads that span
+  multiple buffer segments (pre-chunked / pipelined data) without first concatenating them.
+- `MqttMessage.PayloadMemory` and `MqttLastWill.PayloadMemory` — contiguous `ReadOnlyMemory<byte>`
+  views and convenience initializers over the new sequence-typed `Payload`.
+- `MqttClientOptions.ReuseInboundBuffers` (default `false`) — opt-in pooling of inbound PUBLISH
+  payloads via `ArrayPool<byte>`. `MqttMessage` then implements `IDisposable`; in this mode each
+  message owns a pooled buffer that callers must dispose (and not retain) after use.
+
+### Changed
+- **API (breaking, pre-1.0):** the default payload type is now `ReadOnlySequence<byte>`.
+  `MqttMessage.Payload` and `MqttLastWill.Payload` changed from `ReadOnlyMemory<byte>` to
+  `ReadOnlySequence<byte>`; the `ReadOnlyMemory<byte>` form is available via the `PayloadMemory`
+  property/initializer and the `PublishAsync(ReadOnlyMemory<byte>)` overload (unchanged signature).
+- QoS > 0 publish, SUBSCRIBE and UNSUBSCRIBE acks now await a pooled `IValueTaskSource`
+  (`AckCompletionSource`) instead of allocating a `TaskCompletionSource<object?>` + `Task` per
+  operation. Publish-ack latency timing uses `Stopwatch.GetTimestamp()` (no `Stopwatch` allocation).
+
+### Notes
+- No new third-party dependency: the pooling/`IValueTaskSource` techniques (inspired by
+  [.NEXT](https://github.com/dotnet/dotNext)) are implemented on BCL primitives
+  (`ManualResetValueTaskSourceCore<T>`, `ArrayPool<T>`, `ReadOnlySequence<T>`) that are available on
+  every target framework (incl. `netstandard2.1`) and NativeAOT-clean.
 
 ## [0.9.3] — 2026-06-17
 

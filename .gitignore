@@ -30,3 +30,6 @@ coverage/
 nupkg/
 *.nupkg
 *.snupkg
+
+# BenchmarkDotNet generated output
+BenchmarkDotNet.Artifacts/
