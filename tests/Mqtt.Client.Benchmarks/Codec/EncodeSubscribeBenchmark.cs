@@ -35,12 +35,18 @@ public class EncodeSubscribeBenchmark
             PacketIdentifier = 1,
             TopicFilters =
             {
-                new MqttTopicFilter { Topic = "sensors/+/temp", QualityOfServiceLevel = MqttnetQoS.AtLeastOnce },
-                new MqttTopicFilter { Topic = "commands/#", QualityOfServiceLevel = MqttnetQoS.AtMostOnce },
+                new MqttTopicFilter {
+                    Topic = "sensors/+/temp",
+                    QualityOfServiceLevel = MqttnetQoS.AtLeastOnce },
+                new MqttTopicFilter {
+                    Topic = "commands/#",
+                    QualityOfServiceLevel = MqttnetQoS.AtMostOnce },
             },
         };
         _mqttnetBuf = new MQTTnet.Formatter.MqttBufferWriter(64, 4096);
-        _mqttnetFormatter = new MqttPacketFormatterAdapter(MqttnetProtocolVersion.V500, _mqttnetBuf);
+        _mqttnetFormatter = new MqttPacketFormatterAdapter(
+            MqttnetProtocolVersion.V500,
+            _mqttnetBuf);
     }
 
     [Benchmark(Baseline = true, Description = "MQTTnet")]

@@ -45,6 +45,6 @@ dotnet_diagnostic.RCS1194.severity = none
 # RCS1261 — IDisposable→IAsyncDisposable: our pooled writer is genuinely sync (returns to ArrayPool).
 dotnet_diagnostic.RCS1261.severity = none
 
-# Formatting: 140-char line limit (RCS0056) enforced at error severity.
-roslynator_max_line_length = 140
+# Formatting: 100-char line limit (RCS0056) enforced at error severity.
+roslynator_max_line_length = 100
 dotnet_diagnostic.RCS0056.severity = error

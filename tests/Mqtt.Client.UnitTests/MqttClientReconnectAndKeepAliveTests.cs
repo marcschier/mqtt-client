@@ -7,7 +7,9 @@ namespace Mqtt.Client.UnitTests;
 
 public class MqttClientReconnectAndKeepAliveTests
 {
-    private static (MqttClient Client, FakeTransportFactory Factory) Build(MqttReconnectPolicy? policy, ushort keepAliveSeconds = 0)
+    private static (MqttClient Client, FakeTransportFactory Factory) Build(
+        MqttReconnectPolicy? policy,
+        ushort keepAliveSeconds = 0)
     {
         var factory = new FakeTransportFactory();
         var client = new MqttClient(new MqttClientOptions
@@ -44,7 +46,8 @@ public class MqttClientReconnectAndKeepAliveTests
         await broker.SendConnAckAsync(ct: ct);
         await connectTask;
 
-        var tcs = new TaskCompletionSource<MqttDisconnectedEventArgs>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<MqttDisconnectedEventArgs>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         client.Disconnected += (s, e) => tcs.TrySetResult(e);
 
         // Simulate broker tearing down the pipe.
@@ -58,7 +61,8 @@ public class MqttClientReconnectAndKeepAliveTests
     [Timeout(5_000)]
     public async Task KeepAlive_sends_PINGREQ_at_interval(CancellationToken ct)
     {
-        var (client, factory) = Build(policy: null, keepAliveSeconds: 1);  // -> PINGREQ every ~800ms
+        // -> PINGREQ every ~800ms
+        var (client, factory) = Build(policy: null, keepAliveSeconds: 1);
         await using var _0 = client;
         var broker = new FakeBroker(factory.Transport);
         var connectTask = client.ConnectAsync(ct);

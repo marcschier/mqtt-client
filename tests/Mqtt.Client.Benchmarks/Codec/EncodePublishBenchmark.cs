@@ -45,8 +45,12 @@ public class EncodePublishBenchmark
             QualityOfServiceLevel = MqttnetQoS.AtMostOnce,
             PayloadSegment = new ArraySegment<byte>(_payload),
         };
-        _mqttnetBuf = new MQTTnet.Formatter.MqttBufferWriter(PayloadSize + 64, PayloadSize * 2 + 1024);
-        _mqttnetFormatter = new MqttPacketFormatterAdapter(MqttnetProtocolVersion.V500, _mqttnetBuf);
+        _mqttnetBuf = new MQTTnet.Formatter.MqttBufferWriter(
+            PayloadSize + 64,
+            PayloadSize * 2 + 1024);
+        _mqttnetFormatter = new MqttPacketFormatterAdapter(
+            MqttnetProtocolVersion.V500,
+            _mqttnetBuf);
     }
 
     [Benchmark(Baseline = true, Description = "MQTTnet")]

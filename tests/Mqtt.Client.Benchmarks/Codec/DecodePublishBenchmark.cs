@@ -68,7 +68,12 @@ public class DecodePublishBenchmark
     [Benchmark(Description = "Mqtt.Client")]
     public object? MqttClient_Decode()
     {
-        MqttPacketDecoder.TryDecode(_encodedSequence, MqttProtocolVersion.V500, out var packet, out _, out _);
+        MqttPacketDecoder.TryDecode(
+            _encodedSequence,
+            MqttProtocolVersion.V500,
+            out var packet,
+            out _,
+            out _);
         return packet;
     }
 }

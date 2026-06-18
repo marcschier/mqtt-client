@@ -42,20 +42,28 @@ internal static class MqttPacketEncoder
         if (v5)
         {
             var props = new MqttBufferWriter(64); try {
-            if (packet.SessionExpiryInterval is { } se) { props.WriteByte((byte)MqttPropertyId.SessionExpiryInterval); props
+            if (packet.SessionExpiryInterval is { } se) { props.WriteByte(
+                (byte)MqttPropertyId.SessionExpiryInterval); props
                 .WriteUInt32BigEndian(se); }
-            if (packet.ReceiveMaximum is { } rm) { props.WriteByte((byte)MqttPropertyId.ReceiveMaximum); props.WriteUInt16BigEndian(rm); }
-            if (packet.MaximumPacketSize is { } mp) { props.WriteByte((byte)MqttPropertyId.MaximumPacketSize); props.WriteUInt32BigEndian(
+            if (packet.ReceiveMaximum is { } rm) { props.WriteByte(
+                (byte)MqttPropertyId.ReceiveMaximum); props.WriteUInt16BigEndian(rm); }
+            if (packet.MaximumPacketSize is { } mp) { props.WriteByte(
+                (byte)MqttPropertyId.MaximumPacketSize); props.WriteUInt32BigEndian(
                 mp); }
-            if (packet.TopicAliasMaximum is { } ta) { props.WriteByte((byte)MqttPropertyId.TopicAliasMaximum); props.WriteUInt16BigEndian(
+            if (packet.TopicAliasMaximum is { } ta) { props.WriteByte(
+                (byte)MqttPropertyId.TopicAliasMaximum); props.WriteUInt16BigEndian(
                 ta); }
-            if (packet.RequestResponseInformation is { } rri) { props.WriteByte((byte)MqttPropertyId.RequestResponseInformation); props
+            if (packet.RequestResponseInformation is { } rri) { props.WriteByte(
+                (byte)MqttPropertyId.RequestResponseInformation); props
                 .WriteByte((byte)(rri ? 1 : 0)); }
-            if (packet.RequestProblemInformation is { } rpi) { props.WriteByte((byte)MqttPropertyId.RequestProblemInformation); props
+            if (packet.RequestProblemInformation is { } rpi) { props.WriteByte(
+                (byte)MqttPropertyId.RequestProblemInformation); props
                 .WriteByte((byte)(rpi ? 1 : 0)); }
-            if (packet.AuthenticationMethod is { } am) { props.WriteByte((byte)MqttPropertyId.AuthenticationMethod); props.WriteString(
+            if (packet.AuthenticationMethod is { } am) { props.WriteByte(
+                (byte)MqttPropertyId.AuthenticationMethod); props.WriteString(
                 am); }
-            if (packet.AuthenticationData is { } ad) { props.WriteByte((byte)MqttPropertyId.AuthenticationData); props.WriteBinaryData(
+            if (packet.AuthenticationData is { } ad) { props.WriteByte(
+                (byte)MqttPropertyId.AuthenticationData); props.WriteBinaryData(
                 ad); }
             WriteUserProperties(props, packet.UserProperties);
             writer.WriteVarInt((uint)props.WrittenCount);
@@ -69,7 +77,8 @@ internal static class MqttPacketEncoder
             if (v5)
             {
                 var wp = new MqttBufferWriter(32); try {
-                if (packet.Will.DelayIntervalSeconds is { } d) { wp.WriteByte((byte)MqttPropertyId.WillDelayInterval); wp
+                if (packet.Will.DelayIntervalSeconds is { } d) { wp.WriteByte(
+                    (byte)MqttPropertyId.WillDelayInterval); wp
                     .WriteUInt32BigEndian(d); }
                 if (packet.Will.Properties is { } wprops) WritePublishProperties(wp, wprops);
                 writer.WriteVarInt((uint)wp.WrittenCount);
@@ -85,7 +94,10 @@ internal static class MqttPacketEncoder
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodePublish(PublishPacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+    public static void EncodePublish(
+        PublishPacket packet,
+        MqttProtocolVersion version,
+        MqttBufferWriter writer)
         => EncodePublishCore(packet, version, writer, includePayload: true);
 
     /// <summary>
@@ -93,10 +105,17 @@ internal static class MqttPacketEncoder
     /// remaining-length field is patched as if the payload had been written. Use together with a
     /// vectored write of the actual payload to avoid copying large payloads through the writer.
     /// </summary>
-    public static void EncodePublishHeader(PublishPacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+    public static void EncodePublishHeader(
+        PublishPacket packet,
+        MqttProtocolVersion version,
+        MqttBufferWriter writer)
         => EncodePublishCore(packet, version, writer, includePayload: false);
 
-    private static void EncodePublishCore(PublishPacket packet, MqttProtocolVersion version, MqttBufferWriter writer, bool includePayload)
+    private static void EncodePublishCore(
+        PublishPacket packet,
+        MqttProtocolVersion version,
+        MqttBufferWriter writer,
+        bool includePayload)
     {
         var v5 = version == MqttProtocolVersion.V500;
         byte firstByte = (byte)((byte)MqttPacketType.Publish << 4);
@@ -137,20 +156,30 @@ internal static class MqttPacketEncoder
 
     private static void WritePublishProperties(MqttBufferWriter p, MqttPublishProperties pp)
     {
-        if (pp.PayloadFormatIndicator is { } pfi) { p.WriteByte((byte)MqttPropertyId.PayloadFormatIndicator); p.WriteByte(pfi); }
-        if (pp.MessageExpiryInterval is { } me) { p.WriteByte((byte)MqttPropertyId.MessageExpiryInterval); p.WriteUInt32BigEndian(me); }
-        if (pp.TopicAlias is { } ta) { p.WriteByte((byte)MqttPropertyId.TopicAlias); p.WriteUInt16BigEndian(ta); }
-        if (pp.ResponseTopic is { } rt) { p.WriteByte((byte)MqttPropertyId.ResponseTopic); p.WriteString(rt); }
-        if (pp.CorrelationData is { } cd) { p.WriteByte((byte)MqttPropertyId.CorrelationData); p.WriteBinaryData(cd.Span); }
-        if (pp.ContentType is { } ct) { p.WriteByte((byte)MqttPropertyId.ContentType); p.WriteString(ct); }
+        if (pp.PayloadFormatIndicator is { } pfi) { p.WriteByte(
+            (byte)MqttPropertyId.PayloadFormatIndicator); p.WriteByte(pfi); }
+        if (pp.MessageExpiryInterval is { } me) { p.WriteByte(
+            (byte)MqttPropertyId.MessageExpiryInterval); p.WriteUInt32BigEndian(me); }
+        if (pp.TopicAlias is { } ta) { p.WriteByte((byte)MqttPropertyId.TopicAlias); p
+            .WriteUInt16BigEndian(ta); }
+        if (pp.ResponseTopic is { } rt) { p.WriteByte((byte)MqttPropertyId.ResponseTopic); p
+            .WriteString(rt); }
+        if (pp.CorrelationData is { } cd) { p.WriteByte((byte)MqttPropertyId.CorrelationData); p
+            .WriteBinaryData(cd.Span); }
+        if (pp.ContentType is { } ct) { p.WriteByte((byte)MqttPropertyId.ContentType); p
+            .WriteString(ct); }
         if (pp.SubscriptionIdentifiers is { } sids)
         {
-            foreach (var id in sids) { p.WriteByte((byte)MqttPropertyId.SubscriptionIdentifier); p.WriteVarInt(id); }
+            foreach (var id in sids) { p.WriteByte((byte)MqttPropertyId.SubscriptionIdentifier); p
+                .WriteVarInt(id); }
         }
         WriteUserProperties(p, pp.UserProperties);
     }
 
-    public static void EncodePubAck(PubAckPacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+    public static void EncodePubAck(
+        PubAckPacket packet,
+        MqttProtocolVersion version,
+        MqttBufferWriter writer)
         => EncodeAckLike(
             MqttPacketType.PubAck,
             packet.PacketId,
@@ -159,11 +188,31 @@ internal static class MqttPacketEncoder
             packet.UserProperties,
             version,
             writer);
-    public static void EncodePubRec(ushort packetId, MqttReasonCode rc, MqttProtocolVersion v, MqttBufferWriter w)
+    public static void EncodePubRec(
+        ushort packetId,
+        MqttReasonCode rc,
+        MqttProtocolVersion v,
+        MqttBufferWriter w)
         => EncodeAckLike(MqttPacketType.PubRec, packetId, rc, null, null, v, w);
-    public static void EncodePubRel(ushort packetId, MqttReasonCode rc, MqttProtocolVersion v, MqttBufferWriter w)
-        => EncodeAckLike(MqttPacketType.PubRel, packetId, rc, null, null, v, w, fixedHeaderFlags: 0x02);
-    public static void EncodePubComp(ushort packetId, MqttReasonCode rc, MqttProtocolVersion v, MqttBufferWriter w)
+    public static void EncodePubRel(
+        ushort packetId,
+        MqttReasonCode rc,
+        MqttProtocolVersion v,
+        MqttBufferWriter w)
+        => EncodeAckLike(
+            MqttPacketType.PubRel,
+            packetId,
+            rc,
+            null,
+            null,
+            v,
+            w,
+            fixedHeaderFlags: 0x02);
+    public static void EncodePubComp(
+        ushort packetId,
+        MqttReasonCode rc,
+        MqttProtocolVersion v,
+        MqttBufferWriter w)
         => EncodeAckLike(MqttPacketType.PubComp, packetId, rc, null, null, v, w);
 
     private static void EncodeAckLike(
@@ -187,7 +236,8 @@ internal static class MqttPacketEncoder
             var props = new MqttBufferWriter(16);
             try
             {
-                if (!string.IsNullOrEmpty(reasonString)) { props.WriteByte((byte)MqttPropertyId.ReasonString); props.WriteString(
+                if (!string.IsNullOrEmpty(reasonString)) { props.WriteByte(
+                    (byte)MqttPropertyId.ReasonString); props.WriteString(
                     reasonString!); }
                 WriteUserProperties(props, userProps);
                 if (props.WrittenCount > 0)
@@ -201,7 +251,10 @@ internal static class MqttPacketEncoder
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodeSubscribe(SubscribePacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+    public static void EncodeSubscribe(
+        SubscribePacket packet,
+        MqttProtocolVersion version,
+        MqttBufferWriter writer)
     {
         var v5 = version == MqttProtocolVersion.V500;
         const byte firstByte = (byte)(((byte)MqttPacketType.Subscribe << 4) | 0x02);
@@ -212,7 +265,8 @@ internal static class MqttPacketEncoder
         if (v5)
         {
             var props = new MqttBufferWriter(16); try {
-            if (packet.SubscriptionIdentifier is { } sid) { props.WriteByte((byte)MqttPropertyId.SubscriptionIdentifier); props.WriteVarInt(
+            if (packet.SubscriptionIdentifier is { } sid) { props.WriteByte(
+                (byte)MqttPropertyId.SubscriptionIdentifier); props.WriteVarInt(
                 sid); }
             WriteUserProperties(props, packet.UserProperties);
             writer.WriteVarInt((uint)props.WrittenCount);
@@ -234,7 +288,10 @@ internal static class MqttPacketEncoder
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodeUnsubscribe(UnsubscribePacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+    public static void EncodeUnsubscribe(
+        UnsubscribePacket packet,
+        MqttProtocolVersion version,
+        MqttBufferWriter writer)
     {
         var v5 = version == MqttProtocolVersion.V500;
         const byte firstByte = (byte)(((byte)MqttPacketType.Unsubscribe << 4) | 0x02);
@@ -259,7 +316,10 @@ internal static class MqttPacketEncoder
         writer.WriteByte(0);
     }
 
-    public static void EncodeDisconnect(DisconnectPacket packet, MqttProtocolVersion version, MqttBufferWriter writer)
+    public static void EncodeDisconnect(
+        DisconnectPacket packet,
+        MqttProtocolVersion version,
+        MqttBufferWriter writer)
     {
         var v5 = version == MqttProtocolVersion.V500;
         const byte firstByte = (byte)((byte)MqttPacketType.Disconnect << 4);
@@ -275,11 +335,14 @@ internal static class MqttPacketEncoder
         var props = new MqttBufferWriter(16);
         try
         {
-            if (packet.SessionExpiryInterval is { } se) { props.WriteByte((byte)MqttPropertyId.SessionExpiryInterval); props
+            if (packet.SessionExpiryInterval is { } se) { props.WriteByte(
+                (byte)MqttPropertyId.SessionExpiryInterval); props
                 .WriteUInt32BigEndian(se); }
-            if (!string.IsNullOrEmpty(packet.ReasonString)) { props.WriteByte((byte)MqttPropertyId.ReasonString); props.WriteString(
+            if (!string.IsNullOrEmpty(packet.ReasonString)) { props.WriteByte(
+                (byte)MqttPropertyId.ReasonString); props.WriteString(
                 packet.ReasonString!); }
-            if (!string.IsNullOrEmpty(packet.ServerReference)) { props.WriteByte((byte)MqttPropertyId.ServerReference); props.WriteString(
+            if (!string.IsNullOrEmpty(packet.ServerReference)) { props.WriteByte(
+                (byte)MqttPropertyId.ServerReference); props.WriteString(
                 packet.ServerReference!); }
             WriteUserProperties(props, packet.UserProperties);
             if (props.WrittenCount > 0)
@@ -299,9 +362,12 @@ internal static class MqttPacketEncoder
         var payloadStart = writer.WrittenCount;
         writer.WriteByte((byte)packet.ReasonCode);
         var props = new MqttBufferWriter(32); try {
-        if (packet.AuthenticationMethod is { } am) { props.WriteByte((byte)MqttPropertyId.AuthenticationMethod); props.WriteString(am); }
-        if (packet.AuthenticationData is { } ad) { props.WriteByte((byte)MqttPropertyId.AuthenticationData); props.WriteBinaryData(ad); }
-        if (!string.IsNullOrEmpty(packet.ReasonString)) { props.WriteByte((byte)MqttPropertyId.ReasonString); props.WriteString(
+        if (packet.AuthenticationMethod is { } am) { props.WriteByte(
+            (byte)MqttPropertyId.AuthenticationMethod); props.WriteString(am); }
+        if (packet.AuthenticationData is { } ad) { props.WriteByte(
+            (byte)MqttPropertyId.AuthenticationData); props.WriteBinaryData(ad); }
+        if (!string.IsNullOrEmpty(packet.ReasonString)) { props.WriteByte(
+            (byte)MqttPropertyId.ReasonString); props.WriteString(
             packet.ReasonString!); }
         WriteUserProperties(props, packet.UserProperties);
         writer.WriteVarInt((uint)props.WrittenCount);
@@ -310,7 +376,9 @@ internal static class MqttPacketEncoder
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    private static void WriteUserProperties(MqttBufferWriter p, IReadOnlyList<MqttUserProperty>? userProps)
+    private static void WriteUserProperties(
+        MqttBufferWriter p,
+        IReadOnlyList<MqttUserProperty>? userProps)
     {
         if (userProps is null) return;
         for (var i = 0; i < userProps.Count; i++)

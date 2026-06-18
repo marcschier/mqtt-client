@@ -67,7 +67,8 @@ public class ExceptionsAndEventArgsTests
     public async Task MqttPublishResult_IsSuccess_for_low_reason_codes()
     {
         await Assert.That(new MqttPublishResult(MqttReasonCode.Success).IsSuccess).IsTrue();
-        await Assert.That(new MqttPublishResult(MqttReasonCode.NoMatchingSubscribers).IsSuccess).IsTrue();
+        await Assert.That(new MqttPublishResult(MqttReasonCode.NoMatchingSubscribers).IsSuccess)
+            .IsTrue();
         await Assert.That(new MqttPublishResult(MqttReasonCode.NotAuthorized).IsSuccess).IsFalse();
     }
 }

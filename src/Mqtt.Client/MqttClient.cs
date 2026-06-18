@@ -21,8 +21,8 @@ using Mqtt.Client.Transport;
 namespace Mqtt.Client;
 
 /// <summary>
-/// MQTT client. Channels-style API: <see cref="PublishAsync"/>/<see cref="TryPublish"/> for sending,
-/// <see cref="SubscribeAsync"/> returning a <see cref="MqttSubscription"/> with a
+/// MQTT client. Channels-style API: <see cref="PublishAsync"/> / <see cref="TryPublish"/> for
+/// sending, <see cref="SubscribeAsync"/> returning a <see cref="MqttSubscription"/> with a
 /// <see cref="System.Threading.Channels.ChannelReader{T}"/> for receiving.
 /// </summary>
 public sealed class MqttClient : IAsyncDisposable
@@ -37,7 +37,8 @@ public sealed class MqttClient : IAsyncDisposable
     private readonly TopicFilterTrie<MqttSubscription> _trie = new();
     private readonly object _subLock = new();
     private readonly PacketIdAllocator _packetIds = new();
-    private readonly ConcurrentDictionary<ushort, TaskCompletionSource<object?>> _pendingAcks = new();
+    private readonly ConcurrentDictionary<ushort, TaskCompletionSource<object?>> _pendingAcks
+        = new();
 
     private readonly ConcurrentDictionary<uint, MqttSubscription> _subsById = new();
     private int _nextSubId;
@@ -73,7 +74,10 @@ public sealed class MqttClient : IAsyncDisposable
         StateChanged?.Invoke(this, newState);
     }
 
-    public MqttClient(MqttClientOptions options, ILoggerFactory? loggerFactory = null, IPersistentSessionStore? persistence = null)
+    public MqttClient(
+        MqttClientOptions options,
+        ILoggerFactory? loggerFactory = null,
+        IPersistentSessionStore? persistence = null)
         : this(options, transportFactory: null, loggerFactory, persistence) { }
 
     /// <summary>
@@ -112,7 +116,10 @@ public sealed class MqttClient : IAsyncDisposable
         return o.Transport switch
         {
             MqttTransportType.Tcp => new TcpTransportFactory(o.Host, o.Port, pauseThreshold),
-            MqttTransportType.Tls => new TlsTransportFactory(o.Host, o.Port, ApplySecureTlsDefaults(o.Tls, o.Host)),
+            MqttTransportType.Tls => new TlsTransportFactory(
+                o.Host,
+                o.Port,
+                ApplySecureTlsDefaults(o.Tls, o.Host)),
             MqttTransportType.WebSocket => new WebSocketTransportFactory(
                 new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{wsPath}")),
             MqttTransportType.WebSocketSecure => new WebSocketTransportFactory(
@@ -122,14 +129,16 @@ public sealed class MqttClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// Returns secure defaults for <see cref="System.Net.Security.SslClientAuthenticationOptions"/>:
+    /// Returns secure defaults for
+    /// <see cref="System.Net.Security.SslClientAuthenticationOptions"/>:
     /// TLS 1.2 minimum, CRL checking enabled, default OS chain validation (never disabled
     /// silently). Callers can still override every field via <see cref="MqttClientOptions.Tls"/>.
     /// </summary>
     private static System.Net.Security.SslClientAuthenticationOptions ApplySecureTlsDefaults(
         System.Net.Security.SslClientAuthenticationOptions? src, string host)
     {
-        var tls = src ?? new System.Net.Security.SslClientAuthenticationOptions { TargetHost = host };
+        var tls = src ?? new System.Net.Security.SslClientAuthenticationOptions {
+            TargetHost = host };
         if (string.IsNullOrEmpty(tls.TargetHost))
         {
             tls.TargetHost = host;
@@ -141,13 +150,16 @@ public sealed class MqttClient : IAsyncDisposable
             tls.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
 #else
             tls.EnabledSslProtocols =
-                System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+                System.Security.Authentication.SslProtocols.Tls12
+                    | System.Security.Authentication.SslProtocols.Tls13;
 #endif
 #pragma warning restore CA5398
         }
-        if (tls.CertificateRevocationCheckMode == System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck)
+        if (tls.CertificateRevocationCheckMode
+            == System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck)
         {
-            tls.CertificateRevocationCheckMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.Online;
+            tls.CertificateRevocationCheckMode
+                = System.Security.Cryptography.X509Certificates.X509RevocationMode.Online;
         }
         return tls;
     }
@@ -163,19 +175,27 @@ public sealed class MqttClient : IAsyncDisposable
         }
         Volatile.Write(ref _manualDisconnect, 0);
 
-        MqttLog.Connecting(_logger, $"{_options.Host}:{_options.Port}", _options.ProtocolVersion, _options.ClientId);
+        MqttLog.Connecting(
+            _logger,
+            $"{_options.Host}:{_options.Port}",
+            _options.ProtocolVersion,
+            _options.ClientId);
         try
         {
-            _transport = await _transportFactory.ConnectAsync(cancellationToken).ConfigureAwait(false);
+            _transport = await _transportFactory.ConnectAsync(cancellationToken)
+                .ConfigureAwait(false);
             _loopCts = new CancellationTokenSource();
 
             // Capture handler-supplied initial AUTH payload before encoding CONNECT.
             _initialAuthMethod = null;
             _initialAuthData = null;
-            var handler = _options.ProtocolVersion == MqttProtocolVersion.V500 ? _options.AuthenticationHandler : null;
+            var handler = _options.ProtocolVersion == MqttProtocolVersion.V500
+                ? _options.AuthenticationHandler
+                : null;
             if (handler is not null)
             {
-                var first = await handler.ContinueAsync(null, cancellationToken).ConfigureAwait(false);
+                var first = await handler.ContinueAsync(null, cancellationToken)
+                    .ConfigureAwait(false);
                 if (first.Kind == MqttAuthenticationResultKind.Abort)
                 {
                     throw new MqttAuthenticationException(first.ReasonCode, first.ReasonString);
@@ -191,7 +211,8 @@ public sealed class MqttClient : IAsyncDisposable
                 await WriteRawAsync(w.WrittenMemory, cancellationToken).ConfigureAwait(false);
             }
             // Wait for CONNACK or run the AUTH exchange first.
-            var connack = await ReadConnAckOrAuthAsync(handler, cancellationToken).ConfigureAwait(false);
+            var connack = await ReadConnAckOrAuthAsync(handler, cancellationToken).ConfigureAwait(
+                false);
             if (!connack.IsSuccess)
             {
                 await CleanupAsync("CONNACK failure").ConfigureAwait(false);
@@ -204,7 +225,10 @@ public sealed class MqttClient : IAsyncDisposable
             {
                 _keepAliveLoop = Task.Run(() => KeepAliveLoopAsync(_loopCts!.Token));
             }
-            MqttLog.Connected(_logger, _transport?.RemoteAddress ?? string.Empty, connack.SessionPresent);
+            MqttLog.Connected(
+                _logger,
+                _transport?.RemoteAddress ?? string.Empty,
+                connack.SessionPresent);
             Connected?.Invoke(this, connack);
             return connack;
         }
@@ -224,8 +248,11 @@ public sealed class MqttClient : IAsyncDisposable
         Username = _options.Username,
         Password = _options.Password,
         Will = _options.Will,
-        ReceiveMaximum = _options.ProtocolVersion == MqttProtocolVersion.V500 ? _options.ReceiveMaximum : null,
-        TopicAliasMaximum = _options.ProtocolVersion == MqttProtocolVersion.V500 && _options.TopicAliasMaximum > 0
+        ReceiveMaximum = _options.ProtocolVersion == MqttProtocolVersion.V500
+            ? _options.ReceiveMaximum
+            : null,
+        TopicAliasMaximum = _options.ProtocolVersion == MqttProtocolVersion.V500
+            && _options.TopicAliasMaximum > 0
             ? _options.TopicAliasMaximum
             : null,
         AuthenticationMethod = _initialAuthMethod,
@@ -236,7 +263,9 @@ public sealed class MqttClient : IAsyncDisposable
     private string? _initialAuthMethod;
     private byte[]? _initialAuthData;
 
-    private async Task<MqttConnectResult> ReadConnAckOrAuthAsync(IMqttAuthenticationHandler? handler, CancellationToken ct)
+    private async Task<MqttConnectResult> ReadConnAckOrAuthAsync(
+        IMqttAuthenticationHandler? handler,
+        CancellationToken ct)
     {
         var reader = _transport!.Input;
         var roundTrip = 0;
@@ -276,7 +305,8 @@ public sealed class MqttClient : IAsyncDisposable
                 {
                     if (handler is null)
                     {
-                        throw new MqttProtocolException("Broker sent AUTH but no authentication handler is configured.");
+                        throw new MqttProtocolException(
+                            "Broker sent AUTH but no authentication handler is configured.");
                     }
                     if (auth.ReasonCode != MqttReasonCode.ContinueAuthentication)
                     {
@@ -284,12 +314,14 @@ public sealed class MqttClient : IAsyncDisposable
                     }
                     if (++roundTrip > _options.MaxAuthRoundTrips)
                     {
-                        await SendDisconnectAsync(MqttReasonCode.ProtocolError, ct).ConfigureAwait(false);
+                        await SendDisconnectAsync(MqttReasonCode.ProtocolError, ct).ConfigureAwait(
+                            false);
                         throw new MqttAuthenticationException(
                             MqttReasonCode.ProtocolError,
                             $"Exceeded MaxAuthRoundTrips ({_options.MaxAuthRoundTrips}).");
                     }
-                    var next = await handler.ContinueAsync(auth.AuthenticationData, ct).ConfigureAwait(false);
+                    var next = await handler.ContinueAsync(auth.AuthenticationData, ct)
+                        .ConfigureAwait(false);
                     if (next.Kind == MqttAuthenticationResultKind.Abort)
                     {
                         await SendDisconnectAsync(next.ReasonCode, ct).ConfigureAwait(false);
@@ -301,7 +333,8 @@ public sealed class MqttClient : IAsyncDisposable
                     await SendAuthAsync(rc, handler.Method, next.Data, ct).ConfigureAwait(false);
                     continue;
                 }
-                throw new MqttProtocolException($"Expected CONNACK or AUTH, got {packet?.GetType().Name ?? "null"}.");
+                throw new MqttProtocolException(
+                    $"Expected CONNACK or AUTH, got {packet?.GetType().Name ?? "null"}.");
             }
             reader.AdvanceTo(buffer.Start, buffer.End);
             if (result.IsCompleted)
@@ -312,7 +345,11 @@ public sealed class MqttClient : IAsyncDisposable
         throw new OperationCanceledException(ct);
     }
 
-    private async Task SendAuthAsync(MqttReasonCode rc, string method, ReadOnlyMemory<byte> data, CancellationToken ct)
+    private async Task SendAuthAsync(
+        MqttReasonCode rc,
+        string method,
+        ReadOnlyMemory<byte> data,
+        CancellationToken ct)
     {
         var pkt = new AuthPacket
         {
@@ -330,7 +367,10 @@ public sealed class MqttClient : IAsyncDisposable
         try
         {
             using var w = new MqttBufferWriter(8);
-            MqttPacketEncoder.EncodeDisconnect(new DisconnectPacket { ReasonCode = rc }, _options.ProtocolVersion, w);
+            MqttPacketEncoder.EncodeDisconnect(
+                new DisconnectPacket { ReasonCode = rc },
+                _options.ProtocolVersion,
+                w);
             await WriteRawAsync(w.WrittenMemory, ct).ConfigureAwait(false);
         }
         catch { /* best effort */ }
@@ -339,7 +379,10 @@ public sealed class MqttClient : IAsyncDisposable
     private async Task WriteRawAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct)
         => await WriteRawAsync(bytes, ReadOnlyMemory<byte>.Empty, ct).ConfigureAwait(false);
 
-    private async Task WriteRawAsync(ReadOnlyMemory<byte> headerBytes, ReadOnlyMemory<byte> payload, CancellationToken ct)
+    private async Task WriteRawAsync(
+        ReadOnlyMemory<byte> headerBytes,
+        ReadOnlyMemory<byte> payload,
+        CancellationToken ct)
     {
         var output = _transport!.Output;
         if (!headerBytes.IsEmpty)
@@ -473,13 +516,15 @@ public sealed class MqttClient : IAsyncDisposable
                 _packetIds.Release(usub.PacketId);
                 break;
             case DisconnectPacket disc:
-                _ = OnTransportClosedAsync(new MqttConnectionException($"Broker DISCONNECT: {disc.ReasonCode}"));
+                _ = OnTransportClosedAsync(
+                    new MqttConnectionException($"Broker DISCONNECT: {disc.ReasonCode}"));
                 break;
             case AuthPacket auth:
                 var pendingAuth = Volatile.Read(ref _pendingAuth);
                 if (pendingAuth is null)
                 {
-                    _ = OnTransportClosedAsync(new MqttProtocolException("Unsolicited AUTH from broker."));
+                    _ = OnTransportClosedAsync(
+                        new MqttProtocolException("Unsolicited AUTH from broker."));
                 }
                 else
                 {
@@ -519,7 +564,9 @@ public sealed class MqttClient : IAsyncDisposable
         _pendingAcks.Clear();
     }
 
-    /// <summary>Inbound MQTT 5 topic-alias table (alias → topic). Single-writer (read loop) safe.</summary>
+    /// <summary>
+    /// Inbound MQTT 5 topic-alias table (alias → topic). Single-writer (read loop) safe.
+    /// </summary>
     private readonly Dictionary<ushort, string> _inboundAliases = new();
 
     private void HandleInboundPublish(PublishPacket pub)
@@ -529,14 +576,18 @@ public sealed class MqttClient : IAsyncDisposable
         // MQTT 5 inbound topic-alias expansion: an alias with a non-empty topic registers
         // (alias -> topic); an empty topic looks up the previously-registered alias.
         var topic = pub.Topic;
-        if (_options.ProtocolVersion == MqttProtocolVersion.V500 && pub.Properties?.TopicAlias is { } alias && alias > 0)
+        if (_options.ProtocolVersion == MqttProtocolVersion.V500
+            && pub.Properties?.TopicAlias is { } alias
+            && alias > 0)
         {
             if (string.IsNullOrEmpty(topic))
             {
                 if (!_inboundAliases.TryGetValue(alias, out var resolved))
                 {
-                    // Spec violation: broker sent an alias we never registered. Disconnect to be safe.
-                    _ = OnTransportClosedAsync(new MqttProtocolException($"Inbound topic alias {alias} is not registered."));
+                    // Spec violation: broker sent an alias we never registered. Disconnect.
+                    _ = OnTransportClosedAsync(
+                        new MqttProtocolException(
+                            $"Inbound topic alias {alias} is not registered."));
                     return;
                 }
                 topic = resolved;
@@ -548,7 +599,8 @@ public sealed class MqttClient : IAsyncDisposable
             else
             {
                 _ = OnTransportClosedAsync(new MqttProtocolException(
-                    $"Inbound topic alias {alias} exceeds advertised TopicAliasMaximum ({_options.TopicAliasMaximum})."));
+                    $"Inbound topic alias {alias} exceeds advertised TopicAliasMaximum " +
+                    $"({_options.TopicAliasMaximum})."));
                 return;
             }
         }
@@ -603,21 +655,29 @@ public sealed class MqttClient : IAsyncDisposable
     private void EnqueuePubAck(ushort packetId, MqttReasonCode rc)
     {
         var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodePubAck(new PubAckPacket { PacketId = packetId, ReasonCode = rc }, _options.ProtocolVersion, w);
+        MqttPacketEncoder.EncodePubAck(
+            new PubAckPacket { PacketId = packetId, ReasonCode = rc },
+            _options.ProtocolVersion,
+            w);
         _ = EnqueueAsync(NewEnvelopeFrom(w));
     }
 
     private void EnqueuePubRec(ushort packetId)
     {
         var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodePubRec(packetId, MqttReasonCode.Success, _options.ProtocolVersion, w);
+        MqttPacketEncoder.EncodePubRec(
+            packetId,
+            MqttReasonCode.Success,
+            _options.ProtocolVersion,
+            w);
         _ = EnqueueAsync(NewEnvelopeFrom(w));
     }
 
     private async ValueTask EnqueueAsync(OutboundEnvelope env, CancellationToken ct = default)
     {
         try { await _outbound.Writer.WriteAsync(env, ct).ConfigureAwait(false); }
-        catch (ChannelClosedException) { env.Dispose(); throw new MqttConnectionException("Client is not connected."); }
+        catch (ChannelClosedException) { env
+            .Dispose(); throw new MqttConnectionException("Client is not connected."); }
     }
 
     private async Task KeepAliveLoopAsync(CancellationToken ct)
@@ -644,7 +704,9 @@ public sealed class MqttClient : IAsyncDisposable
         var reason = exception?.Message ?? "Transport closed";
         MqttLog.Disconnected(_logger, _transport?.RemoteAddress, reason);
         Disconnected?.Invoke(this, new MqttDisconnectedEventArgs(reason, exception));
-        FaultPending(new MqttConnectionException(reason, exception ?? new InvalidOperationException(reason)));
+        FaultPending(
+            new MqttConnectionException(
+                reason, exception ?? new InvalidOperationException(reason)));
         await CleanupAsync(reason).ConfigureAwait(false);
 
         if (!wasManual && _options.Reconnect is { } policy)
@@ -682,7 +744,9 @@ public sealed class MqttClient : IAsyncDisposable
             {
                 MqttLog.ConnectionLoopFailed(_logger, ex, "reconnect attempt failed");
             }
-            delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * policy.BackoffFactor, policy.MaxDelay.TotalMilliseconds));
+            delay = TimeSpan.FromMilliseconds(Math.Min(
+                delay.TotalMilliseconds * policy.BackoffFactor,
+                policy.MaxDelay.TotalMilliseconds));
         }
     }
 
@@ -730,21 +794,28 @@ public sealed class MqttClient : IAsyncDisposable
 
         if (qos == MqttQoS.AtMostOnce)
         {
-            await EnqueueAsync(NewEnvelopeFrom(w, payload), cancellationToken).ConfigureAwait(false);
+            await EnqueueAsync(NewEnvelopeFrom(w, payload), cancellationToken).ConfigureAwait(
+                false);
             return new MqttPublishResult(MqttReasonCode.Success);
         }
 
-        var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<object?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingAcks[packetId] = tcs;
         var sw = Stopwatch.StartNew();
         await EnqueueAsync(NewEnvelopeFrom(w, payload), cancellationToken).ConfigureAwait(false);
-        using var reg = cancellationToken.Register(static s => ((TaskCompletionSource<object?>)s!).TrySetCanceled(), tcs);
+        using var reg = cancellationToken.Register(
+            static s => ((TaskCompletionSource<object?>)s!).TrySetCanceled(),
+            tcs);
         var ack = (PubAckPacket?)await tcs.Task.ConfigureAwait(false);
         _metrics.PublishAckLatency.Record(sw.Elapsed.TotalMilliseconds);
         return new MqttPublishResult(ack?.ReasonCode ?? MqttReasonCode.Success, ack?.ReasonString);
     }
 
-    /// <summary>Attempts to enqueue a QoS 0 publish without awaiting transmission. Returns false when the queue is full.</summary>
+    /// <summary>
+    /// Attempts to enqueue a QoS 0 publish without awaiting transmission. Returns false when the
+    /// queue is full.
+    /// </summary>
     public bool TryPublish(string topic, ReadOnlySpan<byte> payload, bool retain = false)
     {
         EnsureConnected();
@@ -792,7 +863,8 @@ public sealed class MqttClient : IAsyncDisposable
             lock (_subLock) { _trie.Remove(mf, s); }
             if (s.Identifier is { } id) _subsById.TryRemove(id, out _);
             using var cts = new CancellationTokenSource(_options.OperationTimeout);
-            try { await UnsubscribeOnServerAsync(s.TopicFilter, cts.Token).ConfigureAwait(false); } catch { }
+            try { await UnsubscribeOnServerAsync(s.TopicFilter, cts.Token).ConfigureAwait(
+                false); } catch { }
         });
         lock (_subLock) { _trie.Add(matchFilter, sub); }
 
@@ -808,15 +880,22 @@ public sealed class MqttClient : IAsyncDisposable
         var sp = new SubscribePacket
         {
             PacketId = packetId,
-            Filters = new[] { new SubscribeFilter(topicFilter, options.QoS, options.NoLocal, options.RetainAsPublished) },
+            Filters = new[] { new SubscribeFilter(
+                topicFilter,
+                options.QoS,
+                options.NoLocal,
+                options.RetainAsPublished) },
             SubscriptionIdentifier = subId,
         };
         var w = new MqttBufferWriter(64);
         MqttPacketEncoder.EncodeSubscribe(sp, _options.ProtocolVersion, w);
-        var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<object?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingAcks[packetId] = tcs;
         await EnqueueAsync(NewEnvelopeFrom(w), cancellationToken).ConfigureAwait(false);
-        using var reg = cancellationToken.Register(static s => ((TaskCompletionSource<object?>)s!).TrySetCanceled(), tcs);
+        using var reg = cancellationToken.Register(
+            static s => ((TaskCompletionSource<object?>)s!).TrySetCanceled(),
+            tcs);
         await tcs.Task.ConfigureAwait(false);
         return sub;
     }
@@ -828,14 +907,17 @@ public sealed class MqttClient : IAsyncDisposable
         var u = new UnsubscribePacket { PacketId = packetId, Topics = new[] { topicFilter } };
         var w = new MqttBufferWriter(32);
         MqttPacketEncoder.EncodeUnsubscribe(u, _options.ProtocolVersion, w);
-        var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<object?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingAcks[packetId] = tcs;
         await EnqueueAsync(NewEnvelopeFrom(w), ct).ConfigureAwait(false);
         // Bounded wait so a broker that never acks UNSUBSCRIBE doesn't hang the disposing
         // subscription. Local trie removal already happened; the server-side ack is best-effort.
         // Honor both the caller's ct and a sane timeout, *and* the client-shutdown signal so
         // disposing the client unblocks any pending unsubscribe immediately.
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _loopCts?.Token ?? CancellationToken.None);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            ct,
+            _loopCts?.Token ?? CancellationToken.None);
         var timeoutTask = Task.Delay(_options.OperationTimeout, linkedCts.Token);
         var completed = await Task.WhenAny(tcs.Task, timeoutTask).ConfigureAwait(false);
         if (completed == timeoutTask)
@@ -850,8 +932,12 @@ public sealed class MqttClient : IAsyncDisposable
         Volatile.Write(ref _manualDisconnect, 1);
         if (State != MqttConnectionState.Connected) return;
         var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodeDisconnect(new DisconnectPacket { ReasonCode = MqttReasonCode.Success }, _options.ProtocolVersion, w);
-        try { await EnqueueAsync(NewEnvelopeFrom(w), cancellationToken).ConfigureAwait(false); } catch { }
+        MqttPacketEncoder.EncodeDisconnect(
+            new DisconnectPacket { ReasonCode = MqttReasonCode.Success },
+            _options.ProtocolVersion,
+            w);
+        try { await EnqueueAsync(NewEnvelopeFrom(w), cancellationToken).ConfigureAwait(
+            false); } catch { }
         await CleanupAsync("client disconnect").ConfigureAwait(false);
         SetState(MqttConnectionState.Disconnected);
     }
@@ -871,30 +957,41 @@ public sealed class MqttClient : IAsyncDisposable
         {
             throw new InvalidOperationException("Re-authentication requires MQTT 5.");
         }
-        handler ??= _options.AuthenticationHandler ?? throw new InvalidOperationException("No authentication handler configured.");
+        handler ??= _options.AuthenticationHandler
+            ?? throw new InvalidOperationException("No authentication handler configured.");
 
-        var tcs = new TaskCompletionSource<AuthPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var tcs = new TaskCompletionSource<AuthPacket>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         if (Interlocked.CompareExchange(ref _pendingAuth, tcs, null) != null)
         {
-            throw new InvalidOperationException("A re-authentication exchange is already in progress.");
+            throw new InvalidOperationException(
+                "A re-authentication exchange is already in progress.");
         }
         try
         {
             var first = await handler.ContinueAsync(null, cancellationToken).ConfigureAwait(false);
             if (first.Kind == MqttAuthenticationResultKind.Abort)
             {
-                await SendDisconnectAsync(first.ReasonCode, cancellationToken).ConfigureAwait(false);
+                await SendDisconnectAsync(first.ReasonCode, cancellationToken).ConfigureAwait(
+                    false);
                 throw new MqttAuthenticationException(first.ReasonCode, first.ReasonString);
             }
-            await SendAuthAsync(MqttReasonCode.ReAuthenticate, handler.Method, first.Data, cancellationToken).ConfigureAwait(false);
+            await SendAuthAsync(
+                MqttReasonCode.ReAuthenticate,
+                handler.Method,
+                first.Data,
+                cancellationToken).ConfigureAwait(false);
 
             var roundTrip = 0;
             while (true)
             {
-                using var reg = cancellationToken.Register(static s => ((TaskCompletionSource<AuthPacket>)s!).TrySetCanceled(), tcs);
+                using var reg = cancellationToken.Register(
+                    static s => ((TaskCompletionSource<AuthPacket>)s!).TrySetCanceled(),
+                    tcs);
                 var inbound = await tcs.Task.ConfigureAwait(false);
                 // Reset the TCS for the next inbound round-trip (if any).
-                tcs = new TaskCompletionSource<AuthPacket>(TaskCreationOptions.RunContinuationsAsynchronously);
+                tcs = new TaskCompletionSource<AuthPacket>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
                 Volatile.Write(ref _pendingAuth, tcs);
 
                 if (inbound.ReasonCode == MqttReasonCode.Success)
@@ -907,22 +1004,29 @@ public sealed class MqttClient : IAsyncDisposable
                 }
                 if (++roundTrip > _options.MaxAuthRoundTrips)
                 {
-                    await SendDisconnectAsync(MqttReasonCode.ProtocolError, cancellationToken).ConfigureAwait(false);
+                    await SendDisconnectAsync(MqttReasonCode.ProtocolError, cancellationToken)
+                        .ConfigureAwait(false);
                     throw new MqttAuthenticationException(
                         MqttReasonCode.ProtocolError,
                         $"Exceeded MaxAuthRoundTrips ({_options.MaxAuthRoundTrips}).");
                 }
-                var next = await handler.ContinueAsync(inbound.AuthenticationData, cancellationToken).ConfigureAwait(false);
+                var next = await handler.ContinueAsync(
+                    inbound.AuthenticationData,
+                    cancellationToken).ConfigureAwait(false);
                 if (next.Kind == MqttAuthenticationResultKind.Abort)
                 {
-                    await SendDisconnectAsync(next.ReasonCode, cancellationToken).ConfigureAwait(false);
+                    await SendDisconnectAsync(next.ReasonCode, cancellationToken).ConfigureAwait(
+                        false);
                     throw new MqttAuthenticationException(next.ReasonCode, next.ReasonString);
                 }
-                var rc = next.Kind == MqttAuthenticationResultKind.Final ? MqttReasonCode.Success : MqttReasonCode.ContinueAuthentication;
-                await SendAuthAsync(rc, handler.Method, next.Data, cancellationToken).ConfigureAwait(false);
+                var rc = next.Kind == MqttAuthenticationResultKind.Final
+                    ? MqttReasonCode.Success
+                    : MqttReasonCode.ContinueAuthentication;
+                await SendAuthAsync(rc, handler.Method, next.Data, cancellationToken)
+                    .ConfigureAwait(false);
                 if (next.Kind == MqttAuthenticationResultKind.Final)
                 {
-                    // We sent AUTH 0x00; broker may or may not respond — return immediately on Final.
+                    // We sent AUTH 0x00; broker may or may not respond — return on Final.
                     return null;
                 }
             }
@@ -943,7 +1047,7 @@ public sealed class MqttClient : IAsyncDisposable
 
     /// <summary>
     /// Strips the <c>$share/&lt;group&gt;/</c> prefix from a shared-subscription filter, returning
-    /// the underlying topic filter used for local routing. Non-shared filters pass through unchanged.
+    /// the underlying topic filter used for local routing. Non-shared filters pass through.
     /// </summary>
     internal static string StripSharedSubscriptionPrefix(string topicFilter)
     {
@@ -1013,7 +1117,8 @@ public sealed class MqttClient : IAsyncDisposable
             _writer.Dispose();
             if (PooledPayload is not null)
             {
-                System.Buffers.ArrayPool<byte>.Shared.Return(PooledPayload, clearArray: ClearOnReturn);
+                System.Buffers.ArrayPool<byte>.Shared
+                    .Return(PooledPayload, clearArray: ClearOnReturn);
             }
         }
     }

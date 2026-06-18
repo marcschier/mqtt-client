@@ -36,7 +36,12 @@ public class FuzzFindingsReproducerTests
         {
             try
             {
-                MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(bytes), MqttProtocolVersion.V500, out _, out _, out _);
+                MqttPacketDecoder.TryDecode(
+                    new ReadOnlySequence<byte>(bytes),
+                    MqttProtocolVersion.V500,
+                    out _,
+                    out _,
+                    out _);
             }
             catch (MqttProtocolException) { }
         });

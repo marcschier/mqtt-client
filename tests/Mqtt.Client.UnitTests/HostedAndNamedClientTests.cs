@@ -6,6 +6,8 @@ using Mqtt.Client.DependencyInjection;
 using Mqtt.Client.Transport;
 using Mqtt.Client.UnitTests.Fakes;
 
+using MeOpts = Microsoft.Extensions.Options;
+
 namespace Mqtt.Client.UnitTests;
 
 /// <summary>
@@ -27,7 +29,9 @@ public class HostedAndNamedClientTests
             o.Host = "fake"; o.ClientId = "h"; o.KeepAliveSeconds = 0; o.Reconnect = null;
         });
         services.AddSingleton<MqttClient>(sp =>
-            new MqttClient(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MqttClientOptions>>().Value, fakeFactory));
+            new MqttClient(
+                sp.GetRequiredService<MeOpts.IOptions<MqttClientOptions>>().Value,
+                fakeFactory));
         services.AddHostedService<MqttClientHostedService>();
         await using var sp = services.BuildServiceProvider();
 
@@ -74,7 +78,8 @@ public class HostedAndNamedClientTests
     [Test]
     public async Task AddMqttClient_named_throws_on_null_args()
     {
-        await Assert.That(() => MqttClientServiceCollectionExtensions.AddMqttClient(null!, "x", _ => { }))
+        await Assert.That(
+            () => MqttClientServiceCollectionExtensions.AddMqttClient(null!, "x", _ => { }))
             .Throws<ArgumentNullException>();
         await Assert.That(() => new ServiceCollection().AddMqttClient((string)null!, _ => { }))
             .Throws<ArgumentException>();

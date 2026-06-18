@@ -26,7 +26,9 @@ public sealed class MqttClientOptions
     /// <summary>Protocol version to use.</summary>
     public MqttProtocolVersion ProtocolVersion { get; set; } = MqttProtocolVersion.V500;
 
-    /// <summary>Client identifier sent to the broker. Empty string lets the broker assign one (MQTT 5).</summary>
+    /// <summary>
+    /// Client identifier sent to the broker. Empty string lets the broker assign one (MQTT 5).
+    /// </summary>
     public string ClientId { get; set; } = string.Empty;
 
     /// <summary>Whether to start a clean session.</summary>
@@ -47,10 +49,14 @@ public sealed class MqttClientOptions
     /// <summary>Auto-reconnect policy. Null = no auto-reconnect (manual).</summary>
     public MqttReconnectPolicy? Reconnect { get; set; } = MqttReconnectPolicy.Exponential();
 
-    /// <summary>Maximum number of in-flight QoS&gt;0 publishes from this client (default 65535).</summary>
+    /// <summary>
+    /// Maximum number of in-flight QoS&gt;0 publishes from this client (default 65535).
+    /// </summary>
     public ushort ReceiveMaximum { get; set; } = ushort.MaxValue;
 
-    /// <summary>Default outbound channel capacity per subscription (used when none specified).</summary>
+    /// <summary>
+    /// Default outbound channel capacity per subscription (used when none specified).
+    /// </summary>
     public int DefaultSubscriptionCapacity { get; set; } = 1024;
 
     /// <summary>Optional path for WebSocket transports (default: <c>/mqtt</c>).</summary>
@@ -87,8 +93,10 @@ public sealed class MqttClientOptions
     /// client drives the SASL-style multi-round-trip auth exchange with the broker.</summary>
     public IMqttAuthenticationHandler? AuthenticationHandler { get; set; }
 
-    /// <summary>Maximum number of inbound AUTH 0x18 roundtrips per handshake before the
-    /// client aborts the exchange with Protocol Error. Defends against broker-driven loops.</summary>
+    /// <summary>
+    /// Maximum number of inbound AUTH 0x18 roundtrips per handshake before the client aborts the
+    /// exchange with Protocol Error. Defends against broker-driven loops.
+    /// </summary>
     public int MaxAuthRoundTrips { get; set; } = 5;
 }
 

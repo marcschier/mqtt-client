@@ -15,8 +15,12 @@ namespace Mqtt.Client.DependencyInjection;
 /// <summary>Registers <see cref="MqttClient"/> with <see cref="IServiceCollection"/>.</summary>
 public static class MqttClientServiceCollectionExtensions
 {
-    /// <summary>Registers a singleton <see cref="MqttClient"/> bound to the configured options.</summary>
-    public static IServiceCollection AddMqttClient(this IServiceCollection services, Action<MqttClientOptions> configure)
+    /// <summary>
+    /// Registers a singleton <see cref="MqttClient"/> bound to the configured options.
+    /// </summary>
+    public static IServiceCollection AddMqttClient(
+        this IServiceCollection services,
+        Action<MqttClientOptions> configure)
     {
         if (services is null) throw new ArgumentNullException(nameof(services));
         if (configure is null) throw new ArgumentNullException(nameof(configure));
@@ -35,17 +39,26 @@ public static class MqttClientServiceCollectionExtensions
     /// Registers a named <see cref="MqttClient"/> so multiple clients can coexist in the same
     /// container. Resolve via <see cref="IMqttClientFactory.Create"/> from your service.
     /// </summary>
-    public static IServiceCollection AddMqttClient(this IServiceCollection services, string name, Action<MqttClientOptions> configure)
+    public static IServiceCollection AddMqttClient(
+        this IServiceCollection services,
+        string name,
+        Action<MqttClientOptions> configure)
     {
         if (services is null) throw new ArgumentNullException(nameof(services));
-        if (string.IsNullOrEmpty(name)) throw new ArgumentException("Name is required.", nameof(name));
+        if (string.IsNullOrEmpty(name))
+        {
+            throw new ArgumentException("Name is required.", nameof(name));
+        }
         if (configure is null) throw new ArgumentNullException(nameof(configure));
         services.AddOptions<MqttClientOptions>(name).Configure(configure).ValidateOnStart();
         services.TryAddSingleton<IMqttClientFactory, MqttClientFactory>();
         return services;
     }
 
-    /// <summary>Adds a hosted service that connects on Start and disconnects on Stop, with auto-reconnect honored.</summary>
+    /// <summary>
+    /// Adds a hosted service that connects on Start and disconnects on Stop, with auto-reconnect
+    /// honored.
+    /// </summary>
     public static IServiceCollection AddMqttClientHostedReconnect(this IServiceCollection services)
     {
         services.AddHostedService<MqttClientHostedService>();
@@ -53,23 +66,31 @@ public static class MqttClientServiceCollectionExtensions
     }
 }
 
-/// <summary>Resolves named <see cref="MqttClient"/> instances registered via the named DI overload.</summary>
+/// <summary>
+/// Resolves named <see cref="MqttClient"/> instances registered via the named DI overload.
+/// </summary>
 public interface IMqttClientFactory
 {
-    /// <summary>Returns (creating on first access) the client for <paramref name="name"/>.</summary>
+    /// <summary>
+    /// Returns (creating on first access) the client for <paramref name="name"/>.
+    /// </summary>
     MqttClient Create(string name);
 }
 
 internal sealed class MqttClientFactory : IMqttClientFactory, IAsyncDisposable
 {
     private readonly IServiceProvider _services;
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, MqttClient> _clients = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, MqttClient> _clients
+        = new(StringComparer.Ordinal);
 
     public MqttClientFactory(IServiceProvider services) { _services = services; }
 
     public MqttClient Create(string name)
     {
-        if (string.IsNullOrEmpty(name)) throw new ArgumentException("Name is required.", nameof(name));
+        if (string.IsNullOrEmpty(name))
+        {
+            throw new ArgumentException("Name is required.", nameof(name));
+        }
         return _clients.GetOrAdd(name, n =>
         {
             var opts = _services.GetRequiredService<IOptionsMonitor<MqttClientOptions>>().Get(n);
@@ -100,7 +121,8 @@ internal sealed class MqttClientHostedService : IHostedService
         _logger = logger;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken) => _client.ConnectAsync(cancellationToken).ContinueWith(t =>
+    public Task StartAsync(CancellationToken cancellationToken)
+        => _client.ConnectAsync(cancellationToken).ContinueWith(t =>
     {
         if (t.IsFaulted)
         {

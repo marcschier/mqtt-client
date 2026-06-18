@@ -58,7 +58,7 @@ public class DecoderAdditionalCoverageTests
         {
             body.Add((byte)MqttReasonCode.ServerShuttingDown);
             var props = new List<byte>();
-            props.AddRange(new byte[] { 0x11, 0, 0, 0, 60 });            // SessionExpiryInterval = 60
+            props.AddRange(new byte[] { 0x11, 0, 0, 0, 60 });        // SessionExpiryInterval = 60
             props.AddRange(new byte[] { 0x1F, 0x00, 0x03, (byte)'b', (byte)'y', (byte)'e' });
             body.Add((byte)props.Count);
             body.AddRange(props);

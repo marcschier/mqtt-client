@@ -45,7 +45,10 @@ public class IntegrationScenariosTests
             .ConnectTo($"mqtt://localhost:{broker.Port}")
             .WithClientId($"pub-{Guid.NewGuid():N}")
             .WithProtocol(MqttProtocolVersion.V500)
-            .WithLastWill(new MqttLastWill { Topic = "itest/will", Payload = new byte[] { 99 }, QoS = MqttQoS.AtLeastOnce })
+            .WithLastWill(new MqttLastWill {
+                Topic = "itest/will",
+                Payload = new byte[] { 99 },
+                QoS = MqttQoS.AtLeastOnce })
             .Build();
         await pub.ConnectAsync(ct);
 
@@ -74,7 +77,10 @@ public class IntegrationScenariosTests
             .WithCleanStart(false)
             .Build();
         await c1.ConnectAsync(ct);
-        var sub1 = await c1.SubscribeAsync("itest/resume", new MqttSubscriptionOptions { QoS = MqttQoS.AtLeastOnce }, ct);
+        var sub1 = await c1.SubscribeAsync(
+            "itest/resume",
+            new MqttSubscriptionOptions { QoS = MqttQoS.AtLeastOnce },
+            ct);
         await sub1.DisposeAsync();
         await c1.DisconnectAsync(ct);
         await c1.DisposeAsync();
@@ -89,12 +95,14 @@ public class IntegrationScenariosTests
         await using var _c2 = c2;
         var connack = await c2.ConnectAsync(ct);
         await Assert.That(connack.IsSuccess).IsTrue();
-        // Session-present flag depends on broker; just assert the connect succeeded so the resume path runs without error.
+        // Session-present flag depends on broker; just assert the connect succeeded so the resume
+        // path runs without error.
     }
 
     [Test]
     [Timeout(20_000)]
-    public async Task Subscription_identifier_dispatches_inbound_via_id_fastpath(CancellationToken ct)
+    public async Task Subscription_identifier_dispatches_inbound_via_id_fastpath(
+        CancellationToken ct)
     {
         await using var broker = await InProcessBroker.StartAsync();
         var client = MqttClient.CreateBuilder()
@@ -109,7 +117,11 @@ public class IntegrationScenariosTests
         await using var __ = sub;
         await Assert.That(sub.Identifier).IsNotNull();
 
-        await client.PublishAsync("itest/subid", new byte[] { 5 }, MqttQoS.AtMostOnce, cancellationToken: ct);
+        await client.PublishAsync(
+            "itest/subid",
+            new byte[] { 5 },
+            MqttQoS.AtMostOnce,
+            cancellationToken: ct);
         var received = await sub.Reader.ReadAsync(ct);
         await Assert.That(received.Topic).IsEqualTo("itest/subid");
     }

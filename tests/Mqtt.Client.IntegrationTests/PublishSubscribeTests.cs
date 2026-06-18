@@ -103,7 +103,9 @@ public class PublishSubscribeTests
             .Build();
         await using var _ = client;
         await client.ConnectAsync();
-        var sub = await client.SubscribeAsync("itest/qos2", new MqttSubscriptionOptions { QoS = MqttQoS.ExactlyOnce });
+        var sub = await client.SubscribeAsync(
+            "itest/qos2",
+            new MqttSubscriptionOptions { QoS = MqttQoS.ExactlyOnce });
         await using var __ = sub;
         var result = await client.PublishAsync("itest/qos2", new byte[] { 7 }, MqttQoS.ExactlyOnce);
         await Assert.That(result.IsSuccess).IsTrue();

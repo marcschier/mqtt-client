@@ -26,8 +26,12 @@ public class DecoderMalformedInputTests
     {
         // Only one byte with continuation bit; needs another byte for the var-int.
         var bytes = new byte[] { 0x30, 0x80 };
-        var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(bytes), MqttProtocolVersion.V500,
-            out _, out _, out _);
+        var ok = MqttPacketDecoder.TryDecode(
+            new ReadOnlySequence<byte>(bytes),
+            MqttProtocolVersion.V500,
+            out _,
+            out _,
+            out _);
         await Assert.That(ok).IsFalse();
     }
 
@@ -46,8 +50,12 @@ public class DecoderMalformedInputTests
     public async Task Decode_PingResp_yields_null_packet()
     {
         var bytes = new byte[] { 0xD0, 0x00 };
-        var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(bytes), MqttProtocolVersion.V500,
-            out var packet, out var firstByte, out _);
+        var ok = MqttPacketDecoder.TryDecode(
+            new ReadOnlySequence<byte>(bytes),
+            MqttProtocolVersion.V500,
+            out var packet,
+            out var firstByte,
+            out _);
         await Assert.That(ok).IsTrue();
         await Assert.That(packet).IsNull();
         await Assert.That(firstByte).IsEqualTo((byte)0xD0);

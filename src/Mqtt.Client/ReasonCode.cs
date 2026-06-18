@@ -2,7 +2,9 @@
 
 namespace Mqtt.Client.Protocol;
 
-/// <summary>MQTT v5 reason codes used across CONNACK / PUBACK / SUBACK / DISCONNECT / AUTH.</summary>
+/// <summary>
+/// MQTT v5 reason codes used across CONNACK / PUBACK / SUBACK / DISCONNECT / AUTH.
+/// </summary>
 public enum MqttReasonCode : byte
 {
     Success = 0x00,

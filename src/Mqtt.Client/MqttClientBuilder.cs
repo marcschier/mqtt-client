@@ -22,7 +22,10 @@ public sealed class MqttClientBuilder
     /// </summary>
     public MqttClientBuilder ConnectTo(string uri)
     {
-        if (string.IsNullOrWhiteSpace(uri)) throw new ArgumentException("URI is required.", nameof(uri));
+        if (string.IsNullOrWhiteSpace(uri))
+        {
+            throw new ArgumentException("URI is required.", nameof(uri));
+        }
         var u = new Uri(uri);
         _options.Host = u.Host;
         _options.Transport = u.Scheme.ToLowerInvariant() switch
@@ -121,10 +124,13 @@ public sealed class MqttClientBuilder
         return this;
     }
 
-    /// <summary>Configures an MQTT 5 enhanced authentication handler. Driven on CONNECT and re-auth.</summary>
+    /// <summary>
+    /// Configures an MQTT 5 enhanced authentication handler. Driven on CONNECT and re-auth.
+    /// </summary>
     public MqttClientBuilder WithAuthentication(IMqttAuthenticationHandler handler)
     {
-        _options.AuthenticationHandler = handler ?? throw new ArgumentNullException(nameof(handler));
+        _options.AuthenticationHandler = handler
+            ?? throw new ArgumentNullException(nameof(handler));
         return this;
     }
 

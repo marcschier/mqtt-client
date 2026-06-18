@@ -17,31 +17,37 @@ public sealed class MqttSubscription : IAsyncDisposable
     private readonly Func<MqttSubscription, ValueTask> _onDispose;
     private int _disposed;
 
-    internal MqttSubscription(string topicFilter, MqttSubscriptionOptions options, Func<MqttSubscription, ValueTask> onDispose)
+    internal MqttSubscription(
+        string topicFilter,
+        MqttSubscriptionOptions options,
+        Func<MqttSubscription, ValueTask> onDispose)
     {
         TopicFilter = topicFilter;
         Options = options;
         _onDispose = onDispose;
         _channel = options.Overflow switch
         {
-            MqttOverflowMode.Wait => Channel.CreateBounded<MqttMessage>(new BoundedChannelOptions(options.Capacity)
-            {
-                FullMode = BoundedChannelFullMode.Wait,
-                SingleReader = true,
-                SingleWriter = true,
-            }),
-            MqttOverflowMode.DropOldest => Channel.CreateBounded<MqttMessage>(new BoundedChannelOptions(options.Capacity)
-            {
-                FullMode = BoundedChannelFullMode.DropOldest,
-                SingleReader = true,
-                SingleWriter = true,
-            }),
-            MqttOverflowMode.DropNewest => Channel.CreateBounded<MqttMessage>(new BoundedChannelOptions(options.Capacity)
-            {
-                FullMode = BoundedChannelFullMode.DropNewest,
-                SingleReader = true,
-                SingleWriter = true,
-            }),
+            MqttOverflowMode.Wait => Channel
+                .CreateBounded<MqttMessage>(new BoundedChannelOptions(options.Capacity)
+                    {
+                        FullMode = BoundedChannelFullMode.Wait,
+                        SingleReader = true,
+                        SingleWriter = true,
+                    }),
+            MqttOverflowMode.DropOldest => Channel
+                .CreateBounded<MqttMessage>(new BoundedChannelOptions(options.Capacity)
+                    {
+                        FullMode = BoundedChannelFullMode.DropOldest,
+                        SingleReader = true,
+                        SingleWriter = true,
+                    }),
+            MqttOverflowMode.DropNewest => Channel
+                .CreateBounded<MqttMessage>(new BoundedChannelOptions(options.Capacity)
+                    {
+                        FullMode = BoundedChannelFullMode.DropNewest,
+                        SingleReader = true,
+                        SingleWriter = true,
+                    }),
             _ => throw new ArgumentOutOfRangeException(nameof(options)),
         };
     }
@@ -72,7 +78,9 @@ public sealed class MqttSubscription : IAsyncDisposable
 /// <summary>Convenience extensions for consuming subscriptions.</summary>
 public static class MqttSubscriptionExtensions
 {
-    /// <summary>Reads all messages until the subscription is disposed or cancellation occurs.</summary>
+    /// <summary>
+    /// Reads all messages until the subscription is disposed or cancellation occurs.
+    /// </summary>
     public static System.Collections.Generic.IAsyncEnumerable<MqttMessage> ReadAllAsync(
         this MqttSubscription subscription,
         CancellationToken cancellationToken = default)

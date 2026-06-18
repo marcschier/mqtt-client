@@ -13,7 +13,8 @@ public interface IPersistentSessionStore
 {
     ValueTask SavePendingPublishAsync(ushort packetId, MqttMessage message);
     ValueTask RemovePendingPublishAsync(ushort packetId);
-    ValueTask<IReadOnlyList<(ushort PacketId, MqttMessage Message)>> ListPendingPublishesAsync();
+    ValueTask<IReadOnlyList<(ushort PacketId, MqttMessage Message)>>
+        ListPendingPublishesAsync();
     ValueTask ClearAsync();
 }
 
@@ -34,7 +35,8 @@ internal sealed class InMemorySessionStore : IPersistentSessionStore
         return default;
     }
 
-    public ValueTask<IReadOnlyList<(ushort PacketId, MqttMessage Message)>> ListPendingPublishesAsync()
+    public ValueTask<IReadOnlyList<(ushort PacketId, MqttMessage Message)>>
+        ListPendingPublishesAsync()
     {
         lock (_gate)
         {

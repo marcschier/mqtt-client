@@ -39,7 +39,9 @@ internal sealed class TopicFilterTrie<T> where T : class
         (node.Values ??= new List<T>()).Add(value);
     }
 
-    /// <summary>Removes a value from <paramref name="topicFilter"/>. Returns true if removed.</summary>
+    /// <summary>
+    /// Removes a value from <paramref name="topicFilter"/>. Returns true if removed.
+    /// </summary>
     public bool Remove(string topicFilter, T value)
     {
         var node = _root;
@@ -58,13 +60,19 @@ internal sealed class TopicFilterTrie<T> where T : class
         return node.Values?.Remove(value) == true;
     }
 
-    /// <summary>Invokes <paramref name="action"/> with every matching value for <paramref name="topic"/>.</summary>
+    /// <summary>
+    /// Invokes <paramref name="action"/> with every matching value for <paramref name="topic"/>.
+    /// </summary>
     public void Match(string topic, Action<T> action)
     {
         MatchRecursive(_root, topic.AsSpan(), isFirstSegment: true, action);
     }
 
-    private static void MatchRecursive(Node node, ReadOnlySpan<char> remaining, bool isFirstSegment, Action<T> action)
+    private static void MatchRecursive(
+        Node node,
+        ReadOnlySpan<char> remaining,
+        bool isFirstSegment,
+        Action<T> action)
     {
         if (remaining.IsEmpty)
         {
@@ -74,7 +82,8 @@ internal sealed class TopicFilterTrie<T> where T : class
                 foreach (var v in node.Values) action(v);
             }
             // And any child '#' that absorbs empty.
-            if (node.Children is not null && node.Children.TryGetValue("#", out var hash) && hash.Values is not null)
+            if (node.Children is not null && node.Children.TryGetValue("#", out var hash)
+                && hash.Values is not null)
             {
                 foreach (var v in hash.Values) action(v);
             }

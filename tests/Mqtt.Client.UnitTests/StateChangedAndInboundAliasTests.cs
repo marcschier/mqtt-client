@@ -62,7 +62,11 @@ public class StateChangedAndInboundAliasTests
         var sub = await subTask;
 
         // First publish: full topic + alias 7 → registers alias.
-        await broker.SendPublishWithAliasAsync(topic: "sensors/temp", alias: 7, new byte[] { 2 }, ct: ct);
+        await broker.SendPublishWithAliasAsync(
+            topic: "sensors/temp",
+            alias: 7,
+            new byte[] { 2 },
+            ct: ct);
         var m1 = await sub.Reader.ReadAsync(ct);
 
         // Second publish: empty topic + alias 7 → resolves to "sensors/temp".

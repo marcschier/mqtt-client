@@ -15,14 +15,26 @@ internal sealed class MqttMetrics : IDisposable
     public MqttMetrics()
     {
         _meter = new Meter(MeterName);
-        Publishes = _meter.CreateCounter<long>("mqtt.client.publishes", unit: "{packets}", description: "Number of PUBLISH packets sent.");
+        Publishes = _meter.CreateCounter<long>(
+            "mqtt.client.publishes",
+            unit: "{packets}",
+            description: "Number of PUBLISH packets sent.");
         Receives = _meter.CreateCounter<long>(
             "mqtt.client.receives",
             unit: "{packets}",
             description: "Number of PUBLISH packets received.");
-        BytesSent = _meter.CreateCounter<long>("mqtt.client.bytes.sent", unit: "By", description: "Bytes written to the transport.");
-        BytesReceived = _meter.CreateCounter<long>("mqtt.client.bytes.received", unit: "By", description: "Bytes read from the transport.");
-        Reconnects = _meter.CreateCounter<long>("mqtt.client.reconnects", unit: "{events}", description: "Number of reconnects.");
+        BytesSent = _meter.CreateCounter<long>(
+            "mqtt.client.bytes.sent",
+            unit: "By",
+            description: "Bytes written to the transport.");
+        BytesReceived = _meter.CreateCounter<long>(
+            "mqtt.client.bytes.received",
+            unit: "By",
+            description: "Bytes read from the transport.");
+        Reconnects = _meter.CreateCounter<long>(
+            "mqtt.client.reconnects",
+            unit: "{events}",
+            description: "Number of reconnects.");
         PublishAckLatency = _meter.CreateHistogram<double>(
             "mqtt.client.publish.ack.duration",
             unit: "ms",

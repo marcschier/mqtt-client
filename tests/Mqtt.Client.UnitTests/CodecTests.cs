@@ -46,7 +46,7 @@ public class CodecTests
         using var w = new MqttBufferWriter(128);
         MqttPacketEncoder.EncodeConnect(pkt, w);
 
-        // Round-trip via decoder only validates packet bytes are well-formed; first byte is CONNECT (0x10).
+        // Decoder round-trip checks packet bytes are well-formed; first byte is CONNECT.
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0x10);
         // Minimum sane size: fixed header (2) + protocol name "MQTT" (6) + level (1) + flags (1) +
         // ka (2) + props len (1) + client id (2+11) + username (2+5) + password (2+6).
@@ -65,8 +65,12 @@ public class CodecTests
         using var w = new MqttBufferWriter(32);
         MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V311, w);
 
-        var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(w.WrittenMemory), MqttProtocolVersion.V311,
-            out var packet, out var firstByte, out var consumed);
+        var ok = MqttPacketDecoder.TryDecode(
+            new ReadOnlySequence<byte>(w.WrittenMemory),
+            MqttProtocolVersion.V311,
+            out var packet,
+            out var firstByte,
+            out var consumed);
         await Assert.That(ok).IsTrue();
         await Assert.That(firstByte >> 4).IsEqualTo(3);
         var decoded = packet as PublishPacket;
@@ -91,8 +95,12 @@ public class CodecTests
     {
         // Just first byte of a fixed header, no remaining length.
         var bytes = new byte[] { 0x30 };
-        var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(bytes), MqttProtocolVersion.V500,
-            out _, out _, out _);
+        var ok = MqttPacketDecoder.TryDecode(
+            new ReadOnlySequence<byte>(bytes),
+            MqttProtocolVersion.V500,
+            out _,
+            out _,
+            out _);
         await Assert.That(ok).IsFalse();
     }
 
@@ -104,7 +112,11 @@ public class CodecTests
             PacketId = 7,
             Filters = new[]
             {
-                new SubscribeFilter("foo/+", MqttQoS.AtLeastOnce, NoLocal: true, RetainAsPublished: true),
+                new SubscribeFilter(
+                    "foo/+",
+                    MqttQoS.AtLeastOnce,
+                    NoLocal: true,
+                    RetainAsPublished: true),
             },
         };
         using var w = new MqttBufferWriter(32);

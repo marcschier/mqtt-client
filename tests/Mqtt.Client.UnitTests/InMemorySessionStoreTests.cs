@@ -22,7 +22,9 @@ public class InMemorySessionStoreTests
     public async Task Remove_drops_entry()
     {
         var store = new InMemorySessionStore();
-        await store.SavePendingPublishAsync(1, new MqttMessage { Topic = "t", Payload = ReadOnlyMemory<byte>.Empty });
+        await store.SavePendingPublishAsync(
+            1,
+            new MqttMessage { Topic = "t", Payload = ReadOnlyMemory<byte>.Empty });
         await store.RemovePendingPublishAsync(1);
         var list = await store.ListPendingPublishesAsync();
         await Assert.That(list.Count).IsEqualTo(0);
@@ -34,7 +36,9 @@ public class InMemorySessionStoreTests
         var store = new InMemorySessionStore();
         for (ushort i = 1; i <= 5; i++)
         {
-            await store.SavePendingPublishAsync(i, new MqttMessage { Topic = "t", Payload = ReadOnlyMemory<byte>.Empty });
+            await store.SavePendingPublishAsync(
+                i,
+                new MqttMessage { Topic = "t", Payload = ReadOnlyMemory<byte>.Empty });
         }
         await store.ClearAsync();
         var list = await store.ListPendingPublishesAsync();
@@ -45,8 +49,12 @@ public class InMemorySessionStoreTests
     public async Task Save_overwrites_existing_packet_id()
     {
         var store = new InMemorySessionStore();
-        await store.SavePendingPublishAsync(3, new MqttMessage { Topic = "first", Payload = ReadOnlyMemory<byte>.Empty });
-        await store.SavePendingPublishAsync(3, new MqttMessage { Topic = "second", Payload = ReadOnlyMemory<byte>.Empty });
+        await store.SavePendingPublishAsync(
+            3,
+            new MqttMessage { Topic = "first", Payload = ReadOnlyMemory<byte>.Empty });
+        await store.SavePendingPublishAsync(
+            3,
+            new MqttMessage { Topic = "second", Payload = ReadOnlyMemory<byte>.Empty });
         var list = await store.ListPendingPublishesAsync();
         await Assert.That(list.Count).IsEqualTo(1);
         await Assert.That(list[0].Message.Topic).IsEqualTo("second");

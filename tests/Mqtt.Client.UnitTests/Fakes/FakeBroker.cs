@@ -17,7 +17,9 @@ internal sealed class FakeBroker
     private readonly FakePipeTransport _transport;
     private readonly MqttProtocolVersion _version;
 
-    public FakeBroker(FakePipeTransport transport, MqttProtocolVersion version = MqttProtocolVersion.V500)
+    public FakeBroker(
+        FakePipeTransport transport,
+        MqttProtocolVersion version = MqttProtocolVersion.V500)
     {
         _transport = transport;
         _version = version;
@@ -31,7 +33,12 @@ internal sealed class FakeBroker
         {
             var result = await reader.ReadAsync(ct).ConfigureAwait(false);
             var buffer = result.Buffer;
-            if (MqttPacketDecoder.TryDecode(buffer, _version, out var packet, out _, out var consumed))
+            if (MqttPacketDecoder.TryDecode(
+                buffer,
+                _version,
+                out var packet,
+                out _,
+                out var consumed))
             {
                 reader.AdvanceTo(consumed);
                 return packet;
@@ -64,7 +71,10 @@ internal sealed class FakeBroker
         }
     }
 
-    private static bool TryParseClientPacket(in ReadOnlySequence<byte> buffer, out ClientPacket packet, out SequencePosition consumed)
+    private static bool TryParseClientPacket(
+        in ReadOnlySequence<byte> buffer,
+        out ClientPacket packet,
+        out SequencePosition consumed)
     {
         packet = default;
         consumed = buffer.Start;
@@ -138,14 +148,20 @@ internal sealed class FakeBroker
         await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
     }
 
-    public Task SendPubAckAsync(ushort packetId, MqttReasonCode rc = MqttReasonCode.Success, CancellationToken ct = default)
+    public Task SendPubAckAsync(
+        ushort packetId,
+        MqttReasonCode rc = MqttReasonCode.Success,
+        CancellationToken ct = default)
         => SendAckLikeAsync(0x40, packetId, rc, ct);
     public Task SendPubRecAsync(ushort packetId, CancellationToken ct = default)
         => SendAckLikeAsync(0x50, packetId, MqttReasonCode.Success, ct);
     public Task SendPubCompAsync(ushort packetId, CancellationToken ct = default)
         => SendAckLikeAsync(0x70, packetId, MqttReasonCode.Success, ct);
 
-    public async Task SendSubAckAsync(ushort packetId, MqttReasonCode rc, CancellationToken ct = default)
+    public async Task SendSubAckAsync(
+        ushort packetId,
+        MqttReasonCode rc,
+        CancellationToken ct = default)
     {
         using var w = new MqttBufferWriter(8);
         w.WriteByte(0x90);
@@ -257,7 +273,11 @@ internal sealed class FakeBroker
     }
 
     /// <summary>Sends an AUTH packet from broker to client.</summary>
-    public async Task SendAuthAsync(MqttReasonCode rc, string method, ReadOnlyMemory<byte> data, CancellationToken ct = default)
+    public async Task SendAuthAsync(
+        MqttReasonCode rc,
+        string method,
+        ReadOnlyMemory<byte> data,
+        CancellationToken ct = default)
     {
         var pkt = new AuthPacket
         {
@@ -311,7 +331,11 @@ internal sealed class FakeBroker
         return 4;
     }
 
-    private async Task SendAckLikeAsync(byte firstByte, ushort packetId, MqttReasonCode rc, CancellationToken ct)
+    private async Task SendAckLikeAsync(
+        byte firstByte,
+        ushort packetId,
+        MqttReasonCode rc,
+        CancellationToken ct)
     {
         using var w = new MqttBufferWriter(8);
         w.WriteByte(firstByte);

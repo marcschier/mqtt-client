@@ -21,7 +21,9 @@ public static class Program
             return 0;
         }
 
-        var name = args.Length > 0 ? args[0] : Environment.GetEnvironmentVariable("FUZZ_HARNESS") ?? "decoder";
+        var name = args.Length > 0
+            ? args[0]
+            : Environment.GetEnvironmentVariable("FUZZ_HARNESS") ?? "decoder";
         ReadOnlySpanAction action = name.ToLowerInvariant() switch
         {
             "decoder" => DecoderHarness.Run,

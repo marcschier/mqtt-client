@@ -16,13 +16,17 @@ public class AuthenticationTests
         public int CallCount { get; private set; }
         public List<byte[]?> Challenges { get; } = new();
 
-        public StepHandler(string method, Func<int, ReadOnlyMemory<byte>?, MqttAuthenticationResult> next)
+        public StepHandler(
+            string method,
+            Func<int, ReadOnlyMemory<byte>?, MqttAuthenticationResult> next)
         {
             Method = method;
             _next = next;
         }
 
-        public ValueTask<MqttAuthenticationResult> ContinueAsync(ReadOnlyMemory<byte>? challenge, CancellationToken cancellationToken)
+        public ValueTask<MqttAuthenticationResult> ContinueAsync(
+            ReadOnlyMemory<byte>? challenge,
+            CancellationToken cancellationToken)
         {
             Challenges.Add(challenge?.ToArray());
             var idx = CallCount++;
@@ -30,7 +34,9 @@ public class AuthenticationTests
         }
     }
 
-    private static (MqttClient Client, FakeTransportFactory Factory) Build(IMqttAuthenticationHandler? handler, int maxRoundTrips = 5)
+    private static (MqttClient Client, FakeTransportFactory Factory) Build(
+        IMqttAuthenticationHandler? handler,
+        int maxRoundTrips = 5)
     {
         var factory = new FakeTransportFactory();
         var client = new MqttClient(new MqttClientOptions
@@ -51,7 +57,9 @@ public class AuthenticationTests
     [Timeout(5_000)]
     public async Task Connect_with_single_step_handler_succeeds(CancellationToken ct)
     {
-        var handler = new StepHandler("PLAIN", (i, c) => MqttAuthenticationResult.Final(Encoding.UTF8.GetBytes("u:p")));
+        var handler = new StepHandler(
+            "PLAIN",
+            (i, c) => MqttAuthenticationResult.Final(Encoding.UTF8.GetBytes("u:p")));
         var (client, factory) = Build(handler);
         await using var _ = client;
         var broker = new FakeBroker(factory.Transport);
@@ -82,10 +90,18 @@ public class AuthenticationTests
 
         var connectTask = client.ConnectAsync(ct);
         await broker.ReadPacketAsync(ct); // CONNECT (contains initial auth)
-        await broker.SendAuthAsync(MqttReasonCode.ContinueAuthentication, "SCRAM-SHA-256", Encoding.UTF8.GetBytes("server_first"), ct);
+        await broker.SendAuthAsync(
+            MqttReasonCode.ContinueAuthentication,
+            "SCRAM-SHA-256",
+            Encoding.UTF8.GetBytes("server_first"),
+            ct);
         var clientAuth1 = await broker.ReadDecodedPacketAsync(ct);
         await Assert.That(clientAuth1).IsNotNull();
-        await broker.SendAuthAsync(MqttReasonCode.ContinueAuthentication, "SCRAM-SHA-256", Encoding.UTF8.GetBytes("server_final"), ct);
+        await broker.SendAuthAsync(
+            MqttReasonCode.ContinueAuthentication,
+            "SCRAM-SHA-256",
+            Encoding.UTF8.GetBytes("server_final"),
+            ct);
         var clientAuth2 = await broker.ReadDecodedPacketAsync(ct);
         await Assert.That(clientAuth2).IsNotNull();
         await broker.SendConnAckAsync(MqttReasonCode.Success, ct: ct);
@@ -115,9 +131,12 @@ public class AuthenticationTests
 
     [Test]
     [Timeout(5_000)]
-    public async Task Handler_abort_on_initial_throws_MqttAuthenticationException(CancellationToken ct)
+    public async Task Handler_abort_on_initial_throws_MqttAuthenticationException(
+        CancellationToken ct)
     {
-        var handler = new StepHandler("PLAIN", (i, c) => MqttAuthenticationResult.Abort(MqttReasonCode.NotAuthorized, "no creds"));
+        var handler = new StepHandler(
+            "PLAIN",
+            (i, c) => MqttAuthenticationResult.Abort(MqttReasonCode.NotAuthorized, "no creds"));
         var (client, factory) = Build(handler);
         await using var _ = client;
 
@@ -137,10 +156,16 @@ public class AuthenticationTests
         await broker.SendConnAckAsync(MqttReasonCode.Success, ct: ct);
         await connectTask;
 
-        var handler = new StepHandler("PLAIN", (i, c) => MqttAuthenticationResult.Final(Encoding.UTF8.GetBytes("token")));
+        var handler = new StepHandler(
+            "PLAIN",
+            (i, c) => MqttAuthenticationResult.Final(Encoding.UTF8.GetBytes("token")));
         var reauthTask = client.ReauthenticateAsync(handler, ct);
         await broker.ReadDecodedPacketAsync(ct); // client's AUTH 0x19
-        await broker.SendAuthAsync(MqttReasonCode.Success, "PLAIN", Encoding.UTF8.GetBytes("server-ack"), ct);
+        await broker.SendAuthAsync(
+            MqttReasonCode.Success,
+            "PLAIN",
+            Encoding.UTF8.GetBytes("server-ack"),
+            ct);
         var data = await reauthTask;
         await Assert.That(handler.CallCount).IsEqualTo(1);
         await Assert.That(data.HasValue).IsTrue();
@@ -173,10 +198,13 @@ public class AuthenticationTests
 
     [Test]
     [Timeout(5_000)]
-    public async Task Round_trip_cap_exceeded_throws_MqttAuthenticationException(CancellationToken ct)
+    public async Task Round_trip_cap_exceeded_throws_MqttAuthenticationException(
+        CancellationToken ct)
     {
         // Handler always wants to Continue → broker drives a never-ending exchange.
-        var handler = new StepHandler("PLAIN", (i, c) => MqttAuthenticationResult.Continue(new byte[] { (byte)i }));
+        var handler = new StepHandler(
+            "PLAIN",
+            (i, c) => MqttAuthenticationResult.Continue(new byte[] { (byte)i }));
         var (client, factory) = Build(handler, maxRoundTrips: 2);
         await using var _ = client;
         var broker = new FakeBroker(factory.Transport);
@@ -188,20 +216,28 @@ public class AuthenticationTests
         {
             for (var i = 0; i < 10; i++)
             {
-                await broker.SendAuthAsync(MqttReasonCode.ContinueAuthentication, "PLAIN", new byte[] { (byte)i }, ct);
+                await broker.SendAuthAsync(
+                    MqttReasonCode.ContinueAuthentication,
+                    "PLAIN",
+                    new byte[] { (byte)i },
+                    ct);
                 try { await broker.ReadDecodedPacketAsync(ct); } catch { break; }
             }
         }
         catch { /* pipe might close */ }
 
-        await Assert.That(async () => await connectTask).ThrowsExactly<MqttAuthenticationException>();
+        await Assert.That(async () => await connectTask)
+            .ThrowsExactly<MqttAuthenticationException>();
     }
 
     private sealed class GatedHandler : IMqttAuthenticationHandler
     {
         public string Method => "PLAIN";
-        public TaskCompletionSource<MqttAuthenticationResult> Gate { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public async ValueTask<MqttAuthenticationResult> ContinueAsync(ReadOnlyMemory<byte>? challenge, CancellationToken cancellationToken)
+        public TaskCompletionSource<MqttAuthenticationResult> Gate { get; }
+            = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async ValueTask<MqttAuthenticationResult> ContinueAsync(
+            ReadOnlyMemory<byte>? challenge,
+            CancellationToken cancellationToken)
             => await Gate.Task.ConfigureAwait(false);
     }
 

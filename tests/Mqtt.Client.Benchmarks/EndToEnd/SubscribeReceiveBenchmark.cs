@@ -45,7 +45,8 @@ public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
             .WithTopic(TopicOurs).WithPayload(Payload)
             .WithQualityOfServiceLevel(MqttnetQoS.AtMostOnce).Build();
 
-        _mqttnetReceived = Channel.CreateUnbounded<int>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+        _mqttnetReceived = Channel.CreateUnbounded<int>(
+            new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
         MqttnetClient.ApplicationMessageReceivedAsync += async ev =>
         {
             _mqttnetReceived.Writer.TryWrite(0);
@@ -54,7 +55,9 @@ public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
         await MqttnetClient.SubscribeAsync(TopicMqttnet, MqttnetQoS.AtMostOnce);
 
         _ourSub = await OurClient.SubscribeAsync(TopicOurs,
-            new Mqtt.Client.MqttSubscriptionOptions { QoS = Mqtt.Client.MqttQoS.AtMostOnce, Capacity = 4096 });
+            new Mqtt.Client.MqttSubscriptionOptions {
+                QoS = Mqtt.Client.MqttQoS.AtMostOnce,
+                Capacity = 4096 });
     }
 
     [Benchmark(Baseline = true, Description = "MQTTnet receive")]

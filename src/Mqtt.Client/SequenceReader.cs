@@ -8,7 +8,9 @@ using System.Text;
 
 namespace Mqtt.Client.Buffers;
 
-/// <summary>Allocation-free reader for MQTT-encoded primitives over a <see cref="ReadOnlySequence{Byte}"/>.</summary>
+/// <summary>
+/// Allocation-free reader for MQTT-encoded primitives over a <see cref="ReadOnlySequence{Byte}"/>.
+/// </summary>
 internal ref struct MqttSequenceReader
 {
     private SequenceReader<byte> _reader;

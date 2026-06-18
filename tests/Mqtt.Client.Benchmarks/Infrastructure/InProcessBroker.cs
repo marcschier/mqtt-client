@@ -32,7 +32,10 @@ public sealed class InProcessBroker : IAsyncDisposable
         if (!string.IsNullOrWhiteSpace(env))
         {
             var parts = env.Split(':');
-            return new InProcessBroker(server: null, parts[0], parts.Length > 1 ? int.Parse(parts[1]) : 1883);
+            return new InProcessBroker(
+                server: null,
+                parts[0],
+                parts.Length > 1 ? int.Parse(parts[1]) : 1883);
         }
 
         var port = GetEphemeralPort();

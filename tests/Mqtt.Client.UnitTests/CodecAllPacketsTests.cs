@@ -108,12 +108,25 @@ public class CodecAllPacketsTests
     [Test]
     public async Task PubRec_PubRel_PubComp_v5_roundtrip()
     {
-        foreach (var (name, encode, expectedFirstByte) in new (string, Action<MqttBufferWriter>, byte)[]
+        var cases = new (string, Action<MqttBufferWriter>, byte)[]
         {
-            ("PubRec", w => MqttPacketEncoder.EncodePubRec(42, MqttReasonCode.Success, MqttProtocolVersion.V500, w), 0x50),
-            ("PubRel", w => MqttPacketEncoder.EncodePubRel(42, MqttReasonCode.Success, MqttProtocolVersion.V500, w), 0x62),
-            ("PubComp", w => MqttPacketEncoder.EncodePubComp(42, MqttReasonCode.Success, MqttProtocolVersion.V500, w), 0x70),
-        })
+            ("PubRec", w => MqttPacketEncoder.EncodePubRec(
+                42,
+                MqttReasonCode.Success,
+                MqttProtocolVersion.V500,
+                w), 0x50),
+            ("PubRel", w => MqttPacketEncoder.EncodePubRel(
+                42,
+                MqttReasonCode.Success,
+                MqttProtocolVersion.V500,
+                w), 0x62),
+            ("PubComp", w => MqttPacketEncoder.EncodePubComp(
+                42,
+                MqttReasonCode.Success,
+                MqttProtocolVersion.V500,
+                w), 0x70),
+        };
+        foreach (var (name, encode, expectedFirstByte) in cases)
         {
             using var w = new MqttBufferWriter(8);
             encode(w);
@@ -189,8 +202,12 @@ public class CodecAllPacketsTests
     {
         // PUBLISH header says remaining length 100, but we provide only the header.
         var bytes = new byte[] { 0x30, 0x64 };
-        var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(bytes), MqttProtocolVersion.V500,
-            out _, out _, out _);
+        var ok = MqttPacketDecoder.TryDecode(
+            new ReadOnlySequence<byte>(bytes),
+            MqttProtocolVersion.V500,
+            out _,
+            out _,
+            out _);
         await Assert.That(ok).IsFalse();
     }
 

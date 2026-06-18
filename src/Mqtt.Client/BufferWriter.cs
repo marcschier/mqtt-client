@@ -69,7 +69,9 @@ internal sealed class MqttBufferWriter : IDisposable
         _written += value.Length;
     }
 
-    /// <summary>Writes an MQTT UTF-8 string: 2-byte big-endian length prefix followed by UTF-8 bytes.</summary>
+    /// <summary>
+    /// Writes an MQTT UTF-8 string: 2-byte big-endian length prefix followed by UTF-8 bytes.
+    /// </summary>
     public void WriteString(string value)
     {
         if (value is null)
@@ -85,7 +87,9 @@ internal sealed class MqttBufferWriter : IDisposable
         _written += 2 + actual;
     }
 
-    /// <summary>Writes MQTT binary data: 2-byte big-endian length prefix followed by raw bytes.</summary>
+    /// <summary>
+    /// Writes MQTT binary data: 2-byte big-endian length prefix followed by raw bytes.
+    /// </summary>
     public void WriteBinaryData(ReadOnlySpan<byte> value)
     {
         WriteUInt16BigEndian(checked((ushort)value.Length));
@@ -113,7 +117,9 @@ internal sealed class MqttBufferWriter : IDisposable
         while (value > 0);
     }
 
-    /// <summary>Writes a fixed header byte then a placeholder length, returning the offset to patch.</summary>
+    /// <summary>
+    /// Writes a fixed header byte then a placeholder length, returning the offset to patch.
+    /// </summary>
     public int WriteFixedHeaderStart(byte firstByte)
     {
         WriteByte(firstByte);
@@ -152,7 +158,12 @@ internal sealed class MqttBufferWriter : IDisposable
         if (count != 4)
         {
             var shift = 4 - count;
-            Buffer.BlockCopy(_buffer, payloadStart, _buffer, payloadStart - shift, payloadEnd - payloadStart);
+            Buffer.BlockCopy(
+                _buffer,
+                payloadStart,
+                _buffer,
+                payloadStart - shift,
+                payloadEnd - payloadStart);
             _written -= shift;
         }
         for (var i = 0; i < count; i++)

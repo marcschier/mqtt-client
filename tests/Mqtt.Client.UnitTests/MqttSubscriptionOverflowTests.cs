@@ -7,7 +7,9 @@ public class MqttSubscriptionOverflowTests
     [Test]
     public async Task DropOldest_drops_first_message_when_full()
     {
-        var sub = TestSubscription.Create("a", new MqttSubscriptionOptions { Capacity = 2, Overflow = MqttOverflowMode.DropOldest });
+        var sub = TestSubscription.Create(
+            "a",
+            new MqttSubscriptionOptions { Capacity = 2, Overflow = MqttOverflowMode.DropOldest });
         sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 1 } });
         sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 2 } });
         sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 3 } });
@@ -29,7 +31,9 @@ public class MqttSubscriptionOverflowTests
         // System.Threading.Channels.BoundedChannelFullMode.DropNewest semantics:
         // "remove and ignore the newest item in the channel" — i.e. the most recently added
         // existing item is dropped, then the new item is appended.
-        var sub = TestSubscription.Create("a", new MqttSubscriptionOptions { Capacity = 2, Overflow = MqttOverflowMode.DropNewest });
+        var sub = TestSubscription.Create(
+            "a",
+            new MqttSubscriptionOptions { Capacity = 2, Overflow = MqttOverflowMode.DropNewest });
         sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 1 } });
         sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 2 } });
         sub.Writer.TryWrite(new MqttMessage { Topic = "a", Payload = new byte[] { 3 } });

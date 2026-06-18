@@ -31,8 +31,18 @@ internal static class CorpusGenerator
     {
         // Each seed is a well-formed control packet that the decoder should accept.
         WritePublish(dir, MqttQoS.AtMostOnce, "a", new byte[] { 1 }, "publish-qos0.bin");
-        WritePublish(dir, MqttQoS.AtLeastOnce, "topic/with/levels", new byte[] { 1, 2, 3, 4 }, "publish-qos1.bin");
-        WritePublish(dir, MqttQoS.ExactlyOnce, "$share/g1/topic", new byte[] { 9 }, "publish-qos2.bin");
+        WritePublish(
+            dir,
+            MqttQoS.AtLeastOnce,
+            "topic/with/levels",
+            new byte[] { 1, 2, 3, 4 },
+            "publish-qos1.bin");
+        WritePublish(
+            dir,
+            MqttQoS.ExactlyOnce,
+            "$share/g1/topic",
+            new byte[] { 9 },
+            "publish-qos2.bin");
 
         // PINGRESP fixed-header pair.
         File.WriteAllBytes(Path.Combine(dir, "pingresp.bin"), new byte[] { 0xD0, 0x00 });
@@ -58,7 +68,12 @@ internal static class CorpusGenerator
             CombineWithLength((byte[])"a/#"u8.ToArray(), (byte[])"a/b/c"u8.ToArray()));
     }
 
-    private static void WritePublish(string dir, MqttQoS qos, string topic, byte[] payload, string fileName)
+    private static void WritePublish(
+        string dir,
+        MqttQoS qos,
+        string topic,
+        byte[] payload,
+        string fileName)
     {
         var packet = new PublishPacket
         {

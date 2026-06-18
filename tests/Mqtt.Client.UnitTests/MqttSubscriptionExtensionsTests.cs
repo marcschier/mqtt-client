@@ -8,7 +8,9 @@ public class MqttSubscriptionExtensionsTests
     [Timeout(2_000)]
     public async Task ReadAllAsync_returns_messages_then_completes_on_dispose(CancellationToken ct)
     {
-        var options = new MqttSubscriptionOptions { Capacity = 4, Overflow = MqttOverflowMode.Wait };
+        var options = new MqttSubscriptionOptions {
+            Capacity = 4,
+            Overflow = MqttOverflowMode.Wait };
         // Use reflection-free path: construct via internal ctor through a tiny helper. The
         // MqttSubscription type is public but its ctor is internal; here we exercise the
         // ReadAllAsync extension by routing through a published instance. We test the public

@@ -28,7 +28,8 @@ public class MqttClientFakeTransportTests
 
     [Test]
     [Timeout(5_000)]
-    public async Task ConnectAsync_succeeds_when_broker_replies_with_success_connack(CancellationToken ct)
+    public async Task ConnectAsync_succeeds_when_broker_replies_with_success_connack(
+        CancellationToken ct)
     {
         var (client, _, broker) = Build();
         await using var _ = client;
@@ -66,7 +67,11 @@ public class MqttClientFakeTransportTests
         await broker.SendConnAckAsync(ct: ct);
         await connectTask;
 
-        var pubTask = client.PublishAsync("topic/qos1", new byte[] { 1, 2, 3 }, MqttQoS.AtLeastOnce, cancellationToken: ct);
+        var pubTask = client.PublishAsync(
+            "topic/qos1",
+            new byte[] { 1, 2, 3 },
+            MqttQoS.AtLeastOnce,
+            cancellationToken: ct);
         var sent = await broker.ReadPacketAsync(ct);
         await Assert.That(sent.Type).IsEqualTo(3);  // PUBLISH
         await broker.SendPubAckAsync(sent.PacketId, ct: ct);
@@ -85,7 +90,11 @@ public class MqttClientFakeTransportTests
         await broker.SendConnAckAsync(ct: ct);
         await connectTask;
 
-        var pubTask = client.PublishAsync("topic/qos2", new byte[] { 9 }, MqttQoS.ExactlyOnce, cancellationToken: ct);
+        var pubTask = client.PublishAsync(
+            "topic/qos2",
+            new byte[] { 9 },
+            MqttQoS.ExactlyOnce,
+            cancellationToken: ct);
         var sent = await broker.ReadPacketAsync(ct);
         await Assert.That(sent.Type).IsEqualTo(3);
         await broker.SendPubRecAsync(sent.PacketId, ct);
@@ -171,7 +180,8 @@ public class MqttClientFakeTransportTests
         _ = ct;
         var (client, _, _) = Build();
         await using var _2 = client;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => client.PublishAsync("t", new byte[] { 1 }).AsTask());
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => client.PublishAsync("t", new byte[] { 1 }).AsTask());
     }
 
     [Test]
@@ -181,6 +191,7 @@ public class MqttClientFakeTransportTests
         _ = ct;
         var (client, _, _) = Build();
         await using var _2 = client;
-        await Assert.That(() => client.TryPublish("t", new byte[] { 1 })).Throws<InvalidOperationException>();
+        await Assert.That(() => client.TryPublish("t", new byte[] { 1 }))
+            .Throws<InvalidOperationException>();
     }
 }

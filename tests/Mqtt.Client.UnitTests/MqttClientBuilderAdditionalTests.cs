@@ -11,7 +11,8 @@ public class MqttClientBuilderAdditionalTests
     [Test]
     public async Task ConnectTo_throws_on_null_or_empty()
     {
-        await Assert.That(() => MqttClient.CreateBuilder().ConnectTo(null!)).Throws<ArgumentException>();
+        await Assert.That(() => MqttClient.CreateBuilder().ConnectTo(null!))
+            .Throws<ArgumentException>();
         await Assert.That(() => MqttClient.CreateBuilder().ConnectTo(""))
             .Throws<ArgumentException>();
     }
@@ -60,7 +61,8 @@ public class MqttClientBuilderAdditionalTests
     [Test]
     public async Task WithCredentials_string_overload_encodes_password()
     {
-        var c = MqttClient.CreateBuilder().ConnectTo("mqtt://broker").WithCredentials("u", "secret").Build();
+        var c = MqttClient.CreateBuilder().ConnectTo("mqtt://broker").WithCredentials("u", "secret")
+            .Build();
         await using var _ = c;
         await Assert.That(c).IsNotNull();
     }
@@ -69,7 +71,8 @@ public class MqttClientBuilderAdditionalTests
     public async Task WithClientCertificate_sets_tls_collection()
     {
         using var cert = MakeSelfSignedCert();
-        var c = MqttClient.CreateBuilder().ConnectTo("mqtts://broker").WithClientCertificate(cert).Build();
+        var c = MqttClient.CreateBuilder().ConnectTo("mqtts://broker").WithClientCertificate(cert)
+            .Build();
         await using var _ = c;
         await Assert.That(c).IsNotNull();
     }
@@ -82,6 +85,8 @@ public class MqttClientBuilderAdditionalTests
             rsa,
             System.Security.Cryptography.HashAlgorithmName.SHA256,
             System.Security.Cryptography.RSASignaturePadding.Pkcs1);
-        return req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+        return req.CreateSelfSigned(
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddDays(1));
     }
 }

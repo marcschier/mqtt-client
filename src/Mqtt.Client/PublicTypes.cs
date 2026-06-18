@@ -21,7 +21,9 @@ public sealed class MqttPublishProperties
     public IReadOnlyList<MqttUserProperty>? UserProperties { get; init; }
 }
 
-/// <summary>Last-will (testament) message published by the broker on ungraceful disconnect.</summary>
+/// <summary>
+/// Last-will (testament) message published by the broker on ungraceful disconnect.
+/// </summary>
 public sealed class MqttLastWill
 {
     public required string Topic { get; init; }

@@ -36,7 +36,8 @@ public class ServiceCollectionExtensionsTests
     [Test]
     public async Task AddMqttClient_throws_on_null_services()
     {
-        await Assert.That(() => MqttClientServiceCollectionExtensions.AddMqttClient(null!, _ => { }))
+        await Assert.That(
+            () => MqttClientServiceCollectionExtensions.AddMqttClient(null!, _ => { }))
             .Throws<ArgumentNullException>();
     }
 

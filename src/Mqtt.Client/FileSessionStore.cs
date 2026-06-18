@@ -64,7 +64,8 @@ public sealed class FileSessionStore : IPersistentSessionStore
         return default;
     }
 
-    public ValueTask<IReadOnlyList<(ushort PacketId, MqttMessage Message)>> ListPendingPublishesAsync()
+    public ValueTask<IReadOnlyList<(ushort PacketId, MqttMessage Message)>>
+        ListPendingPublishesAsync()
     {
         var list = new List<(ushort, MqttMessage)>();
         lock (_gate)
@@ -87,7 +88,11 @@ public sealed class FileSessionStore : IPersistentSessionStore
                 if (payloadLen < 0 || buf.Length < 5 + topicLen + 4 + payloadLen) continue;
                 var payload = new byte[payloadLen];
                 s.Slice(5 + topicLen + 4, payloadLen).CopyTo(payload);
-                list.Add((packetId, new MqttMessage { Topic = topic, Payload = payload, QoS = qos, Retain = retain }));
+                list.Add((packetId, new MqttMessage {
+                    Topic = topic,
+                    Payload = payload,
+                    QoS = qos,
+                    Retain = retain }));
             }
         }
         return new ValueTask<IReadOnlyList<(ushort, MqttMessage)>>(list);

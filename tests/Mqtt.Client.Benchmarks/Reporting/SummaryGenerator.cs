@@ -22,13 +22,15 @@ public static class SummaryGenerator
         var resultsDir = FindResultsDir();
         if (resultsDir is null)
         {
-            Console.WriteLine("[SummaryGenerator] No BenchmarkDotNet.Artifacts/results directory found.");
+            Console.WriteLine(
+                "[SummaryGenerator] No BenchmarkDotNet.Artifacts/results directory found.");
             return;
         }
         var repoRoot = FindRepoRoot();
         if (repoRoot is null)
         {
-            Console.WriteLine("[SummaryGenerator] Couldn't locate repo root (no .git folder above cwd).");
+            Console.WriteLine(
+                "[SummaryGenerator] Couldn't locate repo root (no .git folder above cwd).");
             return;
         }
         var docsPath = Path.Combine(repoRoot, "docs", "benchmarks.md");
@@ -37,23 +39,34 @@ public static class SummaryGenerator
         var docs = new StringBuilder();
         docs.AppendLine("# Mqtt.Client vs MQTTnet — benchmark results");
         docs.AppendLine();
-        docs.AppendLine(CultureInfo.InvariantCulture, $"_Generated {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC._");
+        docs.AppendLine(
+            CultureInfo.InvariantCulture,
+            $"_Generated {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC._");
         docs.AppendLine();
-        docs.AppendLine("[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested .NET MQTT library.");
-        docs.AppendLine("These benchmarks are not a verdict on MQTTnet — they exist to make tradeoffs visible");
+        docs.AppendLine(
+            "[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested " +
+            ".NET MQTT library.");
+        docs.AppendLine(
+            "These benchmarks are not a verdict on MQTTnet — they exist to make tradeoffs visible");
         docs.AppendLine("for callers choosing between the two clients. See the README's");
         docs.AppendLine("\"When to pick MQTTnet instead\" section for guidance.");
         docs.AppendLine();
         docs.AppendLine("Run with:");
         docs.AppendLine("```");
-        docs.AppendLine("dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- --filter '*' --report");
-        docs.AppendLine("dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- --filter '*' --full --report");
+        docs.AppendLine(
+            "dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- --filter '*' --report");
+        docs.AppendLine(
+            "dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- " +
+            "--filter '*' --full --report");
         docs.AppendLine("```");
         docs.AppendLine();
 
-        foreach (var md in Directory.EnumerateFiles(resultsDir, "*-report-github.md").OrderBy(f => f))
+        foreach (var md in Directory.EnumerateFiles(resultsDir, "*-report-github.md")
+            .OrderBy(f => f))
         {
-            docs.AppendLine(CultureInfo.InvariantCulture, $"## {Path.GetFileNameWithoutExtension(md)}");
+            docs.AppendLine(
+                CultureInfo.InvariantCulture,
+                $"## {Path.GetFileNameWithoutExtension(md)}");
             docs.AppendLine();
             docs.AppendLine(File.ReadAllText(md).Trim());
             docs.AppendLine();
@@ -65,7 +78,8 @@ public static class SummaryGenerator
 
         if (!File.Exists(readmePath))
         {
-            Console.WriteLine($"[SummaryGenerator] README.md not found at {readmePath}; skipping summary block.");
+            Console.WriteLine(
+                $"[SummaryGenerator] README.md not found at {readmePath}; skipping summary block.");
             return;
         }
         var summary = BuildReadmeSummary(resultsDir);
@@ -75,7 +89,10 @@ public static class SummaryGenerator
         var block = $"{ReadmeStart}\n{summary}\n{ReadmeEnd}";
         if (start >= 0 && end > start)
         {
-            readme = string.Concat(readme.AsSpan(0, start), block, readme.AsSpan(end + ReadmeEnd.Length));
+            readme = string.Concat(
+                readme.AsSpan(0, start),
+                block,
+                readme.AsSpan(end + ReadmeEnd.Length));
         }
         else
         {
@@ -133,9 +150,11 @@ public static class SummaryGenerator
                     continue;
                 }
                 var method = b.GetProperty("Method").GetString() ?? "";
-                if (!b.TryGetProperty("Statistics", out var stats) || stats.ValueKind != JsonValueKind.Object) continue;
+                if (!b.TryGetProperty("Statistics", out var stats)
+                    || stats.ValueKind != JsonValueKind.Object) continue;
                 var mean = stats.GetProperty("Mean").GetDouble();
-                var alloc = b.TryGetProperty("Memory", out var mem) && mem.TryGetProperty("BytesAllocatedPerOperation", out var ba)
+                var alloc = b.TryGetProperty("Memory", out var mem)
+                    && mem.TryGetProperty("BytesAllocatedPerOperation", out var ba)
                     ? ba.GetInt64() : 0L;
                 raw.Add((type, method, mean, alloc));
             }
@@ -148,15 +167,21 @@ public static class SummaryGenerator
         sb.AppendLine();
         sb.AppendLine("| Scenario | Client | Mean | Allocated | Ratio vs MQTTnet |");
         sb.AppendLine("| --- | --- | ---: | ---: | ---: |");
-        foreach (var grp in raw.GroupBy(r => r.Scenario).OrderBy(g => g.Key, StringComparer.Ordinal))
+        foreach (var grp in raw.GroupBy(r => r.Scenario)
+            .OrderBy(g => g.Key, StringComparer.Ordinal))
         {
-            var baseline = grp.FirstOrDefault(r => r.Client.Contains("Mqttnet", StringComparison.OrdinalIgnoreCase));
+            var baseline = grp.FirstOrDefault(
+                r => r.Client.Contains("Mqttnet", StringComparison.OrdinalIgnoreCase));
             foreach (var r in grp.OrderBy(r => r.Client, StringComparer.Ordinal))
             {
                 var ratio = baseline.MeanNs > 0
-                    ? string.Create(CultureInfo.InvariantCulture, $"{r.MeanNs / baseline.MeanNs:F2}")
+                    ? string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"{r.MeanNs / baseline.MeanNs:F2}")
                     : "—";
-                var alloc = r.Allocated > 0 ? r.Allocated.ToString("N0", CultureInfo.InvariantCulture) + " B" : "—";
+                var alloc = r.Allocated > 0
+                    ? r.Allocated.ToString("N0", CultureInfo.InvariantCulture) + " B"
+                    : "—";
                 sb.AppendLine(
                     CultureInfo.InvariantCulture,
                     $"| {Clean(r.Scenario)} | {r.Client} | {FormatTime(r.MeanNs)} | {alloc} | {ratio} |");
@@ -168,13 +193,18 @@ public static class SummaryGenerator
     private static string Clean(string typeName)
     {
         var i = typeName.LastIndexOf('.');
-        return (i >= 0 ? typeName.Substring(i + 1) : typeName).Replace("Benchmark", "", StringComparison.Ordinal);
+        return (i >= 0 ? typeName.Substring(i + 1) : typeName).Replace(
+            "Benchmark",
+            "",
+            StringComparison.Ordinal);
     }
 
     private static string FormatTime(double ns)
     {
         if (ns < 1_000) return string.Create(CultureInfo.InvariantCulture, $"{ns:F1} ns");
-        if (ns < 1_000_000) return string.Create(CultureInfo.InvariantCulture, $"{ns / 1_000:F2} \u00b5s");
+        if (ns < 1_000_000) return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{ns / 1_000:F2} \u00b5s");
         return string.Create(CultureInfo.InvariantCulture, $"{ns / 1_000_000:F2} ms");
     }
 }

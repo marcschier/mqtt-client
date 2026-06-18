@@ -11,7 +11,9 @@ using System.Threading.Tasks;
 
 namespace Mqtt.Client.Transport;
 
-/// <summary>Connects over TCP+TLS (MQTTS / WebSocket-secure variant left for a future transport).</summary>
+/// <summary>
+/// Connects over TCP+TLS (MQTTS / WebSocket-secure variant left for a future transport).
+/// </summary>
 internal sealed class TlsTransport : IMqttTransport
 {
     private readonly SslStream _ssl;
@@ -68,13 +70,16 @@ internal sealed class TlsTransportFactory : IMqttTransportFactory
 #else
             await socket.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
 #endif
-            ssl = new SslStream(new NetworkStream(socket, ownsSocket: false), leaveInnerStreamOpen: false);
+            ssl = new SslStream(
+                new NetworkStream(socket, ownsSocket: false),
+                leaveInnerStreamOpen: false);
 #if NETSTANDARD2_1
             await ssl.AuthenticateAsClientAsync(
                 _options.TargetHost!,
                 _options.ClientCertificates,
                 _options.EnabledSslProtocols,
-                checkCertificateRevocation: _options.CertificateRevocationCheckMode != X509RevocationMode.NoCheck).ConfigureAwait(false);
+                checkCertificateRevocation: _options.CertificateRevocationCheckMode
+                    != X509RevocationMode.NoCheck).ConfigureAwait(false);
 #else
             await ssl.AuthenticateAsClientAsync(_options, cancellationToken).ConfigureAwait(false);
 #endif

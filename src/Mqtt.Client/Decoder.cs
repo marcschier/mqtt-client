@@ -21,14 +21,22 @@ internal static class MqttPacketDecoder
     /// <param name="version">Active protocol version.</param>
     /// <param name="packet">Decoded packet (one of the internal Packets types) on success.</param>
     /// <param name="firstByte">Fixed-header first byte on success.</param>
-    /// <param name="consumed">Position after the consumed packet on success; unchanged on failure.</param>
+    /// <param name="consumed">
+    /// Position after the consumed packet on success; unchanged on failure.
+    /// </param>
     public static bool TryDecode(
         in ReadOnlySequence<byte> buffer,
         MqttProtocolVersion version,
         out object? packet,
         out byte firstByte,
         out SequencePosition consumed)
-        => TryDecode(buffer, version, maxPacketSize: int.MaxValue, out packet, out firstByte, out consumed);
+        => TryDecode(
+            buffer,
+            version,
+            maxPacketSize: int.MaxValue,
+            out packet,
+            out firstByte,
+            out consumed);
 
     /// <summary>
     /// Attempts to decode one packet, rejecting any whose advertised remaining length exceeds
@@ -60,7 +68,8 @@ internal static class MqttPacketDecoder
         if (remainingLength > (uint)maxPacketSize)
         {
             throw new MqttProtocolException(
-                $"Incoming packet remaining length ({remainingLength}) exceeds MaxIncomingPacketSize ({maxPacketSize}).");
+                $"Incoming packet remaining length ({remainingLength}) exceeds " +
+                $"MaxIncomingPacketSize ({maxPacketSize}).");
         }
         if (reader.Remaining < remainingLength) return false;
 
@@ -72,23 +81,37 @@ internal static class MqttPacketDecoder
         packet = type switch
         {
             MqttPacketType.ConnAck => DecodeConnAck(ref payloadReader, version),
-            MqttPacketType.Publish => DecodePublish(firstByte, ref payloadReader, version, (int)remainingLength),
+            MqttPacketType.Publish => DecodePublish(
+                firstByte,
+                ref payloadReader,
+                version,
+                (int)remainingLength),
             MqttPacketType.PubAck => DecodeAck(ref payloadReader, version, (int)remainingLength),
             MqttPacketType.PubRec => DecodeAck(ref payloadReader, version, (int)remainingLength),
             MqttPacketType.PubRel => DecodeAck(ref payloadReader, version, (int)remainingLength),
             MqttPacketType.PubComp => DecodeAck(ref payloadReader, version, (int)remainingLength),
             MqttPacketType.SubAck => DecodeSubAck(ref payloadReader, version, (int)remainingLength),
-            MqttPacketType.UnsubAck => DecodeUnsubAck(ref payloadReader, version, (int)remainingLength),
+            MqttPacketType.UnsubAck => DecodeUnsubAck(
+                ref payloadReader,
+                version,
+                (int)remainingLength),
             MqttPacketType.PingResp => null,
-            MqttPacketType.Disconnect => DecodeDisconnect(ref payloadReader, version, (int)remainingLength),
+            MqttPacketType.Disconnect => DecodeDisconnect(
+                ref payloadReader,
+                version,
+                (int)remainingLength),
             MqttPacketType.Auth => DecodeAuth(ref payloadReader, (int)remainingLength),
-            _ => throw new MqttProtocolException($"Unexpected packet type from broker: 0x{(byte)type:X2}"),
+            _ => throw new MqttProtocolException(
+                $"Unexpected packet type from broker: 0x{(byte)type:X2}"),
         };
         consumed = buffer.GetPosition(fixedHeaderBytes + remainingLength);
         return true;
     }
 
-    private static uint TryReadVarInt(ref MqttSequenceReader reader, out int byteCount, out bool success)
+    private static uint TryReadVarInt(
+        ref MqttSequenceReader reader,
+        out int byteCount,
+        out bool success)
     {
         uint value = 0;
         var multiplier = 1u;
@@ -113,7 +136,9 @@ internal static class MqttPacketDecoder
         }
     }
 
-    private static ConnAckPacket DecodeConnAck(ref MqttSequenceReader reader, MqttProtocolVersion version)
+    private static ConnAckPacket DecodeConnAck(
+        ref MqttSequenceReader reader,
+        MqttProtocolVersion version)
     {
         var ackFlags = reader.ReadByte();
         var rc = (MqttReasonCode)reader.ReadByte();
@@ -132,25 +157,43 @@ internal static class MqttPacketDecoder
                 var id = (MqttPropertyId)reader.ReadByte();
                 switch (id)
                 {
-                    case MqttPropertyId.SessionExpiryInterval: ack.SessionExpiryInterval = reader.ReadUInt32BigEndian(); break;
-                    case MqttPropertyId.ReceiveMaximum: ack.ReceiveMaximum = reader.ReadUInt16BigEndian(); break;
-                    case MqttPropertyId.MaximumQoS: ack.MaximumQoS = (MqttQoS)reader.ReadByte(); break;
-                    case MqttPropertyId.RetainAvailable: ack.RetainAvailable = reader.ReadByte() == 1; break;
-                    case MqttPropertyId.MaximumPacketSize: ack.MaximumPacketSize = reader.ReadUInt32BigEndian(); break;
-                    case MqttPropertyId.AssignedClientIdentifier: ack.AssignedClientId = reader.ReadString(); break;
-                    case MqttPropertyId.TopicAliasMaximum: ack.TopicAliasMaximum = reader.ReadUInt16BigEndian(); break;
-                    case MqttPropertyId.ReasonString: ack.ReasonString = reader.ReadString(); break;
-                    case MqttPropertyId.UserProperty: ack.AddUserProperty(reader.ReadString(), reader.ReadString()); break;
-                    case MqttPropertyId.WildcardSubscriptionAvailable: ack.WildcardSubscriptionAvailable = reader.ReadByte() == 1; break;
-                    case MqttPropertyId.SubscriptionIdentifiersAvailable: ack.SubscriptionIdentifiersAvailable = reader
+                    case MqttPropertyId.SessionExpiryInterval: ack.SessionExpiryInterval = reader
+                        .ReadUInt32BigEndian(); break;
+                    case MqttPropertyId.ReceiveMaximum: ack.ReceiveMaximum = reader
+                        .ReadUInt16BigEndian(); break;
+                    case MqttPropertyId.MaximumQoS: ack.MaximumQoS = (MqttQoS)reader
+                        .ReadByte(); break;
+                    case MqttPropertyId.RetainAvailable: ack.RetainAvailable = reader
                         .ReadByte() == 1; break;
-                    case MqttPropertyId.SharedSubscriptionAvailable: ack.SharedSubscriptionAvailable = reader.ReadByte() == 1; break;
-                    case MqttPropertyId.ServerKeepAlive: ack.ServerKeepAlive = reader.ReadUInt16BigEndian(); break;
-                    case MqttPropertyId.ResponseInformation: ack.ResponseInformation = reader.ReadString(); break;
-                    case MqttPropertyId.ServerReference: ack.ServerReference = reader.ReadString(); break;
-                    case MqttPropertyId.AuthenticationMethod: ack.AuthenticationMethod = reader.ReadString(); break;
-                    case MqttPropertyId.AuthenticationData: ack.AuthenticationData = reader.ReadBinaryData(); break;
-                    default: throw new MqttProtocolException($"Unexpected CONNACK property 0x{(byte)id:X2}");
+                    case MqttPropertyId.MaximumPacketSize: ack.MaximumPacketSize = reader
+                        .ReadUInt32BigEndian(); break;
+                    case MqttPropertyId.AssignedClientIdentifier: ack.AssignedClientId = reader
+                        .ReadString(); break;
+                    case MqttPropertyId.TopicAliasMaximum: ack.TopicAliasMaximum = reader
+                        .ReadUInt16BigEndian(); break;
+                    case MqttPropertyId.ReasonString: ack.ReasonString = reader.ReadString(); break;
+                    case MqttPropertyId.UserProperty: ack.AddUserProperty(
+                        reader.ReadString(),
+                        reader.ReadString()); break;
+                    case MqttPropertyId.WildcardSubscriptionAvailable: ack
+                        .WildcardSubscriptionAvailable = reader.ReadByte() == 1; break;
+                    case MqttPropertyId.SubscriptionIdentifiersAvailable: ack
+                        .SubscriptionIdentifiersAvailable = reader
+                        .ReadByte() == 1; break;
+                    case MqttPropertyId.SharedSubscriptionAvailable: ack.SharedSubscriptionAvailable
+                        = reader.ReadByte() == 1; break;
+                    case MqttPropertyId.ServerKeepAlive: ack.ServerKeepAlive = reader
+                        .ReadUInt16BigEndian(); break;
+                    case MqttPropertyId.ResponseInformation: ack.ResponseInformation = reader
+                        .ReadString(); break;
+                    case MqttPropertyId.ServerReference: ack.ServerReference = reader
+                        .ReadString(); break;
+                    case MqttPropertyId.AuthenticationMethod: ack.AuthenticationMethod = reader
+                        .ReadString(); break;
+                    case MqttPropertyId.AuthenticationData: ack.AuthenticationData = reader
+                        .ReadBinaryData(); break;
+                    default: throw new MqttProtocolException(
+                        $"Unexpected CONNACK property 0x{(byte)id:X2}");
                 }
             }
         }
@@ -173,7 +216,11 @@ internal static class MqttPacketDecoder
         _ => MqttReasonCode.UnspecifiedError,
     };
 
-    private static PublishPacket DecodePublish(byte firstByte, ref MqttSequenceReader reader, MqttProtocolVersion version, int totalLen)
+    private static PublishPacket DecodePublish(
+        byte firstByte,
+        ref MqttSequenceReader reader,
+        MqttProtocolVersion version,
+        int totalLen)
     {
         var dup = (firstByte & 0x08) != 0;
         var qos = (MqttQoS)((firstByte >> 1) & 0x03);
@@ -209,7 +256,9 @@ internal static class MqttPacketDecoder
         };
     }
 
-    private static MqttPublishProperties ReadPublishProperties(ref MqttSequenceReader reader, int propLen)
+    private static MqttPublishProperties ReadPublishProperties(
+        ref MqttSequenceReader reader,
+        int propLen)
     {
         var end = reader.Consumed + propLen;
         byte? pfi = null;
@@ -232,10 +281,12 @@ internal static class MqttPacketDecoder
                 case MqttPropertyId.ResponseTopic: rt = reader.ReadString(); break;
                 case MqttPropertyId.CorrelationData: cd = reader.ReadBinaryData(); break;
                 case MqttPropertyId.ContentType: ct = reader.ReadString(); break;
-                case MqttPropertyId.SubscriptionIdentifier: (sids ??= new List<uint>()).Add(reader.ReadVarInt(out _)); break;
+                case MqttPropertyId.SubscriptionIdentifier: (sids ??= new List<uint>()).Add(
+                    reader.ReadVarInt(out _)); break;
                 case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
                     new(reader.ReadString(), reader.ReadString())); break;
-                default: throw new MqttProtocolException($"Unexpected PUBLISH property 0x{(byte)id:X2}");
+                default: throw new MqttProtocolException(
+                    $"Unexpected PUBLISH property 0x{(byte)id:X2}");
             }
         }
         return new MqttPublishProperties
@@ -251,7 +302,10 @@ internal static class MqttPacketDecoder
         };
     }
 
-    private static PubAckPacket DecodeAck(ref MqttSequenceReader reader, MqttProtocolVersion version, int totalLen)
+    private static PubAckPacket DecodeAck(
+        ref MqttSequenceReader reader,
+        MqttProtocolVersion version,
+        int totalLen)
     {
         var pid = reader.ReadUInt16BigEndian();
         var rc = MqttReasonCode.Success;
@@ -270,17 +324,26 @@ internal static class MqttPacketDecoder
                     switch (id)
                     {
                         case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
-                        case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
-                            new(reader.ReadString(), reader.ReadString())); break;
-                        default: throw new MqttProtocolException($"Unexpected ack property 0x{(byte)id:X2}");
+                        case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>())
+                            .Add(
+                                new(reader.ReadString(), reader.ReadString())); break;
+                        default: throw new MqttProtocolException(
+                            $"Unexpected ack property 0x{(byte)id:X2}");
                     }
                 }
             }
         }
-        return new PubAckPacket { PacketId = pid, ReasonCode = rc, ReasonString = reason, UserProperties = ups };
+        return new PubAckPacket {
+            PacketId = pid,
+            ReasonCode = rc,
+            ReasonString = reason,
+            UserProperties = ups };
     }
 
-    private static SubAckPacket DecodeSubAck(ref MqttSequenceReader reader, MqttProtocolVersion version, int totalLen)
+    private static SubAckPacket DecodeSubAck(
+        ref MqttSequenceReader reader,
+        MqttProtocolVersion version,
+        int totalLen)
     {
         var pid = reader.ReadUInt16BigEndian();
         string? reason = null;
@@ -297,17 +360,25 @@ internal static class MqttPacketDecoder
                     case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
                     case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
                         new(reader.ReadString(), reader.ReadString())); break;
-                    default: throw new MqttProtocolException($"Unexpected SUBACK property 0x{(byte)id:X2}");
+                    default: throw new MqttProtocolException(
+                        $"Unexpected SUBACK property 0x{(byte)id:X2}");
                 }
             }
         }
         var rcCount = totalLen - (int)reader.Consumed;
         var rcs = new MqttReasonCode[rcCount];
         for (var i = 0; i < rcCount; i++) rcs[i] = (MqttReasonCode)reader.ReadByte();
-        return new SubAckPacket { PacketId = pid, ReasonCodes = rcs, ReasonString = reason, UserProperties = ups };
+        return new SubAckPacket {
+            PacketId = pid,
+            ReasonCodes = rcs,
+            ReasonString = reason,
+            UserProperties = ups };
     }
 
-    private static UnsubAckPacket DecodeUnsubAck(ref MqttSequenceReader reader, MqttProtocolVersion version, int totalLen)
+    private static UnsubAckPacket DecodeUnsubAck(
+        ref MqttSequenceReader reader,
+        MqttProtocolVersion version,
+        int totalLen)
     {
         var pid = reader.ReadUInt16BigEndian();
         if (version == MqttProtocolVersion.V311)
@@ -326,16 +397,24 @@ internal static class MqttPacketDecoder
                 case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
                 case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
                     new(reader.ReadString(), reader.ReadString())); break;
-                default: throw new MqttProtocolException($"Unexpected UNSUBACK property 0x{(byte)id:X2}");
+                default: throw new MqttProtocolException(
+                    $"Unexpected UNSUBACK property 0x{(byte)id:X2}");
             }
         }
         var rcCount = totalLen - (int)reader.Consumed;
         var rcs = new MqttReasonCode[rcCount];
         for (var i = 0; i < rcCount; i++) rcs[i] = (MqttReasonCode)reader.ReadByte();
-        return new UnsubAckPacket { PacketId = pid, ReasonCodes = rcs, ReasonString = reason, UserProperties = ups };
+        return new UnsubAckPacket {
+            PacketId = pid,
+            ReasonCodes = rcs,
+            ReasonString = reason,
+            UserProperties = ups };
     }
 
-    private static DisconnectPacket DecodeDisconnect(ref MqttSequenceReader reader, MqttProtocolVersion version, int totalLen)
+    private static DisconnectPacket DecodeDisconnect(
+        ref MqttSequenceReader reader,
+        MqttProtocolVersion version,
+        int totalLen)
     {
         if (version == MqttProtocolVersion.V311 || totalLen == 0)
         {
@@ -354,12 +433,14 @@ internal static class MqttPacketDecoder
                 var id = (MqttPropertyId)reader.ReadByte();
                 switch (id)
                 {
-                    case MqttPropertyId.SessionExpiryInterval: se = reader.ReadUInt32BigEndian(); break;
+                    case MqttPropertyId.SessionExpiryInterval: se = reader
+                        .ReadUInt32BigEndian(); break;
                     case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
                     case MqttPropertyId.ServerReference: serverRef = reader.ReadString(); break;
                     case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
                         new(reader.ReadString(), reader.ReadString())); break;
-                    default: throw new MqttProtocolException($"Unexpected DISCONNECT property 0x{(byte)id:X2}");
+                    default: throw new MqttProtocolException(
+                        $"Unexpected DISCONNECT property 0x{(byte)id:X2}");
                 }
             }
         }
@@ -392,7 +473,8 @@ internal static class MqttPacketDecoder
                     case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
                     case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
                         new(reader.ReadString(), reader.ReadString())); break;
-                    default: throw new MqttProtocolException($"Unexpected AUTH property 0x{(byte)id:X2}");
+                    default: throw new MqttProtocolException(
+                        $"Unexpected AUTH property 0x{(byte)id:X2}");
                 }
             }
         }
@@ -404,7 +486,9 @@ internal static class MqttPacketDecoder
             UserProperties = ups };
     }
 
-    /// <summary>Mutable builder used while parsing a CONNACK to avoid an allocation per property.</summary>
+    /// <summary>
+    /// Mutable builder used while parsing a CONNACK to avoid an allocation per property.
+    /// </summary>
     private struct ConnAckBuilder
     {
         public bool SessionPresent;

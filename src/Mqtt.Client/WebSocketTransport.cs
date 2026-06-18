@@ -32,13 +32,18 @@ internal sealed class WebSocketTransport : IMqttTransport
     {
         try { await _writer.CompleteAsync().ConfigureAwait(false); } catch { }
         try { await _reader.CompleteAsync().ConfigureAwait(false); } catch { }
-        try { await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "client", CancellationToken.None)
+        try { await _socket.CloseAsync(
+            WebSocketCloseStatus.NormalClosure,
+            "client",
+            CancellationToken.None)
             .ConfigureAwait(false); } catch { }
         _socket.Dispose();
         await _stream.DisposeAsync().ConfigureAwait(false);
     }
 
-    /// <summary>Adapts a <see cref="ClientWebSocket"/> to a Stream so the existing pipe pump can drive it.</summary>
+    /// <summary>
+    /// Adapts a <see cref="ClientWebSocket"/> to a Stream so the existing pipe pump can drive it.
+    /// </summary>
     private sealed class WebSocketStream : System.IO.Stream
     {
         private readonly ClientWebSocket _ws;
@@ -47,23 +52,35 @@ internal sealed class WebSocketTransport : IMqttTransport
         public override bool CanWrite => true;
         public override bool CanSeek => false;
         public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override long Position { get => throw new NotSupportedException(); set
+            => throw new NotSupportedException(); }
         public override void Flush() { }
         public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException("Use async APIs.");
-        public override long Seek(long offset, System.IO.SeekOrigin origin) => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count)
+            => throw new NotSupportedException("Use async APIs.");
+        public override long Seek(long offset, System.IO.SeekOrigin origin)
+            => throw new NotSupportedException();
         public override void SetLength(long value) => throw new NotSupportedException();
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException("Use async APIs.");
+        public override void Write(byte[] buffer, int offset, int count)
+            => throw new NotSupportedException("Use async APIs.");
 
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
         {
             var result = await _ws.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
             if (result.MessageType == WebSocketMessageType.Close) return 0;
             return result.Count;
         }
 
-        public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-            => await _ws.SendAsync(buffer, WebSocketMessageType.Binary, endOfMessage: true, cancellationToken).ConfigureAwait(false);
+        public override async ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default)
+            => await _ws.SendAsync(
+                buffer,
+                WebSocketMessageType.Binary,
+                endOfMessage: true,
+                cancellationToken).ConfigureAwait(false);
     }
 }
 
