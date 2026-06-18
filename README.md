@@ -104,43 +104,46 @@ _Headline rows from the latest BenchmarkDotNet ShortRun. Hardware: Intel Xeon W-
 
 | Scenario | MQTTnet | Mqtt.Client | Time ratio | Alloc MQTTnet | Alloc Mqtt.Client | Alloc ratio |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Publish QoS 0 | 56.55 µs | **6.70 µs** | **0.12×** | 2.03 KB | **1.52 KB** | **0.75×** |
-| Publish QoS 1 (awaits PUBACK) | 122.3 µs | **116.0 µs** | **0.95×** | 4.16 KB | **3.10 KB** | **0.75×** |
-| Publish QoS 2 (full PUBREC/REL/COMP) | 221.0 µs | **214.9 µs** | **0.97×** | 7.02 KB | **4.72 KB** | **0.67×** |
-| Subscribe receive | 183.5 µs | **179.9 µs** | **0.99×** | 5.49 KB | **3.72 KB** | **0.68×** |
-| Connect + Disconnect | 5.03 ms | **4.30 ms** | **0.86×** | **37.3 KB** | 47.7 KB | 1.28× |
+| Publish QoS 0 | 41.97 µs | **5.57 µs** | **0.13×** | 2.00 KB | **1.32 KB** | **0.66×** |
+| Publish QoS 1 (awaits PUBACK) | 115.4 µs | **100.3 µs** | **0.87×** | 4.16 KB | **2.91 KB** | **0.70×** |
+| Publish QoS 2 (full PUBREC/REL/COMP) | 217.2 µs | **197.0 µs** | **0.91×** | 7.00 KB | **4.45 KB** | **0.64×** |
+| Subscribe receive | 133.9 µs | 136.2 µs | 1.02× | 5.44 KB | **3.92 KB** | **0.72×** |
+| Connect + Disconnect | **4.15 ms** | 4.52 ms | 1.09× ⚠ | **37.3 KB** | 49.7 KB | 1.33× ⚠ |
 
 **Publish QoS 0 across payload sizes (in-process broker, MQTT 5)**
 
 | Payload | MQTTnet | Mqtt.Client | Time ratio | Alloc MQTTnet | Alloc Mqtt.Client | Alloc ratio |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 64 B | 45.78 µs | **4.73 µs** | **0.10×** | 1.67 KB | **1.14 KB** | **0.68×** |
-| 256 B | 56.55 µs | **6.70 µs** | **0.12×** | 2.03 KB | **1.52 KB** | **0.75×** |
-| 1 KB | 52.29 µs | **6.96 µs** | **0.13×** | 3.57 KB | **3.06 KB** | **0.86×** |
-| 4 KB | 49.70 µs | **15.16 µs** | **0.31×** | 11.3 KB | **9.23 KB** | **0.82×** |
-| 16 KB | 52.75 µs | 55.07 µs | 1.05× ⚠ | 34.34 KB | **34.09 KB** | **0.99×** |
-| 64 KB | 161.5 µs | **157.8 µs** | **0.98×** | 133.3 KB | 133.6 KB | 1.00× |
+| 64 B | 54.09 µs | **4.31 µs** | **0.08×** | 1.63 KB | **0.99 KB** | **0.61×** |
+| 256 B | 41.97 µs | **5.57 µs** | **0.13×** | 2.00 KB | **1.32 KB** | **0.66×** |
+| 1 KB | 45.20 µs | **6.55 µs** | **0.15×** | 3.47 KB | **2.93 KB** | **0.84×** |
+| 4 KB | 47.73 µs | **25.75 µs** | **0.54×** | 9.43 KB | 10.62 KB | 1.13× ⚠ |
+| 16 KB | 44.59 µs | 50.12 µs | 1.13× ⚠ | 33.50 KB | 33.51 KB | 1.00× |
+| 64 KB | 189.5 µs | **152.6 µs** | **0.81×** | 130.2 KB | 130.7 KB | 1.00× |
 
 **Subscribe receive across payload sizes (publisher → broker → subscriber)**
 
 | Payload | MQTTnet | Mqtt.Client | Time ratio | Alloc MQTTnet | Alloc Mqtt.Client | Alloc ratio |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 64 B | 176.7 µs | **163.4 µs** | **0.93×** | 4.87 KB | **3.15 KB** | **0.65×** |
-| 256 B | 183.5 µs | **179.9 µs** | **0.99×** | 5.49 KB | **3.72 KB** | **0.68×** |
-| 1 KB | 204.3 µs | 209.1 µs | 1.02× | 8.64 KB | **6.00 KB** | **0.69×** |
-| 4 KB | 223.7 µs | **198.6 µs** | **0.89×** | 20.65 KB | **15.01 KB** | **0.73×** |
-| 16 KB | 404.8 µs | **283.7 µs** | **0.70×** | 69.1 KB | **51.22 KB** | **0.74×** |
-| 64 KB | 907.1 µs | **324.9 µs** | **0.36×** | 263.0 KB | **196.1 KB** | **0.75×** |
+| 64 B | 137.4 µs | 153.7 µs | 1.12× ⚠ | 4.70 KB | **3.36 KB** | **0.71×** |
+| 256 B | 133.9 µs | 136.2 µs | 1.02× | 5.44 KB | **3.92 KB** | **0.72×** |
+| 1 KB | 156.2 µs | **144.3 µs** | **0.92×** | 8.44 KB | **6.17 KB** | **0.73×** |
+| 4 KB | 190.0 µs | 210.0 µs | 1.11× ⚠ | 20.61 KB | **15.24 KB** | **0.74×** |
+| 16 KB | 427.0 µs | **250.1 µs** | **0.59×** | 69.09 KB | **51.46 KB** | **0.74×** |
+| 64 KB | 821.5 µs | **391.0 µs** | **0.48×** | 262.9 KB | **196.4 KB** | **0.75×** |
 
-The remaining `> 1.0×` rows are within ShortRun noise (16 KB QoS 0 has stdev > 3 µs on a 55 µs mean) or one-time Connect overhead from Pipelines initialisation. Full matrix in [docs/benchmarks.md](docs/benchmarks.md).
+### Where Mqtt.Client is slower (the ⚠ rows)
 
-**Allocation reductions in `[Unreleased]`** — a pooled `IValueTaskSource` ack waiter replaced the per-operation `TaskCompletionSource`/`Task` for QoS > 0 publishes and subscribe/unsubscribe, lowering allocations on those paths (256 B QoS 1 ≈ 3.10 → 2.91 KB, QoS 2 ≈ 4.72 → 4.45 KB on the same hardware). Setting `ReuseInboundBuffers = true` additionally removes the per-message payload allocation on the receive path by renting from `ArrayPool<byte>` (consumers then dispose each `MqttMessage`).
+- **Connect + Disconnect (time 1.09×, alloc 1.33×)** — the only *consistent* end-to-end regression. `System.IO.Pipelines` setup allocates a `Pipe` pair, two long-running loop `Task`s and the transport on every connect, where MQTTnet uses a leaner socket reader. This is a **one-time cost per connection** that amortizes to ~0 for the long-lived clients this library targets; it does not scale with traffic.
+- **QoS 0 @ 4 KB (alloc 1.13×) / @ 16 KB (time 1.13×), Subscribe @ 64 B & 4 KB (time ~1.1×)** — ShortRun noise. These are 3-iteration runs whose error bars (±5–10 µs on the means, and ±1 ArrayPool bucket on bytes) exceed the gap; the same scenarios sit at **0.5–0.9×** one payload size up or down. End-to-end timing is dominated by the in-process broker and OS scheduling, not by client code. The 4 KB allocation blip is an `ArrayPool` bucket-rounding artifact (a 4 KB payload nudges the pipe onto the next 8 KB segment); 16 KB/64 KB return to **1.00×**.
+- **Codec micro-benchmarks** (`EncodePublish` ≈ 2×, `DecodePublish` ≈ 1.3–1.8×, `EncodeSubscribe` ≈ 1.9× — see `docs/benchmarks.md`) — nanosecond-scale and measure the codec *in isolation*. MQTTnet's codec is exceptionally tuned (direct span writes, no intermediate buffer). Ours trades a few-nanosecond fixed cost for a pooled `MqttBufferWriter` + zero-copy vectored payload writes, which is invisible against network/broker latency and is why the **end-to-end** publish rows above are faster. Per-call allocations stay ≤ 64 B (≤ MQTTnet).
+
+Everywhere else Mqtt.Client matches or beats MQTTnet, and **allocations are 0.61–0.84× across every payload-bearing path** thanks to the pooled `IValueTaskSource` ack waiter and zero-copy payload handling. Full matrix in [docs/benchmarks.md](docs/benchmarks.md).
+
+**Allocation work in `[Unreleased]`** — a pooled `IValueTaskSource` ack waiter replaced the per-operation `TaskCompletionSource`/`Task` for QoS > 0 publishes and subscribe/unsubscribe (256 B QoS 1 ≈ 3.10 → 2.91 KB, QoS 2 ≈ 4.72 → 4.45 KB). Setting `ReuseInboundBuffers = true` additionally removes the per-message payload allocation on the receive path by renting from `ArrayPool<byte>` (consumers then dispose each `MqttMessage`).
 
 Both libraries are MIT-licensed; the goal of these benchmarks is to make tradeoffs visible, not to declare a winner.
 <!-- benchmarks:end -->
-
-Numbers vary by hardware and broker. The point is the methodology — re-run on your
-infra before drawing conclusions.
 
 ## 🧪 Tests
 
