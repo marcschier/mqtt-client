@@ -174,6 +174,41 @@ internal sealed class FakeBroker
         await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// MQTT 5 variant: sends a PUBLISH with a TopicAlias property. Use to test the client's
+    /// inbound alias table (caller passes the real topic on registration; empty topic to resolve).
+    /// </summary>
+    public async Task SendPublishWithAliasAsync(string topic, ushort alias, ReadOnlyMemory<byte> payload, MqttQoS qos = MqttQoS.AtMostOnce, ushort packetId = 0, CancellationToken ct = default)
+    {
+        var packet = new PublishPacket
+        {
+            Topic = topic,
+            QoS = qos,
+            PacketId = packetId,
+            Payload = payload,
+            Properties = new MqttPublishProperties { TopicAlias = alias },
+        };
+        using var w = new MqttBufferWriter(payload.Length + 32);
+        MqttPacketEncoder.EncodePublish(packet, _version, w);
+        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>MQTT 5 variant: sends a PUBLISH with one or more SubscriptionIdentifier properties.</summary>
+    public async Task SendPublishWithSubIdsAsync(string topic, IReadOnlyList<uint> subscriptionIds, ReadOnlyMemory<byte> payload, MqttQoS qos = MqttQoS.AtMostOnce, ushort packetId = 0, CancellationToken ct = default)
+    {
+        var packet = new PublishPacket
+        {
+            Topic = topic,
+            QoS = qos,
+            PacketId = packetId,
+            Payload = payload,
+            Properties = new MqttPublishProperties { SubscriptionIdentifiers = subscriptionIds },
+        };
+        using var w = new MqttBufferWriter(payload.Length + 32);
+        MqttPacketEncoder.EncodePublish(packet, _version, w);
+        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+    }
+
     public async Task SendPingRespAsync(CancellationToken ct = default)
     {
         var bytes = new byte[] { 0xD0, 0x00 };

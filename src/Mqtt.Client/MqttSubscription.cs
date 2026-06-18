@@ -49,6 +49,13 @@ public sealed class MqttSubscription : IAsyncDisposable
     public string TopicFilter { get; }
     public MqttSubscriptionOptions Options { get; }
 
+    /// <summary>
+    /// MQTT 5 subscription identifier assigned by the client and sent to the broker. When the
+    /// broker echoes it back via inbound PUBLISH properties, the client uses it for a fast-path
+    /// dispatch that skips topic-filter matching. Null when running on MQTT 3.1.1.
+    /// </summary>
+    public uint? Identifier { get; internal set; }
+
     /// <summary>Channel reader exposing inbound messages.</summary>
     public ChannelReader<MqttMessage> Reader => _channel.Reader;
 

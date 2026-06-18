@@ -63,6 +63,13 @@ public sealed class MqttClientOptions
     public int MaxIncomingPacketSize { get; set; } = 1 * 1024 * 1024;
 
     /// <summary>
+    /// MQTT 5 inbound topic-alias capacity. Advertised in CONNECT as <c>TopicAliasMaximum</c>.
+    /// Brokers may then send PUBLISH packets with a numeric alias instead of the full topic,
+    /// reducing wire bytes for hot topics. 0 (default) disables inbound aliases.
+    /// </summary>
+    public ushort TopicAliasMaximum { get; set; }
+
+    /// <summary>
     /// When true, payload bytes are zeroed before their pooled buffer is returned to the
     /// <see cref="System.Buffers.ArrayPool{T}"/> in <see cref="MqttClient.TryPublish"/>. Default
     /// is <c>false</c> for performance; set to <c>true</c> if your payloads carry secrets and you

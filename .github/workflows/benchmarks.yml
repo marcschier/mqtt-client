@@ -11,6 +11,12 @@ on:
         description: 'Use DefaultJob (slow, higher-fidelity) instead of ShortRun'
         required: false
         default: 'false'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/Mqtt.Client.Benchmarks/**'
+      - '.github/workflows/benchmarks.yml'
 
 permissions:
   contents: read

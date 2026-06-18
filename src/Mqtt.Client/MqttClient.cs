@@ -39,6 +39,9 @@ public sealed class MqttClient : IAsyncDisposable
     private readonly PacketIdAllocator _packetIds = new();
     private readonly ConcurrentDictionary<ushort, TaskCompletionSource<object?>> _pendingAcks = new();
 
+    private readonly ConcurrentDictionary<uint, MqttSubscription> _subsById = new();
+    private int _nextSubId;
+
     private IMqttTransport? _transport;
     private Task? _readLoop;
     private Task? _writeLoop;
@@ -52,6 +55,21 @@ public sealed class MqttClient : IAsyncDisposable
 
     /// <summary>Raised on disconnect (broker- or client-initiated, or transport failure).</summary>
     public event EventHandler<MqttDisconnectedEventArgs>? Disconnected;
+
+    /// <summary>
+    /// Raised on every <see cref="MqttConnectionState"/> transition. Useful for fine-grained UI
+    /// or observability hooks; <see cref="Connected"/> and <see cref="Disconnected"/> remain the
+    /// recommended events for most callers.
+    /// </summary>
+    public event EventHandler<MqttConnectionState>? StateChanged;
+
+    private void SetState(MqttConnectionState newState)
+    {
+        var oldState = (MqttConnectionState)Volatile.Read(ref _state);
+        if (oldState == newState) return;
+        Volatile.Write(ref _state, (int)newState);
+        StateChanged?.Invoke(this, newState);
+    }
 
     public MqttClient(MqttClientOptions options, ILoggerFactory? loggerFactory = null, IPersistentSessionStore? persistence = null)
         : this(options, transportFactory: null, loggerFactory, persistence) { }
@@ -153,7 +171,7 @@ public sealed class MqttClient : IAsyncDisposable
                 await CleanupAsync("CONNACK failure").ConfigureAwait(false);
                 return connack;
             }
-            Volatile.Write(ref _state, (int)MqttConnectionState.Connected);
+            SetState(MqttConnectionState.Connected);
             _readLoop = Task.Run(() => ReadLoopAsync(_loopCts!.Token));
             _writeLoop = Task.Run(() => WriteLoopAsync(_loopCts!.Token));
             if (_options.KeepAliveSeconds > 0)
@@ -181,6 +199,9 @@ public sealed class MqttClient : IAsyncDisposable
         Password = _options.Password,
         Will = _options.Will,
         ReceiveMaximum = _options.ProtocolVersion == MqttProtocolVersion.V500 ? _options.ReceiveMaximum : null,
+        TopicAliasMaximum = _options.ProtocolVersion == MqttProtocolVersion.V500 && _options.TopicAliasMaximum > 0
+            ? _options.TopicAliasMaximum
+            : null,
     };
 
     private async Task<MqttConnectResult> ReadConnAckAsync(CancellationToken ct)
@@ -388,12 +409,42 @@ public sealed class MqttClient : IAsyncDisposable
         _pendingAcks.Clear();
     }
 
+    /// <summary>Inbound MQTT 5 topic-alias table (alias → topic). Single-writer (read loop) safe.</summary>
+    private readonly Dictionary<ushort, string> _inboundAliases = new();
+
     private void HandleInboundPublish(PublishPacket pub)
     {
         _metrics.Receives.Add(1);
+
+        // MQTT 5 inbound topic-alias expansion: an alias with a non-empty topic registers
+        // (alias -> topic); an empty topic looks up the previously-registered alias.
+        var topic = pub.Topic;
+        if (_options.ProtocolVersion == MqttProtocolVersion.V500 && pub.Properties?.TopicAlias is { } alias && alias > 0)
+        {
+            if (string.IsNullOrEmpty(topic))
+            {
+                if (!_inboundAliases.TryGetValue(alias, out var resolved))
+                {
+                    // Spec violation: broker sent an alias we never registered. Disconnect to be safe.
+                    _ = OnTransportClosedAsync(new MqttProtocolException($"Inbound topic alias {alias} is not registered."));
+                    return;
+                }
+                topic = resolved;
+            }
+            else if (alias <= _options.TopicAliasMaximum)
+            {
+                _inboundAliases[alias] = topic;
+            }
+            else
+            {
+                _ = OnTransportClosedAsync(new MqttProtocolException($"Inbound topic alias {alias} exceeds advertised TopicAliasMaximum ({_options.TopicAliasMaximum})."));
+                return;
+            }
+        }
+
         var msg = new MqttMessage
         {
-            Topic = pub.Topic,
+            Topic = topic,
             Payload = pub.Payload,
             QoS = pub.QoS,
             Retain = pub.Retain,
@@ -412,7 +463,22 @@ public sealed class MqttClient : IAsyncDisposable
             EnqueuePubRec(pub.PacketId);
         }
 
-        _trie.Match(pub.Topic, sub =>
+        // MQTT 5 fast-path dispatch: if the broker echoed our SubscriptionIdentifier(s) back,
+        // deliver via the id->subscription map and skip trie matching entirely.
+        var sids = pub.Properties?.SubscriptionIdentifiers;
+        if (sids is { Count: > 0 })
+        {
+            foreach (var id in sids)
+            {
+                if (_subsById.TryGetValue(id, out var sub) && !sub.Writer.TryWrite(msg))
+                {
+                    _ = sub.Writer.WriteAsync(msg).AsTask();
+                }
+            }
+            return;
+        }
+
+        _trie.Match(topic, sub =>
         {
             // Backpressure flows naturally: when Wait mode is selected and full, we block here,
             // which in turn blocks the read loop and applies TCP backpressure.
@@ -463,7 +529,7 @@ public sealed class MqttClient : IAsyncDisposable
     {
         if (Volatile.Read(ref _state) >= (int)MqttConnectionState.Disposed) return;
         var wasManual = Volatile.Read(ref _manualDisconnect) == 1;
-        Volatile.Write(ref _state, (int)MqttConnectionState.Disconnected);
+        SetState(MqttConnectionState.Disconnected);
         var reason = exception?.Message ?? "Transport closed";
         MqttLog.Disconnected(_logger, _transport?.RemoteAddress, reason);
         Disconnected?.Invoke(this, new MqttDisconnectedEventArgs(reason, exception));
@@ -491,9 +557,9 @@ public sealed class MqttClient : IAsyncDisposable
             try { await Task.Delay(actual).ConfigureAwait(false); } catch { return; }
             try
             {
-                Volatile.Write(ref _state, (int)MqttConnectionState.Reconnecting);
+                SetState(MqttConnectionState.Reconnecting);
                 // ConnectAsync expects Disconnected → CAS to Connecting; reset state first.
-                Volatile.Write(ref _state, (int)MqttConnectionState.Disconnected);
+                SetState(MqttConnectionState.Disconnected);
                 var result = await ConnectAsync().ConfigureAwait(false);
                 if (result.IsSuccess)
                 {
@@ -607,16 +673,26 @@ public sealed class MqttClient : IAsyncDisposable
         var sub = new MqttSubscription(topicFilter, options, async s =>
         {
             lock (_subLock) { _trie.Remove(s.TopicFilter, s); }
+            if (s.Identifier is { } id) _subsById.TryRemove(id, out _);
             using var cts = new CancellationTokenSource(_options.OperationTimeout);
             try { await UnsubscribeOnServerAsync(s.TopicFilter, cts.Token).ConfigureAwait(false); } catch { }
         });
         lock (_subLock) { _trie.Add(topicFilter, sub); }
+
+        uint? subId = null;
+        if (_options.ProtocolVersion == MqttProtocolVersion.V500)
+        {
+            subId = (uint)Interlocked.Increment(ref _nextSubId);
+            sub.Identifier = subId;
+            _subsById[subId.Value] = sub;
+        }
 
         var packetId = _packetIds.Allocate();
         var sp = new SubscribePacket
         {
             PacketId = packetId,
             Filters = new[] { new SubscribeFilter(topicFilter, options.QoS, options.NoLocal, options.RetainAsPublished) },
+            SubscriptionIdentifier = subId,
         };
         var w = new MqttBufferWriter(64);
         MqttPacketEncoder.EncodeSubscribe(sp, _options.ProtocolVersion, w);
@@ -660,7 +736,7 @@ public sealed class MqttClient : IAsyncDisposable
         MqttPacketEncoder.EncodeDisconnect(new DisconnectPacket { ReasonCode = MqttReasonCode.Success }, _options.ProtocolVersion, w);
         try { await EnqueueAsync(NewEnvelopeFrom(w), cancellationToken).ConfigureAwait(false); } catch { }
         await CleanupAsync("client disconnect").ConfigureAwait(false);
-        Volatile.Write(ref _state, (int)MqttConnectionState.Disconnected);
+        SetState(MqttConnectionState.Disconnected);
     }
 
     private void EnsureConnected()
@@ -673,7 +749,7 @@ public sealed class MqttClient : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        Volatile.Write(ref _state, (int)MqttConnectionState.Disposed);
+        SetState(MqttConnectionState.Disposed);
         Volatile.Write(ref _manualDisconnect, 1);
         _outbound.Writer.TryComplete();
         await CleanupAsync("dispose").ConfigureAwait(false);
