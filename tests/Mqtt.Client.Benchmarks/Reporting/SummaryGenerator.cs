@@ -143,7 +143,8 @@ public static class SummaryGenerator
 
         // Pair MQTTnet baseline with Mqtt.Client contender per scenario.
         var sb = new StringBuilder();
-        sb.AppendLine("_Headline rows from the latest BenchmarkDotNet run (payload = 256 B). See `docs/benchmarks.md` for the full matrix._");
+        sb.AppendLine(
+            "_Headline rows from the latest BenchmarkDotNet run (payload = 256 B). See `docs/benchmarks.md` for the full matrix._");
         sb.AppendLine();
         sb.AppendLine("| Scenario | Client | Mean | Allocated | Ratio vs MQTTnet |");
         sb.AppendLine("| --- | --- | ---: | ---: | ---: |");
@@ -156,7 +157,9 @@ public static class SummaryGenerator
                     ? string.Create(CultureInfo.InvariantCulture, $"{r.MeanNs / baseline.MeanNs:F2}")
                     : "—";
                 var alloc = r.Allocated > 0 ? r.Allocated.ToString("N0", CultureInfo.InvariantCulture) + " B" : "—";
-                sb.AppendLine(CultureInfo.InvariantCulture, $"| {Clean(r.Scenario)} | {r.Client} | {FormatTime(r.MeanNs)} | {alloc} | {ratio} |");
+                sb.AppendLine(
+                    CultureInfo.InvariantCulture,
+                    $"| {Clean(r.Scenario)} | {r.Client} | {FormatTime(r.MeanNs)} | {alloc} | {ratio} |");
             }
         }
         return sb.ToString().TrimEnd();

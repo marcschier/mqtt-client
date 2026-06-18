@@ -79,7 +79,11 @@ public sealed class MqttClient : IAsyncDisposable
     /// <summary>
     /// Internal ctor allowing tests to inject a fake <see cref="IMqttTransportFactory"/>.
     /// </summary>
-    internal MqttClient(MqttClientOptions options, IMqttTransportFactory? transportFactory, ILoggerFactory? loggerFactory = null, IPersistentSessionStore? persistence = null)
+    internal MqttClient(
+        MqttClientOptions options,
+        IMqttTransportFactory? transportFactory,
+        ILoggerFactory? loggerFactory = null,
+        IPersistentSessionStore? persistence = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<MqttClient>();
@@ -104,14 +108,15 @@ public sealed class MqttClient : IAsyncDisposable
         // Pause threshold scales with MaxIncomingPacketSize so a user who raises the cap also
         // gets enough buffer headroom; minimum 1 MiB to avoid pathologically small thresholds.
         var pauseThreshold = Math.Max(1024 * 1024, o.MaxIncomingPacketSize * 2);
+        var wsPath = string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath;
         return o.Transport switch
         {
             MqttTransportType.Tcp => new TcpTransportFactory(o.Host, o.Port, pauseThreshold),
             MqttTransportType.Tls => new TlsTransportFactory(o.Host, o.Port, ApplySecureTlsDefaults(o.Tls, o.Host)),
             MqttTransportType.WebSocket => new WebSocketTransportFactory(
-                new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{(string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath)}")),
+                new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{wsPath}")),
             MqttTransportType.WebSocketSecure => new WebSocketTransportFactory(
-                new Uri($"wss://{o.Host}:{(o.Port == 1883 ? 443 : o.Port)}{(string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath)}")),
+                new Uri($"wss://{o.Host}:{(o.Port == 1883 ? 443 : o.Port)}{wsPath}")),
             _ => throw new NotSupportedException($"Transport {o.Transport} is not implemented."),
         };
     }
@@ -149,7 +154,10 @@ public sealed class MqttClient : IAsyncDisposable
 
     public async Task<MqttConnectResult> ConnectAsync(CancellationToken cancellationToken = default)
     {
-        if (Interlocked.CompareExchange(ref _state, (int)MqttConnectionState.Connecting, (int)MqttConnectionState.Disconnected) != (int)MqttConnectionState.Disconnected)
+        if (Interlocked.CompareExchange(
+            ref _state,
+            (int)MqttConnectionState.Connecting,
+            (int)MqttConnectionState.Disconnected) != (int)MqttConnectionState.Disconnected)
         {
             throw new InvalidOperationException($"Cannot connect while state is {State}.");
         }
@@ -236,7 +244,13 @@ public sealed class MqttClient : IAsyncDisposable
         {
             var result = await reader.ReadAsync(ct).ConfigureAwait(false);
             var buffer = result.Buffer;
-            if (MqttPacketDecoder.TryDecode(buffer, _options.ProtocolVersion, _options.MaxIncomingPacketSize, out var packet, out _, out var consumed))
+            if (MqttPacketDecoder.TryDecode(
+                buffer,
+                _options.ProtocolVersion,
+                _options.MaxIncomingPacketSize,
+                out var packet,
+                out _,
+                out var consumed))
             {
                 reader.AdvanceTo(consumed);
                 if (packet is ConnAckPacket cack)
@@ -271,7 +285,9 @@ public sealed class MqttClient : IAsyncDisposable
                     if (++roundTrip > _options.MaxAuthRoundTrips)
                     {
                         await SendDisconnectAsync(MqttReasonCode.ProtocolError, ct).ConfigureAwait(false);
-                        throw new MqttAuthenticationException(MqttReasonCode.ProtocolError, $"Exceeded MaxAuthRoundTrips ({_options.MaxAuthRoundTrips}).");
+                        throw new MqttAuthenticationException(
+                            MqttReasonCode.ProtocolError,
+                            $"Exceeded MaxAuthRoundTrips ({_options.MaxAuthRoundTrips}).");
                     }
                     var next = await handler.ContinueAsync(auth.AuthenticationData, ct).ConfigureAwait(false);
                     if (next.Kind == MqttAuthenticationResultKind.Abort)
@@ -279,7 +295,9 @@ public sealed class MqttClient : IAsyncDisposable
                         await SendDisconnectAsync(next.ReasonCode, ct).ConfigureAwait(false);
                         throw new MqttAuthenticationException(next.ReasonCode, next.ReasonString);
                     }
-                    var rc = next.Kind == MqttAuthenticationResultKind.Final ? MqttReasonCode.Success : MqttReasonCode.ContinueAuthentication;
+                    var rc = next.Kind == MqttAuthenticationResultKind.Final
+                        ? MqttReasonCode.Success
+                        : MqttReasonCode.ContinueAuthentication;
                     await SendAuthAsync(rc, handler.Method, next.Data, ct).ConfigureAwait(false);
                     continue;
                 }
@@ -393,7 +411,13 @@ public sealed class MqttClient : IAsyncDisposable
             {
                 var result = await reader.ReadAsync(ct).ConfigureAwait(false);
                 var buffer = result.Buffer;
-                while (MqttPacketDecoder.TryDecode(buffer, _options.ProtocolVersion, _options.MaxIncomingPacketSize, out var packet, out var firstByte, out var consumed))
+                while (MqttPacketDecoder.TryDecode(
+                    buffer,
+                    _options.ProtocolVersion,
+                    _options.MaxIncomingPacketSize,
+                    out var packet,
+                    out var firstByte,
+                    out var consumed))
                 {
                     var before = buffer.Length;
                     DispatchInbound(firstByte, packet);
@@ -523,7 +547,8 @@ public sealed class MqttClient : IAsyncDisposable
             }
             else
             {
-                _ = OnTransportClosedAsync(new MqttProtocolException($"Inbound topic alias {alias} exceeds advertised TopicAliasMaximum ({_options.TopicAliasMaximum})."));
+                _ = OnTransportClosedAsync(new MqttProtocolException(
+                    $"Inbound topic alias {alias} exceeds advertised TopicAliasMaximum ({_options.TopicAliasMaximum})."));
                 return;
             }
         }
@@ -837,7 +862,9 @@ public sealed class MqttClient : IAsyncDisposable
     /// null). Single-in-flight: a concurrent call throws <see cref="InvalidOperationException"/>.
     /// Returns the broker's final authentication data (if any).
     /// </summary>
-    public async Task<ReadOnlyMemory<byte>?> ReauthenticateAsync(IMqttAuthenticationHandler? handler = null, CancellationToken cancellationToken = default)
+    public async Task<ReadOnlyMemory<byte>?> ReauthenticateAsync(
+        IMqttAuthenticationHandler? handler = null,
+        CancellationToken cancellationToken = default)
     {
         EnsureConnected();
         if (_options.ProtocolVersion != MqttProtocolVersion.V500)
@@ -881,7 +908,9 @@ public sealed class MqttClient : IAsyncDisposable
                 if (++roundTrip > _options.MaxAuthRoundTrips)
                 {
                     await SendDisconnectAsync(MqttReasonCode.ProtocolError, cancellationToken).ConfigureAwait(false);
-                    throw new MqttAuthenticationException(MqttReasonCode.ProtocolError, $"Exceeded MaxAuthRoundTrips ({_options.MaxAuthRoundTrips}).");
+                    throw new MqttAuthenticationException(
+                        MqttReasonCode.ProtocolError,
+                        $"Exceeded MaxAuthRoundTrips ({_options.MaxAuthRoundTrips}).");
                 }
                 var next = await handler.ContinueAsync(inbound.AuthenticationData, cancellationToken).ConfigureAwait(false);
                 if (next.Kind == MqttAuthenticationResultKind.Abort)
@@ -941,7 +970,11 @@ public sealed class MqttClient : IAsyncDisposable
     private static OutboundEnvelope NewEnvelopeFrom(MqttBufferWriter writer)
         => new(writer);
 
-    private static OutboundEnvelope NewEnvelopeFrom(MqttBufferWriter writer, ReadOnlyMemory<byte> payload, byte[]? pooledPayload = null, bool clearOnReturn = false)
+    private static OutboundEnvelope NewEnvelopeFrom(
+        MqttBufferWriter writer,
+        ReadOnlyMemory<byte> payload,
+        byte[]? pooledPayload = null,
+        bool clearOnReturn = false)
         => new(writer, payload, pooledPayload, clearOnReturn);
 
     private readonly struct OutboundEnvelope : IDisposable
@@ -956,7 +989,12 @@ public sealed class MqttClient : IAsyncDisposable
             ClearOnReturn = false;
             OnSent = null;
         }
-        public OutboundEnvelope(MqttBufferWriter writer, ReadOnlyMemory<byte> payload, byte[]? pooledPayload = null, bool clearOnReturn = false, TaskCompletionSource<object?>? onSent = null)
+        public OutboundEnvelope(
+            MqttBufferWriter writer,
+            ReadOnlyMemory<byte> payload,
+            byte[]? pooledPayload = null,
+            bool clearOnReturn = false,
+            TaskCompletionSource<object?>? onSent = null)
         {
             _writer = writer;
             Bytes = writer.WrittenMemory;

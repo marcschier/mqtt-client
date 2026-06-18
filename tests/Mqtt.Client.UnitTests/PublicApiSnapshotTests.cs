@@ -39,7 +39,8 @@ public class PublicApiSnapshotTests
         {
             sb.Append(t.IsInterface ? "interface " : t.IsEnum ? "enum " : t.IsValueType ? "struct " : "class ");
             sb.AppendLine(t.FullName);
-            foreach (var m in t.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly).OrderBy(x => x.ToString(), StringComparer.Ordinal))
+            foreach (var m in t.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .OrderBy(x => x.ToString(), StringComparer.Ordinal))
             {
                 sb.Append("  ");
                 sb.AppendLine(m.ToString());

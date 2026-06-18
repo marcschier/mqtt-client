@@ -10,7 +10,8 @@ namespace Mqtt.Client.UnitTests;
 
 public class MqttClientFakeTransportTests
 {
-    private static (MqttClient Client, FakePipeTransport Transport, FakeBroker Broker) Build(MqttProtocolVersion v = MqttProtocolVersion.V500)
+    private static (MqttClient Client, FakePipeTransport Transport, FakeBroker Broker) Build(
+        MqttProtocolVersion v = MqttProtocolVersion.V500)
     {
         var factory = new FakeTransportFactory();
         var client = new MqttClient(new MqttClientOptions

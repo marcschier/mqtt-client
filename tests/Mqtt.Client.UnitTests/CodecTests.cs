@@ -48,7 +48,8 @@ public class CodecTests
 
         // Round-trip via decoder only validates packet bytes are well-formed; first byte is CONNECT (0x10).
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0x10);
-        // Minimum sane size: fixed header (2) + protocol name "MQTT" (6) + level (1) + flags (1) + ka (2) + props len (1) + client id (2+11) + username (2+5) + password (2+6)
+        // Minimum sane size: fixed header (2) + protocol name "MQTT" (6) + level (1) + flags (1) +
+        // ka (2) + props len (1) + client id (2+11) + username (2+5) + password (2+6).
         await Assert.That(w.WrittenCount).IsGreaterThan(30);
     }
 

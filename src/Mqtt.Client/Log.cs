@@ -7,7 +7,10 @@ namespace Mqtt.Client.Diagnostics;
 /// <summary>Source-generated logging for Mqtt.Client.</summary>
 internal static partial class MqttLog
 {
-    [LoggerMessage(EventId = 1, Level = LogLevel.Information, Message = "MQTT connecting to {Endpoint} (protocol {ProtocolVersion}, clientId={ClientId})")]
+    [LoggerMessage(
+        EventId = 1,
+        Level = LogLevel.Information,
+        Message = "MQTT connecting to {Endpoint} (protocol {ProtocolVersion}, clientId={ClientId})")]
     public static partial void Connecting(ILogger logger, string endpoint, MqttProtocolVersion protocolVersion, string clientId);
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "MQTT connected to {Endpoint} (sessionPresent={SessionPresent})")]

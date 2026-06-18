@@ -28,7 +28,11 @@ public interface IMqttAuthenticationHandler
 /// <summary>Result of an <see cref="IMqttAuthenticationHandler.ContinueAsync"/> call.</summary>
 public readonly struct MqttAuthenticationResult
 {
-    private MqttAuthenticationResult(MqttAuthenticationResultKind kind, ReadOnlyMemory<byte> data, MqttReasonCode reasonCode, string? reasonString)
+    private MqttAuthenticationResult(
+        MqttAuthenticationResultKind kind,
+        ReadOnlyMemory<byte> data,
+        MqttReasonCode reasonCode,
+        string? reasonString)
     {
         Kind = kind;
         Data = data;

@@ -17,7 +17,10 @@ public sealed class MqttClientOptions
     /// <summary>Underlying transport.</summary>
     public MqttTransportType Transport { get; set; } = MqttTransportType.Tcp;
 
-    /// <summary>Optional TLS configuration (used for <see cref="MqttTransportType.Tls"/>/<see cref="MqttTransportType.WebSocketSecure"/>).</summary>
+    /// <summary>
+    /// Optional TLS configuration (used for <see cref="MqttTransportType.Tls"/> /
+    /// <see cref="MqttTransportType.WebSocketSecure"/>).
+    /// </summary>
     public SslClientAuthenticationOptions? Tls { get; set; }
 
     /// <summary>Protocol version to use.</summary>

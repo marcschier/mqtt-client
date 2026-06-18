@@ -73,7 +73,9 @@ public sealed class MqttSubscription : IAsyncDisposable
 public static class MqttSubscriptionExtensions
 {
     /// <summary>Reads all messages until the subscription is disposed or cancellation occurs.</summary>
-    public static System.Collections.Generic.IAsyncEnumerable<MqttMessage> ReadAllAsync(this MqttSubscription subscription, CancellationToken cancellationToken = default)
+    public static System.Collections.Generic.IAsyncEnumerable<MqttMessage> ReadAllAsync(
+        this MqttSubscription subscription,
+        CancellationToken cancellationToken = default)
     {
         if (subscription is null) throw new ArgumentNullException(nameof(subscription));
         return subscription.Reader.ReadAllAsync(cancellationToken);

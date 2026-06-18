@@ -32,7 +32,8 @@ internal sealed class WebSocketTransport : IMqttTransport
     {
         try { await _writer.CompleteAsync().ConfigureAwait(false); } catch { }
         try { await _reader.CompleteAsync().ConfigureAwait(false); } catch { }
-        try { await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "client", CancellationToken.None).ConfigureAwait(false); } catch { }
+        try { await _socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "client", CancellationToken.None)
+            .ConfigureAwait(false); } catch { }
         _socket.Dispose();
         await _stream.DisposeAsync().ConfigureAwait(false);
     }

@@ -142,7 +142,8 @@ internal static class MqttPacketDecoder
                     case MqttPropertyId.ReasonString: ack.ReasonString = reader.ReadString(); break;
                     case MqttPropertyId.UserProperty: ack.AddUserProperty(reader.ReadString(), reader.ReadString()); break;
                     case MqttPropertyId.WildcardSubscriptionAvailable: ack.WildcardSubscriptionAvailable = reader.ReadByte() == 1; break;
-                    case MqttPropertyId.SubscriptionIdentifiersAvailable: ack.SubscriptionIdentifiersAvailable = reader.ReadByte() == 1; break;
+                    case MqttPropertyId.SubscriptionIdentifiersAvailable: ack.SubscriptionIdentifiersAvailable = reader
+                        .ReadByte() == 1; break;
                     case MqttPropertyId.SharedSubscriptionAvailable: ack.SharedSubscriptionAvailable = reader.ReadByte() == 1; break;
                     case MqttPropertyId.ServerKeepAlive: ack.ServerKeepAlive = reader.ReadUInt16BigEndian(); break;
                     case MqttPropertyId.ResponseInformation: ack.ResponseInformation = reader.ReadString(); break;
@@ -232,7 +233,8 @@ internal static class MqttPacketDecoder
                 case MqttPropertyId.CorrelationData: cd = reader.ReadBinaryData(); break;
                 case MqttPropertyId.ContentType: ct = reader.ReadString(); break;
                 case MqttPropertyId.SubscriptionIdentifier: (sids ??= new List<uint>()).Add(reader.ReadVarInt(out _)); break;
-                case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(new(reader.ReadString(), reader.ReadString())); break;
+                case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
+                    new(reader.ReadString(), reader.ReadString())); break;
                 default: throw new MqttProtocolException($"Unexpected PUBLISH property 0x{(byte)id:X2}");
             }
         }
@@ -268,7 +270,8 @@ internal static class MqttPacketDecoder
                     switch (id)
                     {
                         case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
-                        case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(new(reader.ReadString(), reader.ReadString())); break;
+                        case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
+                            new(reader.ReadString(), reader.ReadString())); break;
                         default: throw new MqttProtocolException($"Unexpected ack property 0x{(byte)id:X2}");
                     }
                 }
@@ -292,7 +295,8 @@ internal static class MqttPacketDecoder
                 switch (id)
                 {
                     case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
-                    case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(new(reader.ReadString(), reader.ReadString())); break;
+                    case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
+                        new(reader.ReadString(), reader.ReadString())); break;
                     default: throw new MqttProtocolException($"Unexpected SUBACK property 0x{(byte)id:X2}");
                 }
             }
@@ -320,7 +324,8 @@ internal static class MqttPacketDecoder
             switch (id)
             {
                 case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
-                case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(new(reader.ReadString(), reader.ReadString())); break;
+                case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
+                    new(reader.ReadString(), reader.ReadString())); break;
                 default: throw new MqttProtocolException($"Unexpected UNSUBACK property 0x{(byte)id:X2}");
             }
         }
@@ -352,12 +357,18 @@ internal static class MqttPacketDecoder
                     case MqttPropertyId.SessionExpiryInterval: se = reader.ReadUInt32BigEndian(); break;
                     case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
                     case MqttPropertyId.ServerReference: serverRef = reader.ReadString(); break;
-                    case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(new(reader.ReadString(), reader.ReadString())); break;
+                    case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
+                        new(reader.ReadString(), reader.ReadString())); break;
                     default: throw new MqttProtocolException($"Unexpected DISCONNECT property 0x{(byte)id:X2}");
                 }
             }
         }
-        return new DisconnectPacket { ReasonCode = rc, ReasonString = reason, ServerReference = serverRef, SessionExpiryInterval = se, UserProperties = ups };
+        return new DisconnectPacket {
+            ReasonCode = rc,
+            ReasonString = reason,
+            ServerReference = serverRef,
+            SessionExpiryInterval = se,
+            UserProperties = ups };
     }
 
     private static AuthPacket DecodeAuth(ref MqttSequenceReader reader, int totalLen)
@@ -379,12 +390,18 @@ internal static class MqttPacketDecoder
                     case MqttPropertyId.AuthenticationMethod: method = reader.ReadString(); break;
                     case MqttPropertyId.AuthenticationData: data = reader.ReadBinaryData(); break;
                     case MqttPropertyId.ReasonString: reason = reader.ReadString(); break;
-                    case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(new(reader.ReadString(), reader.ReadString())); break;
+                    case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
+                        new(reader.ReadString(), reader.ReadString())); break;
                     default: throw new MqttProtocolException($"Unexpected AUTH property 0x{(byte)id:X2}");
                 }
             }
         }
-        return new AuthPacket { ReasonCode = rc, AuthenticationMethod = method, AuthenticationData = data, ReasonString = reason, UserProperties = ups };
+        return new AuthPacket {
+            ReasonCode = rc,
+            AuthenticationMethod = method,
+            AuthenticationData = data,
+            ReasonString = reason,
+            UserProperties = ups };
     }
 
     /// <summary>Mutable builder used while parsing a CONNACK to avoid an allocation per property.</summary>

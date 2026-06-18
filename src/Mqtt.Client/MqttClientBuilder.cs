@@ -16,7 +16,10 @@ public sealed class MqttClientBuilder
     private ILoggerFactory? _loggerFactory;
     private IPersistentSessionStore? _persistence;
 
-    /// <summary>Sets endpoint from a URI like <c>mqtt://host:1883</c>, <c>mqtts://host:8883</c>, <c>ws://...</c>, <c>wss://...</c>.</summary>
+    /// <summary>
+    /// Sets endpoint from a URI like <c>mqtt://host:1883</c>, <c>mqtts://host:8883</c>,
+    /// <c>ws://...</c>, <c>wss://...</c>.
+    /// </summary>
     public MqttClientBuilder ConnectTo(string uri)
     {
         if (string.IsNullOrWhiteSpace(uri)) throw new ArgumentException("URI is required.", nameof(uri));

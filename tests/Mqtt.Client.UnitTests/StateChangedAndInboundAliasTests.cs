@@ -93,7 +93,11 @@ public class StateChangedAndInboundAliasTests
         await Assert.That(sub.Identifier).IsNotNull();
 
         // Use a non-matching topic to prove dispatch went through the id fast-path (not the trie).
-        await broker.SendPublishWithSubIdsAsync(topic: "totally/unrelated", subscriptionIds: new uint[] { sub.Identifier!.Value }, new byte[] { 9 }, ct: ct);
+        await broker.SendPublishWithSubIdsAsync(
+            topic: "totally/unrelated",
+            subscriptionIds: new uint[] { sub.Identifier!.Value },
+            new byte[] { 9 },
+            ct: ct);
         var m = await sub.Reader.ReadAsync(ct);
         await Assert.That(m.Topic).IsEqualTo("totally/unrelated");
     }

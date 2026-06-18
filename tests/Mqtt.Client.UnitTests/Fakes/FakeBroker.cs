@@ -114,7 +114,10 @@ internal sealed class FakeBroker
         public Mqtt.Client.MqttQoS QoS => (Mqtt.Client.MqttQoS)((FirstByte >> 1) & 0x03);
     }
 
-    public async Task SendConnAckAsync(MqttReasonCode rc = MqttReasonCode.Success, bool sessionPresent = false, CancellationToken ct = default)
+    public async Task SendConnAckAsync(
+        MqttReasonCode rc = MqttReasonCode.Success,
+        bool sessionPresent = false,
+        CancellationToken ct = default)
     {
         // Build a minimal CONNACK on the wire (our codec encodes its own packets; manual layout here).
         using var w = new MqttBufferWriter(8);
@@ -181,7 +184,12 @@ internal sealed class FakeBroker
         await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
     }
 
-    public async Task SendPublishAsync(string topic, ReadOnlyMemory<byte> payload, MqttQoS qos = MqttQoS.AtMostOnce, ushort packetId = 0, CancellationToken ct = default)
+    public async Task SendPublishAsync(
+        string topic,
+        ReadOnlyMemory<byte> payload,
+        MqttQoS qos = MqttQoS.AtMostOnce,
+        ushort packetId = 0,
+        CancellationToken ct = default)
     {
         var packet = new PublishPacket
         {
@@ -199,7 +207,13 @@ internal sealed class FakeBroker
     /// MQTT 5 variant: sends a PUBLISH with a TopicAlias property. Use to test the client's
     /// inbound alias table (caller passes the real topic on registration; empty topic to resolve).
     /// </summary>
-    public async Task SendPublishWithAliasAsync(string topic, ushort alias, ReadOnlyMemory<byte> payload, MqttQoS qos = MqttQoS.AtMostOnce, ushort packetId = 0, CancellationToken ct = default)
+    public async Task SendPublishWithAliasAsync(
+        string topic,
+        ushort alias,
+        ReadOnlyMemory<byte> payload,
+        MqttQoS qos = MqttQoS.AtMostOnce,
+        ushort packetId = 0,
+        CancellationToken ct = default)
     {
         var packet = new PublishPacket
         {
@@ -215,7 +229,13 @@ internal sealed class FakeBroker
     }
 
     /// <summary>MQTT 5 variant: sends a PUBLISH with one or more SubscriptionIdentifier properties.</summary>
-    public async Task SendPublishWithSubIdsAsync(string topic, IReadOnlyList<uint> subscriptionIds, ReadOnlyMemory<byte> payload, MqttQoS qos = MqttQoS.AtMostOnce, ushort packetId = 0, CancellationToken ct = default)
+    public async Task SendPublishWithSubIdsAsync(
+        string topic,
+        IReadOnlyList<uint> subscriptionIds,
+        ReadOnlyMemory<byte> payload,
+        MqttQoS qos = MqttQoS.AtMostOnce,
+        ushort packetId = 0,
+        CancellationToken ct = default)
     {
         var packet = new PublishPacket
         {
@@ -251,7 +271,11 @@ internal sealed class FakeBroker
     }
 
     /// <summary>Sends CONNACK with optional AuthenticationMethod/Data for the auth flow.</summary>
-    public async Task SendConnAckWithAuthAsync(MqttReasonCode rc, string? method = null, ReadOnlyMemory<byte> data = default, CancellationToken ct = default)
+    public async Task SendConnAckWithAuthAsync(
+        MqttReasonCode rc,
+        string? method = null,
+        ReadOnlyMemory<byte> data = default,
+        CancellationToken ct = default)
     {
         // CONNACK with v5 properties (method/data) — encode manually since the client codec is one-way.
         using var props = new MqttBufferWriter(64 + data.Length);

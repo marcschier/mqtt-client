@@ -77,7 +77,11 @@ public class MqttClientBuilderAdditionalTests
     private static X509Certificate2 MakeSelfSignedCert()
     {
         using var rsa = System.Security.Cryptography.RSA.Create(2048);
-        var req = new CertificateRequest("CN=test", rsa, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        var req = new CertificateRequest(
+            "CN=test",
+            rsa,
+            System.Security.Cryptography.HashAlgorithmName.SHA256,
+            System.Security.Cryptography.RSASignaturePadding.Pkcs1);
         return req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
     }
 }
