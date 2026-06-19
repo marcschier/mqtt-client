@@ -12,20 +12,32 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
   multiple buffer segments (pre-chunked / pipelined data) without first concatenating them.
 - `MqttMessage.PayloadMemory` and `MqttLastWill.PayloadMemory` — contiguous `ReadOnlyMemory<byte>`
   views and convenience initializers over the new sequence-typed `Payload`.
-- `MqttClientOptions.ReuseInboundBuffers` (default `false`) — opt-in pooling of inbound PUBLISH
-  payloads via `ArrayPool<byte>`. `MqttMessage` then implements `IDisposable`; in this mode each
-  message owns a pooled buffer that callers must dispose (and not retain) after use.
+- **Inline-handler subscriptions:** `SubscribeAsync(string, Func<MqttMessage, ValueTask>, …)`
+  delivers each message on the receive loop with a **true zero-copy** payload (a slice of the
+  receive buffer, valid only inside the handler). Back-pressure flows to the broker while it runs.
 
 ### Changed
 - **API (breaking, pre-1.0):** the default payload type is now `ReadOnlySequence<byte>`.
   `MqttMessage.Payload` and `MqttLastWill.Payload` changed from `ReadOnlyMemory<byte>` to
   `ReadOnlySequence<byte>`; the `ReadOnlyMemory<byte>` form is available via the `PayloadMemory`
   property/initializer and the `PublishAsync(ReadOnlyMemory<byte>)` overload (unchanged signature).
-- QoS > 0 publish, SUBSCRIBE and UNSUBSCRIBE acks now await a pooled `IValueTaskSource`
+- **Inbound payloads are pooled by default (breaking behavior).** Channel-delivered `MqttMessage`s
+  now own an `ArrayPool<byte>` buffer and **must be disposed** after use; the decoder no longer
+  allocates a `byte[]` per PUBLISH. Set `MqttClientOptions.RetainableInboundMessages = true` to
+  restore garbage-collected payloads that may be retained freely (replaces the former
+  `ReuseInboundBuffers` opt-in, with the default inverted). MQTT 5 `CorrelationData` rides in the
+  same pooled buffer.
+- QoS > 0 publish, SUBSCRIBE and UNSUBSCRIBE acks await a pooled `IValueTaskSource`
   (`AckCompletionSource`) instead of allocating a `TaskCompletionSource<object?>` + `Task` per
   operation. Publish-ack latency timing uses `Stopwatch.GetTimestamp()` (no `Stopwatch` allocation).
+- Outbound MQTT 5 authentication data is held as `ReadOnlyMemory<byte>` and written directly (no
+  `byte[]` copy); `FileSessionStore` writes through a pooled buffer.
 
 ### Notes
+- The receive hot path now allocates **no `byte[]`**: inline handlers are fully zero-copy, and the
+  channel path copies into pooled buffers. Remaining copies are confined to data that escapes to the
+  caller with indefinite lifetime (inbound auth data, persisted-message reads, one-time password
+  encoding) and are documented in source.
 - No new third-party dependency: the pooling/`IValueTaskSource` techniques (inspired by
   [.NEXT](https://github.com/dotnet/dotNext)) are implemented on BCL primitives
   (`ManualResetValueTaskSourceCore<T>`, `ArrayPool<T>`, `ReadOnlySequence<T>`) that are available on

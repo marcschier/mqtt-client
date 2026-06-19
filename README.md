@@ -34,7 +34,10 @@ await client.ConnectAsync();
 await using var sub = await client.SubscribeAsync("sensors/+/temp");
 await foreach (var msg in sub.Reader.ReadAllAsync())
 {
-    Console.WriteLine($"{msg.Topic}: {msg.Payload.Length} bytes");
+    using (msg)   // payloads are pooled by default — dispose after use, don't retain
+    {
+        Console.WriteLine($"{msg.Topic}: {msg.Payload.Length} bytes");
+    }
 }
 
 await client.PublishAsync("commands/svc-1", "ping"u8.ToArray());
@@ -47,20 +50,21 @@ await client.PublishAsync("commands/svc-1", "ping"u8.ToArray());
 ReadOnlySequence<byte> framed = BuildFramedPayload();
 await client.PublishAsync("telemetry", framed, MqttQoS.AtLeastOnce);
 
-// Opt into pooled inbound buffers for zero-GC receive paths. MqttMessage then owns a pooled
-// buffer: dispose each message after use and don't retain its payload afterwards.
-var client = MqttClient.CreateBuilder()
-    .ConnectTo("mqtt://broker:1883")
-    .Configure(o => o.ReuseInboundBuffers = true)
-    .Build();
-
-await foreach (var msg in sub.Reader.ReadAllAsync())
+// Inline-handler subscription: the payload is a true zero-copy slice of the receive buffer,
+// valid only inside the handler (no allocation, nothing to dispose). Back-pressure flows to
+// the broker while the handler runs.
+await client.SubscribeAsync("telemetry/#", msg =>
 {
-    using (msg)                       // returns the pooled buffer
-    {
-        Process(msg.PayloadMemory.Span);
-    }
-}
+    Process(msg.PayloadMemory.Span);   // do not retain msg or its payload
+    return ValueTask.CompletedTask;
+});
+
+// Channel subscriptions pool the payload by default (dispose each message). If you need to
+// retain messages freely instead, opt back into garbage-collected payloads:
+var retaining = MqttClient.CreateBuilder()
+    .ConnectTo("mqtt://broker:1883")
+    .Configure(o => o.RetainableInboundMessages = true)
+    .Build();
 ```
 
 ## 📚 Documentation

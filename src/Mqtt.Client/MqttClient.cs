@@ -15,7 +15,7 @@ namespace Mqtt.Client;
 
 /// <summary>
 /// MQTT client. Channels-style API: <c>PublishAsync</c> / <c>TryPublish</c> for sending,
-/// <see cref="SubscribeAsync"/> returning a <see cref="MqttSubscription"/> with a
+/// <c>SubscribeAsync</c> returning a <see cref="MqttSubscription"/> with a
 /// <see cref="System.Threading.Channels.ChannelReader{T}"/> for receiving.
 /// </summary>
 public sealed class MqttClient : IAsyncDisposable
@@ -187,7 +187,7 @@ public sealed class MqttClient : IAsyncDisposable
 
             // Capture handler-supplied initial AUTH payload before encoding CONNECT.
             _initialAuthMethod = null;
-            _initialAuthData = null;
+            _initialAuthData = default;
             var handler = _options.ProtocolVersion == MqttProtocolVersion.V500
                 ? _options.AuthenticationHandler
                 : null;
@@ -200,7 +200,7 @@ public sealed class MqttClient : IAsyncDisposable
                     throw new MqttAuthenticationException(first.ReasonCode, first.ReasonString);
                 }
                 _initialAuthMethod = handler.Method;
-                _initialAuthData = first.Data.IsEmpty ? Array.Empty<byte>() : first.Data.ToArray();
+                _initialAuthData = first.Data;
             }
 
             var connectPkt = BuildConnectPacket();
@@ -260,7 +260,7 @@ public sealed class MqttClient : IAsyncDisposable
 
     // Initial auth values captured by ConnectAsync from the handler before encoding CONNECT.
     private string? _initialAuthMethod;
-    private byte[]? _initialAuthData;
+    private ReadOnlyMemory<byte> _initialAuthData;
 
     private async Task<MqttConnectResult> ReadConnAckOrAuthAsync(
         IMqttAuthenticationHandler? handler,
@@ -354,7 +354,7 @@ public sealed class MqttClient : IAsyncDisposable
         {
             ReasonCode = rc,
             AuthenticationMethod = method,
-            AuthenticationData = data.IsEmpty ? null : data.ToArray(),
+            AuthenticationData = data,
         };
         using var w = new MqttBufferWriter(64 + (data.Length));
         MqttPacketEncoder.EncodeAuth(pkt, w);
@@ -457,13 +457,15 @@ public sealed class MqttClient : IAsyncDisposable
                     buffer,
                     _options.ProtocolVersion,
                     _options.MaxIncomingPacketSize,
-                    _options.ReuseInboundBuffers,
+                    poolPayload: true,
                     out var packet,
                     out var firstByte,
                     out var consumed))
                 {
                     var before = buffer.Length;
-                    DispatchInbound(firstByte, packet);
+                    // Awaited so an inline-handler delivery completes before we advance the pipe
+                    // reader — the message payload borrows the receive buffer (true zero-copy).
+                    await DispatchInboundAsync(firstByte, packet).ConfigureAwait(false);
                     buffer = buffer.Slice(consumed);
                     // Avoid an O(segments) walk of buffer.Slice(start,end).Length: the size of the
                     // packet we just consumed is the difference in the unread sequence's length.
@@ -485,14 +487,13 @@ public sealed class MqttClient : IAsyncDisposable
         }
     }
 
-    private void DispatchInbound(byte firstByte, object? packet)
+    private ValueTask DispatchInboundAsync(byte firstByte, object? packet)
     {
         var type = (MqttPacketType)(firstByte >> 4);
         switch (packet)
         {
             case PublishPacket pub:
-                HandleInboundPublish(pub);
-                break;
+                return HandleInboundPublishAsync(pub);
             case PubAckPacket ack when type == MqttPacketType.PubAck:
                 CompletePending(ack.PacketId, ack);
                 _packetIds.Release(ack.PacketId);
@@ -534,6 +535,7 @@ public sealed class MqttClient : IAsyncDisposable
             case null when type == MqttPacketType.PingResp:
                 break;
         }
+        return default;
     }
 
     private void EnqueuePubRel(ushort packetId, MqttReasonCode rc)
@@ -564,12 +566,15 @@ public sealed class MqttClient : IAsyncDisposable
         _pendingAcks.Clear();
     }
 
-    /// <summary>
-    /// Inbound MQTT 5 topic-alias table (alias → topic). Single-writer (read loop) safe.
-    /// </summary>
+    /// <summary>Inbound MQTT 5 topic-alias table (alias → topic). Single-writer (read loop) safe.</summary>
     private readonly Dictionary<ushort, string> _inboundAliases = new();
 
-    private void HandleInboundPublish(PublishPacket pub)
+    // Reused across read-loop iterations (single-threaded) to collect matching subscriptions
+    // without allocating a list per inbound message.
+    private readonly List<MqttSubscription> _matchBuffer = new();
+    private Action<MqttSubscription>? _collectMatch;
+
+    private async ValueTask HandleInboundPublishAsync(PublishPacket pub)
     {
         _metrics.Receives.Add(1);
 
@@ -616,70 +621,133 @@ public sealed class MqttClient : IAsyncDisposable
             EnqueuePubRec(pub.PacketId);
         }
 
-        // In the default (GC-owned) mode a single immutable message is shared across all matching
-        // subscriptions. With ReuseInboundBuffers, pub.Payload is a borrowed slice of the pipe
-        // buffer (valid only during this synchronous dispatch), so each subscription receives its
-        // own pooled copy that it owns and returns on dispose — never a shared pooled buffer.
-        var pooling = _options.ReuseInboundBuffers;
-        var shared = pooling ? null : new MqttMessage
-        {
-            Topic = topic,
-            Payload = pub.Payload,
-            QoS = pub.QoS,
-            Retain = pub.Retain,
-            Duplicate = pub.Duplicate,
-            Properties = pub.Properties,
-        };
-
-        // MQTT 5 fast-path dispatch: if the broker echoed our SubscriptionIdentifier(s) back,
-        // deliver via the id->subscription map and skip trie matching entirely.
+        // Collect matching subscriptions into the reusable buffer (no per-message list alloc).
+        _matchBuffer.Clear();
         var sids = pub.Properties?.SubscriptionIdentifiers;
         if (sids is { Count: > 0 })
         {
+            // MQTT 5 fast-path: the broker echoed our SubscriptionIdentifier(s) — skip the trie.
             foreach (var id in sids)
             {
-                if (_subsById.TryGetValue(id, out var sub))
-                {
-                    DeliverToSubscription(sub, shared ?? BuildPooledMessage(topic, pub));
-                }
+                if (_subsById.TryGetValue(id, out var s)) _matchBuffer.Add(s);
             }
-            return;
+        }
+        else
+        {
+            _collectMatch ??= s => _matchBuffer.Add(s);
+            _trie.Match(topic, _collectMatch);
         }
 
-        _trie.Match(
-            topic, sub => DeliverToSubscription(sub, shared ?? BuildPooledMessage(topic, pub)));
-    }
+        if (_matchBuffer.Count == 0) return;
 
-    private static void DeliverToSubscription(MqttSubscription sub, MqttMessage msg)
-    {
-        // Backpressure flows naturally: when Wait mode is selected and full, we block here,
-        // which in turn blocks the read loop and applies TCP backpressure.
-        if (!sub.Writer.TryWrite(msg))
+        // pub.Payload is a borrowed slice of the receive buffer (valid for this awaited dispatch).
+        // Channel delivery copies it out (pooled by default, or GC-owned when retainable); a single
+        // GC-owned copy is shared across all channel subscribers.
+        MqttMessage? sharedGcOwned = null;
+        foreach (var sub in _matchBuffer)
         {
-            _ = sub.Writer.WriteAsync(msg).AsTask();
+            if (sub.IsInline)
+            {
+                // True zero-copy: hand the borrowed-slice message to the handler and await it.
+                var inlineMsg = new MqttMessage
+                {
+                    Topic = topic,
+                    Payload = pub.Payload,
+                    QoS = pub.QoS,
+                    Retain = pub.Retain,
+                    Duplicate = pub.Duplicate,
+                    Properties = pub.Properties,
+                };
+                try
+                {
+                    await sub.Handler!(inlineMsg).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    MqttLog.ConnectionLoopFailed(_logger, ex, "inline subscription handler");
+                }
+                continue;
+            }
+
+            MqttMessage channelMsg;
+            if (_options.RetainableInboundMessages)
+            {
+                channelMsg = sharedGcOwned ??= BuildGcOwnedMessage(topic, pub);
+            }
+            else
+            {
+                channelMsg = BuildPooledMessage(topic, pub);
+            }
+
+            // Back-pressure flows naturally: when Wait mode is selected and full, this blocks the
+            // read loop, which in turn applies TCP back-pressure.
+            if (!sub.Writer!.TryWrite(channelMsg))
+            {
+                await sub.Writer.WriteAsync(channelMsg).ConfigureAwait(false);
+            }
         }
     }
 
     /// <summary>
-    /// Copies a borrowed inbound payload into a freshly rented pooled buffer and wraps it in an
-    /// owning <see cref="MqttMessage"/>. Each matching subscription gets its own copy so there is
-    /// no shared pooled buffer (and therefore no double-return).
+    /// Builds a GC-owned message with a freshly allocated payload copy (and, if present, a copy of
+    /// the v5 CorrelationData). Used when <see cref="MqttClientOptions.RetainableInboundMessages"/>
+    /// is set; a single instance is shared across all channel subscribers for one PUBLISH.
     /// </summary>
-    private static MqttMessage BuildPooledMessage(string topic, PublishPacket pub)
+    private static MqttMessage BuildGcOwnedMessage(string topic, PublishPacket pub)
     {
         var len = (int)pub.Payload.Length;
-        var rented = ArrayPool<byte>.Shared.Rent(Math.Max(1, len));
-        pub.Payload.CopyTo(rented.AsSpan(0, len));
+        var copy = new byte[len];
+        pub.Payload.CopyTo(copy);
         return new MqttMessage
         {
             Topic = topic,
-            Payload = new ReadOnlySequence<byte>(rented, 0, len),
+            Payload = new ReadOnlySequence<byte>(copy),
+            QoS = pub.QoS,
+            Retain = pub.Retain,
+            Duplicate = pub.Duplicate,
+            Properties = CopyBorrowedProperties(pub.Properties),
+        };
+    }
+
+    /// <summary>
+    /// Copies a borrowed inbound payload into a single freshly rented pooled buffer (payload bytes
+    /// followed by any v5 CorrelationData) and wraps it in an owning <see cref="MqttMessage"/>. Each
+    /// matching subscription gets its own copy, so there is no shared pooled buffer (no double-return).
+    /// </summary>
+    private static MqttMessage BuildPooledMessage(string topic, PublishPacket pub)
+    {
+        var payloadLen = (int)pub.Payload.Length;
+        var corr = pub.Properties?.CorrelationData ?? default;
+        var corrLen = corr.Length;
+        var rented = ArrayPool<byte>.Shared.Rent(Math.Max(1, payloadLen + corrLen));
+        pub.Payload.CopyTo(rented.AsSpan(0, payloadLen));
+
+        var props = pub.Properties;
+        if (corrLen > 0)
+        {
+            corr.Span.CopyTo(rented.AsSpan(payloadLen, corrLen));
+            // CorrelationData now lives inside the message's pooled buffer (same lifetime).
+            props = props!.WithCorrelationData(
+                new ReadOnlyMemory<byte>(rented, payloadLen, corrLen));
+        }
+
+        return new MqttMessage
+        {
+            Topic = topic,
+            Payload = new ReadOnlySequence<byte>(rented, 0, payloadLen),
             PooledArray = rented,
             QoS = pub.QoS,
             Retain = pub.Retain,
             Duplicate = pub.Duplicate,
-            Properties = pub.Properties,
+            Properties = props,
         };
+    }
+
+    /// <summary>Materializes any borrowed CorrelationData into a GC-owned copy for retained messages.</summary>
+    private static MqttPublishProperties? CopyBorrowedProperties(MqttPublishProperties? props)
+    {
+        if (props?.CorrelationData is not { Length: > 0 } corr) return props;
+        return props.WithCorrelationData(corr.ToArray());
     }
 
     private void EnqueuePubAck(ushort packetId, MqttReasonCode rc)
@@ -886,10 +954,37 @@ public sealed class MqttClient : IAsyncDisposable
         return false;
     }
 
-    public async ValueTask<MqttSubscription> SubscribeAsync(
+    /// <summary>
+    /// Subscribes and returns a channel-backed <see cref="MqttSubscription"/> whose
+    /// <see cref="MqttSubscription.Reader"/> yields inbound messages.
+    /// </summary>
+    public ValueTask<MqttSubscription> SubscribeAsync(
         string topicFilter,
         MqttSubscriptionOptions? options = null,
         CancellationToken cancellationToken = default)
+        => SubscribeCoreAsync(topicFilter, handler: null, options, cancellationToken);
+
+    /// <summary>
+    /// Subscribes with an inline handler invoked on the receive loop as each matching message
+    /// arrives. The handler's <see cref="MqttMessage"/> payload is a true zero-copy slice of the
+    /// receive buffer and is valid only for the duration of the returned <see cref="ValueTask"/> —
+    /// do not retain it. Back-pressure flows to the broker while the handler runs.
+    /// </summary>
+    public ValueTask<MqttSubscription> SubscribeAsync(
+        string topicFilter,
+        Func<MqttMessage, ValueTask> handler,
+        MqttSubscriptionOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (handler is null) throw new ArgumentNullException(nameof(handler));
+        return SubscribeCoreAsync(topicFilter, handler, options, cancellationToken);
+    }
+
+    private async ValueTask<MqttSubscription> SubscribeCoreAsync(
+        string topicFilter,
+        Func<MqttMessage, ValueTask>? handler,
+        MqttSubscriptionOptions? options,
+        CancellationToken cancellationToken)
     {
         EnsureConnected();
         options ??= new MqttSubscriptionOptions { Capacity = _options.DefaultSubscriptionCapacity };
@@ -908,7 +1003,7 @@ public sealed class MqttClient : IAsyncDisposable
             using var cts = new CancellationTokenSource(_options.OperationTimeout);
             try { await UnsubscribeOnServerAsync(s.TopicFilter, cts.Token).ConfigureAwait(
                 false); } catch { }
-        });
+        }, handler);
         lock (_subLock) { _trie.Add(matchFilter, sub); }
 
         uint? subId = null;

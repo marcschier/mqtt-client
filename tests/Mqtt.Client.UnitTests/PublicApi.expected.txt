@@ -55,6 +55,7 @@ class Mqtt.Client.MqttClient
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttPublishResult] PublishAsync(System.String, System.Buffers.ReadOnlySequence`1[System.Byte], Mqtt.Client.MqttQoS, Boolean, Mqtt.Client.MqttPublishProperties, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttPublishResult] PublishAsync(System.String, System.ReadOnlyMemory`1[System.Byte], Mqtt.Client.MqttQoS, Boolean, Mqtt.Client.MqttPublishProperties, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttSubscription] SubscribeAsync(System.String, Mqtt.Client.MqttSubscriptionOptions, System.Threading.CancellationToken)
+  System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttSubscription] SubscribeAsync(System.String, System.Func`2[Mqtt.Client.MqttMessage,System.Threading.Tasks.ValueTask], Mqtt.Client.MqttSubscriptionOptions, System.Threading.CancellationToken)
   Void .ctor(Mqtt.Client.MqttClientOptions, Microsoft.Extensions.Logging.ILoggerFactory, Mqtt.Client.IPersistentSessionStore)
   Void add_Connected(System.EventHandler`1[Mqtt.Client.MqttConnectResult])
   Void add_Disconnected(System.EventHandler`1[Mqtt.Client.MqttDisconnectedEventArgs])
@@ -83,10 +84,10 @@ class Mqtt.Client.MqttClientBuilder
 class Mqtt.Client.MqttClientOptions
   Boolean CleanStart
   Boolean ClearPooledBuffers
-  Boolean ReuseInboundBuffers
+  Boolean RetainableInboundMessages
   Boolean get_CleanStart()
   Boolean get_ClearPooledBuffers()
-  Boolean get_ReuseInboundBuffers()
+  Boolean get_RetainableInboundMessages()
   Byte[] Password
   Byte[] get_Password()
   Int32 DefaultSubscriptionCapacity
@@ -141,7 +142,7 @@ class Mqtt.Client.MqttClientOptions
   Void set_ProtocolVersion(Mqtt.Client.MqttProtocolVersion)
   Void set_ReceiveMaximum(UInt16)
   Void set_Reconnect(Mqtt.Client.MqttReconnectPolicy)
-  Void set_ReuseInboundBuffers(Boolean)
+  Void set_RetainableInboundMessages(Boolean)
   Void set_Tls(System.Net.Security.SslClientAuthenticationOptions)
   Void set_TopicAliasMaximum(UInt16)
   Void set_Transport(Mqtt.Client.MqttTransportType)

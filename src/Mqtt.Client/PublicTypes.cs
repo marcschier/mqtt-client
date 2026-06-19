@@ -24,6 +24,20 @@ public sealed class MqttPublishProperties
     public string? ContentType { get; init; }
     public IReadOnlyList<uint>? SubscriptionIdentifiers { get; init; }
     public IReadOnlyList<MqttUserProperty>? UserProperties { get; init; }
+
+    /// <summary>Returns a copy with <see cref="CorrelationData"/> replaced (others preserved).</summary>
+    internal MqttPublishProperties WithCorrelationData(ReadOnlyMemory<byte> correlationData)
+        => new()
+        {
+            PayloadFormatIndicator = PayloadFormatIndicator,
+            MessageExpiryInterval = MessageExpiryInterval,
+            TopicAlias = TopicAlias,
+            ResponseTopic = ResponseTopic,
+            CorrelationData = correlationData,
+            ContentType = ContentType,
+            SubscriptionIdentifiers = SubscriptionIdentifiers,
+            UserProperties = UserProperties,
+        };
 }
 
 /// <summary>

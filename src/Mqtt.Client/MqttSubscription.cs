@@ -13,18 +13,26 @@ namespace Mqtt.Client;
 /// </summary>
 public sealed class MqttSubscription : IAsyncDisposable
 {
-    private readonly Channel<MqttMessage> _channel;
+    private readonly Channel<MqttMessage>? _channel;
     private readonly Func<MqttSubscription, ValueTask> _onDispose;
     private int _disposed;
 
     internal MqttSubscription(
         string topicFilter,
         MqttSubscriptionOptions options,
-        Func<MqttSubscription, ValueTask> onDispose)
+        Func<MqttSubscription, ValueTask> onDispose,
+        Func<MqttMessage, ValueTask>? handler = null)
     {
         TopicFilter = topicFilter;
         Options = options;
         _onDispose = onDispose;
+        Handler = handler;
+        if (handler is not null)
+        {
+            // Inline-handler subscription: messages are delivered straight to the handler on the
+            // read loop (true zero-copy); no channel is allocated.
+            return;
+        }
         _channel = options.Overflow switch
         {
             MqttOverflowMode.Wait => Channel
@@ -55,6 +63,11 @@ public sealed class MqttSubscription : IAsyncDisposable
     public string TopicFilter { get; }
     public MqttSubscriptionOptions Options { get; }
 
+    /// <summary>True when this subscription delivers via an inline handler (no channel).</summary>
+    internal bool IsInline => Handler is not null;
+
+    internal Func<MqttMessage, ValueTask>? Handler { get; }
+
     /// <summary>
     /// MQTT 5 subscription identifier assigned by the client and sent to the broker. When the
     /// broker echoes it back via inbound PUBLISH properties, the client uses it for a fast-path
@@ -63,16 +76,19 @@ public sealed class MqttSubscription : IAsyncDisposable
     public uint? Identifier { get; internal set; }
 
     /// <summary>
-    /// Channel reader exposing inbound messages.
+    /// Channel reader exposing inbound messages. Throws when this subscription was created with an
+    /// inline handler (use the handler instead).
     /// </summary>
-    public ChannelReader<MqttMessage> Reader => _channel.Reader;
+    public ChannelReader<MqttMessage> Reader => _channel?.Reader
+        ?? throw new InvalidOperationException(
+            "This subscription delivers via an inline handler and has no channel reader.");
 
-    internal ChannelWriter<MqttMessage> Writer => _channel.Writer;
+    internal ChannelWriter<MqttMessage>? Writer => _channel?.Writer;
 
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-        _channel.Writer.TryComplete();
+        _channel?.Writer.TryComplete();
         await _onDispose(this).ConfigureAwait(false);
     }
 }

@@ -31,7 +31,7 @@ public class SequencePayloadAndPoolingTests
         return new ReadOnlySequence<byte>(first!, 0, last!, last!.Memory.Length);
     }
 
-    private static (MqttClient Client, FakeTransportFactory Factory) Build(bool pool = false)
+    private static (MqttClient Client, FakeTransportFactory Factory) Build(bool retainable = false)
     {
         var factory = new FakeTransportFactory();
         var client = new MqttClient(new MqttClientOptions
@@ -42,7 +42,7 @@ public class SequencePayloadAndPoolingTests
             CleanStart = true,
             KeepAliveSeconds = 0,
             Reconnect = null,
-            ReuseInboundBuffers = pool,
+            RetainableInboundMessages = retainable,
         }, factory);
         return (client, factory);
     }
@@ -121,7 +121,7 @@ public class SequencePayloadAndPoolingTests
     [Timeout(5_000)]
     public async Task Pooled_inbound_delivers_payload_and_is_disposable(CancellationToken ct)
     {
-        var (client, factory) = Build(pool: true);
+        var (client, factory) = Build();
         await using var _ = client;
         var broker = new FakeBroker(factory.Transport);
         var connectTask = client.ConnectAsync(ct);
@@ -147,7 +147,7 @@ public class SequencePayloadAndPoolingTests
     [Timeout(5_000)]
     public async Task Pooled_inbound_fanout_gives_each_sub_its_own_buffer(CancellationToken ct)
     {
-        var (client, factory) = Build(pool: true);
+        var (client, factory) = Build();
         await using var _ = client;
         var broker = new FakeBroker(factory.Transport);
         var connectTask = client.ConnectAsync(ct);

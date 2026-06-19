@@ -61,9 +61,9 @@ internal static class MqttPacketEncoder
             if (packet.AuthenticationMethod is { } am) { props.WriteByte(
                 (byte)MqttPropertyId.AuthenticationMethod); props.WriteString(
                 am); }
-            if (packet.AuthenticationData is { } ad) { props.WriteByte(
+            if (!packet.AuthenticationData.IsEmpty) { props.WriteByte(
                 (byte)MqttPropertyId.AuthenticationData); props.WriteBinaryData(
-                ad); }
+                packet.AuthenticationData.Span); }
             WriteUserProperties(props, packet.UserProperties);
             writer.WriteVarInt((uint)props.WrittenCount);
             writer.WriteBytes(props.WrittenSpan);
@@ -363,8 +363,11 @@ internal static class MqttPacketEncoder
         var props = new MqttBufferWriter(32); try {
         if (packet.AuthenticationMethod is { } am) { props.WriteByte(
             (byte)MqttPropertyId.AuthenticationMethod); props.WriteString(am); }
-        if (packet.AuthenticationData is { } ad) { props.WriteByte(
-            (byte)MqttPropertyId.AuthenticationData); props.WriteBinaryData(ad); }
+        if (!packet.AuthenticationData.IsEmpty)
+        {
+            props.WriteByte((byte)MqttPropertyId.AuthenticationData);
+            props.WriteBinaryData(packet.AuthenticationData.Span);
+        }
         if (!string.IsNullOrEmpty(packet.ReasonString)) { props.WriteByte(
             (byte)MqttPropertyId.ReasonString); props.WriteString(
             packet.ReasonString!); }

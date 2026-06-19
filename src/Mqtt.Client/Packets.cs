@@ -23,7 +23,7 @@ internal sealed class ConnectPacket
     public bool? RequestResponseInformation { get; init; }
     public bool? RequestProblemInformation { get; init; }
     public string? AuthenticationMethod { get; init; }
-    public byte[]? AuthenticationData { get; init; }
+    public ReadOnlyMemory<byte> AuthenticationData { get; init; }
     public IReadOnlyList<MqttUserProperty>? UserProperties { get; init; }
 }
 
@@ -142,7 +142,7 @@ internal sealed class AuthPacket
 {
     public MqttReasonCode ReasonCode { get; init; }
     public string? AuthenticationMethod { get; init; }
-    public byte[]? AuthenticationData { get; init; }
+    public ReadOnlyMemory<byte> AuthenticationData { get; init; }
     public string? ReasonString { get; init; }
     public IReadOnlyList<MqttUserProperty>? UserProperties { get; init; }
 }

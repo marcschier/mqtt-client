@@ -9,11 +9,12 @@ namespace Mqtt.Client;
 /// A single inbound MQTT message delivered to a subscriber.
 /// </summary>
 /// <remarks>
-/// When <see cref="MqttClientOptions.ReuseInboundBuffers"/> is enabled, the payload is backed by a
-/// pooled buffer that is returned when the message is disposed. In that mode consumers MUST dispose
-/// each message after use and MUST NOT access <see cref="Payload"/>/<see cref="PayloadMemory"/>
-/// afterwards. In the default mode the payload is garbage-collected and <see cref="Dispose"/> is a
-/// no-op, so disposal is optional and the payload may be retained indefinitely.
+/// By default the payload is backed by a pooled buffer that is returned when the message is
+/// disposed: consumers MUST dispose each message after use and MUST NOT access
+/// <see cref="Payload"/>/<see cref="PayloadMemory"/> afterwards. Set
+/// <see cref="MqttClientOptions.RetainableInboundMessages"/> to get a garbage-collected payload
+/// instead, in which case <see cref="Dispose"/> is a no-op and the payload may be retained freely.
+/// Inline-handler subscriptions deliver a true zero-copy payload valid only inside the handler.
 /// </remarks>
 public sealed class MqttMessage : IDisposable
 {

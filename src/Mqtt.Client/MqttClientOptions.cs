@@ -128,14 +128,23 @@ public sealed class MqttClientOptions
     public int MaxAuthRoundTrips { get; set; } = 5;
 
     /// <summary>
-    /// When true, inbound PUBLISH payloads are copied into buffers rented from the shared
-    /// <see cref="System.Buffers.ArrayPool{T}"/> instead of freshly allocated arrays, eliminating
-    /// per-message GC allocations on the receive path. <see cref="MqttMessage"/> then becomes an
-    /// owner of its pooled buffer: consumers MUST dispose each message after use and MUST NOT
-    /// retain or access its payload afterwards. Default <c>false</c> (payloads are GC-owned and may
-    /// be retained freely).
+    /// Controls how channel-delivered inbound PUBLISH payloads are buffered.
+    /// <para>
+    /// When <c>false</c> (the default), payloads are copied into buffers rented from the shared
+    /// <see cref="System.Buffers.ArrayPool{T}"/>, eliminating per-message GC allocations on the
+    /// receive path. <see cref="MqttMessage"/> then owns its pooled buffer: consumers MUST dispose
+    /// each message after use and MUST NOT retain or access its payload afterwards.
+    /// </para>
+    /// <para>
+    /// Set to <c>true</c> to restore GC-owned payloads (a fresh <c>byte[]</c> per message) that may
+    /// be retained and accessed indefinitely; <see cref="MqttMessage.Dispose"/> is then a no-op.
+    /// </para>
+    /// <para>
+    /// Either way, the inline-handler <c>SubscribeAsync(topic, handler, …)</c> overload delivers a
+    /// true zero-copy payload (a slice of the receive buffer) valid only inside the handler.
+    /// </para>
     /// </summary>
-    public bool ReuseInboundBuffers { get; set; }
+    public bool RetainableInboundMessages { get; set; }
 }
 
 public enum MqttTransportType

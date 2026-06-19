@@ -266,6 +266,28 @@ internal sealed class FakeBroker
         await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
     }
 
+    /// <summary>MQTT 5 variant: sends a PUBLISH carrying a CorrelationData property.</summary>
+    public async Task SendPublishWithCorrelationAsync(
+        string topic,
+        ReadOnlyMemory<byte> correlationData,
+        ReadOnlyMemory<byte> payload,
+        MqttQoS qos = MqttQoS.AtMostOnce,
+        ushort packetId = 0,
+        CancellationToken ct = default)
+    {
+        var packet = new PublishPacket
+        {
+            Topic = topic,
+            QoS = qos,
+            PacketId = packetId,
+            PayloadMemory = payload,
+            Properties = new MqttPublishProperties { CorrelationData = correlationData },
+        };
+        using var w = new MqttBufferWriter(payload.Length + 32);
+        MqttPacketEncoder.EncodePublish(packet, _version, w);
+        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+    }
+
     public async Task SendPingRespAsync(CancellationToken ct = default)
     {
         var bytes = new byte[] { 0xD0, 0x00 };

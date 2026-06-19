@@ -129,6 +129,28 @@ internal ref struct MqttSequenceReader
         return arr;
     }
 
+    /// <summary>
+    /// Reads MQTT binary data as a zero-copy slice when it lies within a single segment; otherwise
+    /// copies into a fresh array. Only valid while the underlying buffer outlives the returned memory.
+    /// </summary>
+    public ReadOnlyMemory<byte> ReadBinaryDataMemory()
+    {
+        var length = ReadUInt16BigEndian();
+        if (length == 0)
+        {
+            return ReadOnlyMemory<byte>.Empty;
+        }
+        var slice = UnreadSequence.Slice(0, length);
+        _reader.Advance(length);
+        if (slice.IsSingleSegment)
+        {
+            return slice.First;
+        }
+        var arr = new byte[length];
+        slice.CopyTo(arr);
+        return arr;
+    }
+
     public ReadOnlySequence<byte> ReadSequence(int length)
     {
         var slice = UnreadSequence.Slice(0, length);

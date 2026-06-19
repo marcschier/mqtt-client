@@ -1,6 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
@@ -31,25 +32,36 @@ public sealed class FileSessionStore : IPersistentSessionStore
     public ValueTask SavePendingPublishAsync(ushort packetId, MqttMessage message)
     {
         if (message is null) throw new ArgumentNullException(nameof(message));
-        var topicBytes = Encoding.UTF8.GetBytes(message.Topic);
+        var topic = message.Topic;
+        var topicLen = Encoding.UTF8.GetByteCount(topic);
         var payload = message.PayloadMemory.Span;
-        var bufLen = 2 + 1 + 2 + topicBytes.Length + 4 + payload.Length;
-        var buf = new byte[bufLen];
-        var s = buf.AsSpan();
-        BinaryPrimitives.WriteUInt16BigEndian(s.Slice(0, 2), (ushort)message.QoS);
-        s[2] = (byte)(message.Retain ? 1 : 0);
-        BinaryPrimitives.WriteUInt16BigEndian(s.Slice(3, 2), (ushort)topicBytes.Length);
-        topicBytes.AsSpan().CopyTo(s.Slice(5));
-        BinaryPrimitives.WriteInt32BigEndian(s.Slice(5 + topicBytes.Length, 4), payload.Length);
-        payload.CopyTo(s.Slice(5 + topicBytes.Length + 4));
-
-        var path = Path.Combine(Directory, packetId + ".bin");
-        var tmp = path + ".tmp";
-        lock (_gate)
+        var bufLen = 2 + 1 + 2 + topicLen + 4 + payload.Length;
+        var buf = ArrayPool<byte>.Shared.Rent(bufLen);
+        try
         {
-            File.WriteAllBytes(tmp, buf);
-            if (File.Exists(path)) File.Delete(path);
-            File.Move(tmp, path);
+            var s = buf.AsSpan();
+            BinaryPrimitives.WriteUInt16BigEndian(s.Slice(0, 2), (ushort)message.QoS);
+            s[2] = (byte)(message.Retain ? 1 : 0);
+            BinaryPrimitives.WriteUInt16BigEndian(s.Slice(3, 2), (ushort)topicLen);
+            Encoding.UTF8.GetBytes(topic.AsSpan(), s.Slice(5, topicLen));
+            BinaryPrimitives.WriteInt32BigEndian(s.Slice(5 + topicLen, 4), payload.Length);
+            payload.CopyTo(s.Slice(5 + topicLen + 4));
+
+            var path = Path.Combine(Directory, packetId + ".bin");
+            var tmp = path + ".tmp";
+            lock (_gate)
+            {
+                using (var fs = File.Create(tmp))
+                {
+                    fs.Write(buf, 0, bufLen);
+                }
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(tmp, path);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buf);
         }
         return default;
     }
@@ -86,6 +98,8 @@ public sealed class FileSessionStore : IPersistentSessionStore
                 var topic = Encoding.UTF8.GetString(s.Slice(5, topicLen));
                 var payloadLen = BinaryPrimitives.ReadInt32BigEndian(s.Slice(5 + topicLen, 4));
                 if (payloadLen < 0 || buf.Length < 5 + topicLen + 4 + payloadLen) continue;
+                // Owned copy: the restored payload escapes to the caller (and survives this method
+                // and the file handle) with indefinite lifetime, so it cannot be pooled.
                 var payload = new byte[payloadLen];
                 s.Slice(5 + topicLen + 4, payloadLen).CopyTo(payload);
                 list.Add((packetId, new MqttMessage {

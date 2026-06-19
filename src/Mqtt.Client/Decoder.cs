@@ -255,7 +255,7 @@ internal static class MqttPacketDecoder
             var propLen = (int)reader.ReadVarInt(out _);
             if (propLen > 0)
             {
-                props = ReadPublishProperties(ref reader, propLen);
+                props = ReadPublishProperties(ref reader, propLen, poolPayload);
             }
         }
         var payloadLen = totalLen - (int)reader.Consumed;
@@ -290,14 +290,15 @@ internal static class MqttPacketDecoder
 
     private static MqttPublishProperties ReadPublishProperties(
         ref MqttSequenceReader reader,
-        int propLen)
+        int propLen,
+        bool sliceMode)
     {
         var end = reader.Consumed + propLen;
         byte? pfi = null;
         uint? me = null;
         ushort? ta = null;
         string? rt = null;
-        byte[]? cd = null;
+        ReadOnlyMemory<byte>? cd = null;
         string? ct = null;
         List<uint>? sids = null;
         List<MqttUserProperty>? ups = null;
@@ -311,7 +312,11 @@ internal static class MqttPacketDecoder
                 case MqttPropertyId.MessageExpiryInterval: me = reader.ReadUInt32BigEndian(); break;
                 case MqttPropertyId.TopicAlias: ta = reader.ReadUInt16BigEndian(); break;
                 case MqttPropertyId.ResponseTopic: rt = reader.ReadString(); break;
-                case MqttPropertyId.CorrelationData: cd = reader.ReadBinaryData(); break;
+                // In slice mode CorrelationData is a borrowed slice of the receive buffer (the read
+                // loop copies it out for channel delivery); otherwise a standalone copy.
+                case MqttPropertyId.CorrelationData:
+                    cd = sliceMode ? reader.ReadBinaryDataMemory() : reader.ReadBinaryData();
+                    break;
                 case MqttPropertyId.ContentType: ct = reader.ReadString(); break;
                 case MqttPropertyId.SubscriptionIdentifier: (sids ??= new List<uint>()).Add(
                     reader.ReadVarInt(out _)); break;
