@@ -46,21 +46,6 @@ internal struct MqttBufferWriter : IMqttBufferWriter
         }
     }
 
-    /// <summary>
-    /// Transfers ownership of the rented backing array to the caller and resets this writer to an
-    /// empty, non-owning state. The caller MUST return the array to
-    /// <see cref="ArrayPool{T}.Shared"/>. Used to hand the encoded bytes to an outbound envelope
-    /// without a copy.
-    /// </summary>
-    public byte[] DetachBuffer(out int length)
-    {
-        length = _written;
-        var detached = _buffer;
-        _buffer = null!;
-        _written = 0;
-        return detached;
-    }
-
     public Span<byte> GetSpan(int sizeHint = 0)
     {
         EnsureCapacity(sizeHint <= 0 ? 1 : sizeHint);

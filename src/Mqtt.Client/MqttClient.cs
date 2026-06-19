@@ -379,17 +379,65 @@ public sealed class MqttClient : IAsyncDisposable
         catch { /* best effort */ }
     }
 
-    private async Task WriteRawAsync(
-        ReadOnlyMemory<byte> headerBytes,
-        ReadOnlySequence<byte> payload,
-        CancellationToken ct)
+    private async Task WriteEnvelopeAsync(OutboundEnvelope env, CancellationToken ct)
     {
         var output = _transport!.Output;
-        if (!headerBytes.IsEmpty)
+        var version = _options.ProtocolVersion;
+        var writer = new PipeBufferWriter(output, SizeHint(env));
+        var payload = ReadOnlySequence<byte>.Empty;
+        switch (env.Kind)
         {
-            headerBytes.CopyTo(output.GetMemory(headerBytes.Length));
-            output.Advance(headerBytes.Length);
+            case OutboundKind.Publish:
+                var pub = (PublishPacket)env.Packet!;
+                MqttPacketEncoder.EncodePublishHeader(pub, version, ref writer);
+                payload = pub.Payload;
+                break;
+            case OutboundKind.PubAck:
+                MqttPacketEncoder.EncodePubAck(env.PacketId, env.ReasonCode, version, ref writer);
+                break;
+            case OutboundKind.PubRec:
+                MqttPacketEncoder.EncodePubRec(env.PacketId, env.ReasonCode, version, ref writer);
+                break;
+            case OutboundKind.PubRel:
+                MqttPacketEncoder.EncodePubRel(env.PacketId, env.ReasonCode, version, ref writer);
+                break;
+            case OutboundKind.PubComp:
+                MqttPacketEncoder.EncodePubComp(env.PacketId, env.ReasonCode, version, ref writer);
+                break;
+            case OutboundKind.Subscribe:
+                MqttPacketEncoder.EncodeSubscribe(
+                    (SubscribePacket)env.Packet!, version, ref writer);
+                break;
+            case OutboundKind.Unsubscribe:
+                MqttPacketEncoder.EncodeUnsubscribe(
+                    (UnsubscribePacket)env.Packet!, version, ref writer);
+                break;
+            case OutboundKind.PingReq:
+                MqttPacketEncoder.EncodePingReq(ref writer);
+                break;
+            case OutboundKind.Disconnect:
+                MqttPacketEncoder.EncodeDisconnect(
+                    (DisconnectPacket)env.Packet!, version, ref writer);
+                break;
         }
+        var headerLen = writer.WrittenCount;
+        writer.Commit();
+        if (!payload.IsEmpty)
+        {
+            WritePayloadSegments(output, payload);
+        }
+        _metrics.BytesSent.Add(headerLen + payload.Length);
+        var result = await output.FlushAsync(ct).ConfigureAwait(false);
+        if (result.IsCompleted) throw new MqttConnectionException("Transport closed during write.");
+    }
+
+    private static int SizeHint(in OutboundEnvelope env)
+        => env.Kind == OutboundKind.Publish && env.Packet is PublishPacket p
+            ? p.Topic.Length + 48
+            : 64;
+
+    private static void WritePayloadSegments(PipeWriter output, in ReadOnlySequence<byte> payload)
+    {
         // Write each segment in slices that fit the pipe's current segment without forcing a copy
         // through an intermediate writer; PipeWriter pools segments internally.
         foreach (var segment in payload)
@@ -410,9 +458,6 @@ public sealed class MqttClient : IAsyncDisposable
                 remaining = remaining.Slice(n);
             }
         }
-        _metrics.BytesSent.Add(headerBytes.Length + payload.Length);
-        var result = await output.FlushAsync(ct).ConfigureAwait(false);
-        if (result.IsCompleted) throw new MqttConnectionException("Transport closed during write.");
     }
 
     /// <summary>
@@ -438,7 +483,7 @@ public sealed class MqttClient : IAsyncDisposable
             {
                 try
                 {
-                    await WriteRawAsync(env.Bytes, env.Payload, ct).ConfigureAwait(false);
+                    await WriteEnvelopeAsync(env, ct).ConfigureAwait(false);
                     env.OnSent?.TrySetResult(null);
                 }
                 catch (Exception ex)
@@ -555,18 +600,10 @@ public sealed class MqttClient : IAsyncDisposable
     }
 
     private void EnqueuePubRel(ushort packetId, MqttReasonCode rc)
-    {
-        var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodePubRel(packetId, rc, _options.ProtocolVersion, ref w);
-        _ = EnqueueAsync(NewEnvelopeFrom(w));
-    }
+        => _ = EnqueueAsync(OutboundEnvelope.ForAck(OutboundKind.PubRel, packetId, rc));
 
     private void EnqueuePubComp(ushort packetId, MqttReasonCode rc)
-    {
-        var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodePubComp(packetId, rc, _options.ProtocolVersion, ref w);
-        _ = EnqueueAsync(NewEnvelopeFrom(w));
-    }
+        => _ = EnqueueAsync(OutboundEnvelope.ForAck(OutboundKind.PubComp, packetId, rc));
 
     private void CompletePending(ushort packetId, object value)
     {
@@ -767,22 +804,11 @@ public sealed class MqttClient : IAsyncDisposable
     }
 
     private void EnqueuePubAck(ushort packetId, MqttReasonCode rc)
-    {
-        var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodePubAck(packetId, rc, _options.ProtocolVersion, ref w);
-        _ = EnqueueAsync(NewEnvelopeFrom(w));
-    }
+        => _ = EnqueueAsync(OutboundEnvelope.ForAck(OutboundKind.PubAck, packetId, rc));
 
     private void EnqueuePubRec(ushort packetId)
-    {
-        var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodePubRec(
-            packetId,
-            MqttReasonCode.Success,
-            _options.ProtocolVersion,
-            ref w);
-        _ = EnqueueAsync(NewEnvelopeFrom(w));
-    }
+        => _ = EnqueueAsync(
+            OutboundEnvelope.ForAck(OutboundKind.PubRec, packetId, MqttReasonCode.Success));
 
     private async ValueTask EnqueueAsync(OutboundEnvelope env, CancellationToken ct = default)
     {
@@ -799,9 +825,7 @@ public sealed class MqttClient : IAsyncDisposable
             try { await Task.Delay(interval, ct).ConfigureAwait(false); } catch { break; }
             try
             {
-                var w = new MqttBufferWriter(2);
-                MqttPacketEncoder.EncodePingReq(ref w);
-                await EnqueueAsync(NewEnvelopeFrom(w), ct).ConfigureAwait(false);
+                await EnqueueAsync(OutboundEnvelope.ForPingReq(), ct).ConfigureAwait(false);
             }
             catch { break; }
         }
@@ -902,6 +926,9 @@ public sealed class MqttClient : IAsyncDisposable
         EnsureConnected();
         MqttLog.Publishing(_logger, topic, qos, (int)payload.Length);
         _metrics.Publishes.Add(1);
+        // The write loop encodes the header directly into the pipe; validate up front so malformed
+        // input still throws synchronously at this call site.
+        MqttOutboundValidation.ValidatePublish(topic, payload.Length, properties);
 
         ushort packetId = qos == MqttQoS.AtMostOnce ? (ushort)0 : _packetIds.Allocate();
         var packet = new PublishPacket
@@ -914,22 +941,18 @@ public sealed class MqttClient : IAsyncDisposable
             Properties = properties,
         };
 
-        // Encode header only into a small rented buffer; the payload is sent as a separate
-        // pipe write to avoid a large memcpy through MqttBufferWriter for big payloads.
-        var w = new MqttBufferWriter(128);
-        MqttPacketEncoder.EncodePublishHeader(packet, _options.ProtocolVersion, ref w);
-
         if (qos == MqttQoS.AtMostOnce)
         {
-            await EnqueueAsync(NewEnvelopeFrom(w, payload), cancellationToken).ConfigureAwait(
-                false);
+            await EnqueueAsync(OutboundEnvelope.ForPublish(packet), cancellationToken)
+                .ConfigureAwait(false);
             return new MqttPublishResult(MqttReasonCode.Success);
         }
 
         var waiter = AckCompletionSource.Rent(cancellationToken);
         _pendingAcks[packetId] = waiter;
         var startTs = Stopwatch.GetTimestamp();
-        await EnqueueAsync(NewEnvelopeFrom(w, payload), cancellationToken).ConfigureAwait(false);
+        await EnqueueAsync(OutboundEnvelope.ForPublish(packet), cancellationToken)
+            .ConfigureAwait(false);
         var ack = (PubAckPacket?)await waiter.ValueTask.ConfigureAwait(false);
         var elapsedMs = (Stopwatch.GetTimestamp() - startTs) * 1000.0 / Stopwatch.Frequency;
         _metrics.PublishAckLatency.Record(elapsedMs);
@@ -943,6 +966,7 @@ public sealed class MqttClient : IAsyncDisposable
     public bool TryPublish(string topic, ReadOnlySpan<byte> payload, bool retain = false)
     {
         EnsureConnected();
+        MqttOutboundValidation.ValidatePublish(topic, payload.Length, null);
         // For TryPublish we materialise the payload to a pooled byte[] so the envelope can
         // outlive the calling stack frame; the caller's span is not retained.
         var pooled = ArrayPool<byte>.Shared.Rent(payload.Length);
@@ -955,9 +979,7 @@ public sealed class MqttClient : IAsyncDisposable
             PacketId = 0,
             Payload = new ReadOnlySequence<byte>(pooled, 0, payload.Length),
         };
-        var w = new MqttBufferWriter(128);
-        MqttPacketEncoder.EncodePublishHeader(packet, _options.ProtocolVersion, ref w);
-        var envelope = NewEnvelopeFrom(w, packet.Payload, pooled, _options.ClearPooledBuffers);
+        var envelope = OutboundEnvelope.ForPublish(packet, pooled, _options.ClearPooledBuffers);
         if (_outbound.Writer.TryWrite(envelope))
         {
             _metrics.Publishes.Add(1);
@@ -1000,6 +1022,7 @@ public sealed class MqttClient : IAsyncDisposable
         CancellationToken cancellationToken)
     {
         EnsureConnected();
+        MqttOutboundValidation.ValidateTopicFilter(topicFilter);
         options ??= new MqttSubscriptionOptions { Capacity = _options.DefaultSubscriptionCapacity };
         MqttLog.Subscribing(_logger, topicFilter, options.QoS);
 
@@ -1038,11 +1061,11 @@ public sealed class MqttClient : IAsyncDisposable
                 options.RetainAsPublished) },
             SubscriptionIdentifier = subId,
         };
-        var w = new MqttBufferWriter(64);
-        MqttPacketEncoder.EncodeSubscribe(sp, _options.ProtocolVersion, ref w);
         var waiter = AckCompletionSource.Rent(cancellationToken);
         _pendingAcks[packetId] = waiter;
-        await EnqueueAsync(NewEnvelopeFrom(w), cancellationToken).ConfigureAwait(false);
+        await EnqueueAsync(
+            OutboundEnvelope.ForPacket(OutboundKind.Subscribe, sp), cancellationToken)
+            .ConfigureAwait(false);
         await waiter.ValueTask.ConfigureAwait(false);
         return sub;
     }
@@ -1052,8 +1075,6 @@ public sealed class MqttClient : IAsyncDisposable
         if (State != MqttConnectionState.Connected) return;
         var packetId = _packetIds.Allocate();
         var u = new UnsubscribePacket { PacketId = packetId, Topics = new[] { topicFilter } };
-        var w = new MqttBufferWriter(32);
-        MqttPacketEncoder.EncodeUnsubscribe(u, _options.ProtocolVersion, ref w);
         // Bounded wait so a broker that never acks UNSUBSCRIBE doesn't hang the disposing
         // subscription. Local trie removal already happened; the server-side ack is best-effort.
         // Honor both the caller's ct and a sane timeout, *and* the client-shutdown signal so
@@ -1065,7 +1086,8 @@ public sealed class MqttClient : IAsyncDisposable
             _loopCts?.Token ?? CancellationToken.None);
         var waiter = AckCompletionSource.Rent(linkedCts.Token);
         _pendingAcks[packetId] = waiter;
-        await EnqueueAsync(NewEnvelopeFrom(w), ct).ConfigureAwait(false);
+        await EnqueueAsync(OutboundEnvelope.ForPacket(OutboundKind.Unsubscribe, u), ct)
+            .ConfigureAwait(false);
         try
         {
             await waiter.ValueTask.ConfigureAwait(false);
@@ -1084,13 +1106,14 @@ public sealed class MqttClient : IAsyncDisposable
     {
         Volatile.Write(ref _manualDisconnect, 1);
         if (State != MqttConnectionState.Connected) return;
-        var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodeDisconnect(
-            new DisconnectPacket { ReasonCode = MqttReasonCode.Success },
-            _options.ProtocolVersion,
-            ref w);
-        try { await EnqueueAsync(NewEnvelopeFrom(w), cancellationToken).ConfigureAwait(
-            false); } catch { }
+        var disconnect = new DisconnectPacket { ReasonCode = MqttReasonCode.Success };
+        try
+        {
+            await EnqueueAsync(
+                OutboundEnvelope.ForPacket(OutboundKind.Disconnect, disconnect), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch { }
         await CleanupAsync("client disconnect").ConfigureAwait(false);
         SetState(MqttConnectionState.Disconnected);
     }
@@ -1222,61 +1245,76 @@ public sealed class MqttClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// An outbound packet pending serialization. Takes ownership of the encoder's rented header
-    /// buffer (detached from the <see cref="MqttBufferWriter"/> struct) plus an optional pooled
-    /// payload buffer; both go back to <c>ArrayPool&lt;byte&gt;.Shared</c> on Dispose.
+    /// Identifies the control packet an <see cref="OutboundEnvelope"/> carries so the write loop can
+    /// encode it directly into the transport <see cref="PipeWriter"/>.
     /// </summary>
-    private static OutboundEnvelope NewEnvelopeFrom(MqttBufferWriter writer)
-        => new(writer);
+    private enum OutboundKind : byte
+    {
+        Publish = 0,
+        PubAck = 1,
+        PubRec = 2,
+        PubRel = 3,
+        PubComp = 4,
+        Subscribe = 5,
+        Unsubscribe = 6,
+        PingReq = 7,
+        Disconnect = 8,
+    }
 
-    private static OutboundEnvelope NewEnvelopeFrom(
-        MqttBufferWriter writer,
-        ReadOnlySequence<byte> payload,
-        byte[]? pooledPayload = null,
-        bool clearOnReturn = false)
-        => new(writer, payload, pooledPayload, clearOnReturn);
-
+    /// <summary>
+    /// A queued outbound control packet. Carries the packet data (not pre-encoded bytes) so the
+    /// single write loop encodes it directly into the <see cref="PipeWriter"/>; acks travel as an
+    /// inline id + reason code (no object), other packets reference their already-allocated packet.
+    /// Only an optional pooled payload buffer is owned and returned to the pool on Dispose.
+    /// </summary>
     private readonly struct OutboundEnvelope : IDisposable
     {
-        private readonly byte[] _headerBuffer;
-        public OutboundEnvelope(MqttBufferWriter writer)
+        private OutboundEnvelope(
+            OutboundKind kind,
+            ushort packetId,
+            MqttReasonCode reasonCode,
+            object? packet,
+            byte[]? pooledPayload,
+            bool clearOnReturn,
+            TaskCompletionSource<object?>? onSent)
         {
-            _headerBuffer = writer.DetachBuffer(out var len);
-            Bytes = new ReadOnlyMemory<byte>(_headerBuffer, 0, len);
-            Payload = ReadOnlySequence<byte>.Empty;
-            PooledPayload = null;
-            ClearOnReturn = false;
-            OnSent = null;
-        }
-        public OutboundEnvelope(
-            MqttBufferWriter writer,
-            ReadOnlySequence<byte> payload,
-            byte[]? pooledPayload = null,
-            bool clearOnReturn = false,
-            TaskCompletionSource<object?>? onSent = null)
-        {
-            _headerBuffer = writer.DetachBuffer(out var len);
-            Bytes = new ReadOnlyMemory<byte>(_headerBuffer, 0, len);
-            Payload = payload;
+            Kind = kind;
+            PacketId = packetId;
+            ReasonCode = reasonCode;
+            Packet = packet;
             PooledPayload = pooledPayload;
             ClearOnReturn = clearOnReturn;
             OnSent = onSent;
         }
-        public ReadOnlyMemory<byte> Bytes { get; }
-        public ReadOnlySequence<byte> Payload { get; }
+
+        public OutboundKind Kind { get; }
+        public ushort PacketId { get; }
+        public MqttReasonCode ReasonCode { get; }
+        public object? Packet { get; }
         public byte[]? PooledPayload { get; }
         public bool ClearOnReturn { get; }
         public TaskCompletionSource<object?>? OnSent { get; }
+
+        public static OutboundEnvelope ForPublish(
+            PublishPacket packet,
+            byte[]? pooledPayload = null,
+            bool clearOnReturn = false)
+            => new(OutboundKind.Publish, 0, default, packet, pooledPayload, clearOnReturn, null);
+
+        public static OutboundEnvelope ForAck(OutboundKind kind, ushort packetId, MqttReasonCode rc)
+            => new(kind, packetId, rc, null, null, false, null);
+
+        public static OutboundEnvelope ForPacket(OutboundKind kind, object packet)
+            => new(kind, 0, default, packet, null, false, null);
+
+        public static OutboundEnvelope ForPingReq()
+            => new(OutboundKind.PingReq, 0, default, null, null, false, null);
+
         public void Dispose()
         {
-            if (_headerBuffer is not null)
-            {
-                ArrayPool<byte>.Shared.Return(_headerBuffer);
-            }
             if (PooledPayload is not null)
             {
-                ArrayPool<byte>.Shared
-                    .Return(PooledPayload, clearArray: ClearOnReturn);
+                ArrayPool<byte>.Shared.Return(PooledPayload, clearArray: ClearOnReturn);
             }
         }
     }
