@@ -48,28 +48,27 @@ internal sealed class TlsTransportFactory : IMqttTransportFactory
     private readonly string _host;
     private readonly int _port;
     private readonly SslClientAuthenticationOptions _options;
+    private readonly ISocketConnector _connector;
 
-    public TlsTransportFactory(string host, int port, SslClientAuthenticationOptions options)
+    public TlsTransportFactory(
+        string host,
+        int port,
+        SslClientAuthenticationOptions options,
+        ISocketConnector? connector = null)
     {
         _host = host;
         _port = port;
         _options = options;
+        _connector = connector ?? DefaultConnector.Instance;
     }
 
     public async ValueTask<IMqttTransport> ConnectAsync(CancellationToken cancellationToken)
     {
-        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        var socket = await _connector.ConnectAsync(_host, _port, cancellationToken)
+            .ConfigureAwait(false);
         SslStream? ssl = null;
         try
         {
-#if NETSTANDARD2_1
-            using (cancellationToken.Register(static s => ((Socket)s!).Dispose(), socket))
-            {
-                await socket.ConnectAsync(_host, _port).ConfigureAwait(false);
-            }
-#else
-            await socket.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
-#endif
             ssl = new SslStream(
                 new NetworkStream(socket, ownsSocket: false),
                 leaveInnerStreamOpen: false);

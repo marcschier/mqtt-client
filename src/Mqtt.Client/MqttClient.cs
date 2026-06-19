@@ -112,20 +112,34 @@ public sealed class MqttClient : IAsyncDisposable
         // gets enough buffer headroom; minimum 1 MiB to avoid pathologically small thresholds.
         var pauseThreshold = Math.Max(1024 * 1024, o.MaxIncomingPacketSize * 2);
         var wsPath = string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath;
+        var connector = CreateSocketConnector(o);
         return o.Transport switch
         {
-            MqttTransportType.Tcp => new TcpTransportFactory(o.Host, o.Port, pauseThreshold),
+            MqttTransportType.Tcp => new TcpTransportFactory(
+                o.Host, o.Port, pauseThreshold, connector),
             MqttTransportType.Tls => new TlsTransportFactory(
                 o.Host,
                 o.Port,
-                ApplySecureTlsDefaults(o.Tls, o.Host)),
-            MqttTransportType.WebSocket => new WebSocketTransportFactory(
-                new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{wsPath}")),
-            MqttTransportType.WebSocketSecure => new WebSocketTransportFactory(
-                new Uri($"wss://{o.Host}:{(o.Port == 1883 ? 443 : o.Port)}{wsPath}")),
+                ApplySecureTlsDefaults(o.Tls, o.Host),
+                connector),
+            MqttTransportType.WebSocket => o.Proxy is null
+                ? new WebSocketTransportFactory(
+                    new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{wsPath}"))
+                : throw new NotSupportedException(
+                    "A SOCKS5 proxy is not supported for WebSocket transports."),
+            MqttTransportType.WebSocketSecure => o.Proxy is null
+                ? new WebSocketTransportFactory(
+                    new Uri($"wss://{o.Host}:{(o.Port == 1883 ? 443 : o.Port)}{wsPath}"))
+                : throw new NotSupportedException(
+                    "A SOCKS5 proxy is not supported for WebSocket transports."),
             _ => throw new NotSupportedException($"Transport {o.Transport} is not implemented."),
         };
     }
+
+    private static ISocketConnector CreateSocketConnector(MqttClientOptions o)
+        => o.Proxy is null
+            ? DefaultConnector.Instance
+            : new Socks5SocketConnector(o.Proxy);
 
     /// <summary>
     /// Returns secure defaults for

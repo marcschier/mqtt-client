@@ -41,27 +41,26 @@ internal sealed class TcpTransportFactory : IMqttTransportFactory
     private readonly string _host;
     private readonly int _port;
     private readonly int _pauseThreshold;
+    private readonly ISocketConnector _connector;
 
-    public TcpTransportFactory(string host, int port, int pauseThreshold = 1024 * 1024)
+    public TcpTransportFactory(
+        string host,
+        int port,
+        int pauseThreshold = 1024 * 1024,
+        ISocketConnector? connector = null)
     {
         _host = host;
         _port = port;
         _pauseThreshold = pauseThreshold;
+        _connector = connector ?? DefaultConnector.Instance;
     }
 
     public async ValueTask<IMqttTransport> ConnectAsync(CancellationToken cancellationToken)
     {
-        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        var socket = await _connector.ConnectAsync(_host, _port, cancellationToken)
+            .ConfigureAwait(false);
         try
         {
-#if NETSTANDARD2_1
-            using (cancellationToken.Register(static s => ((Socket)s!).Dispose(), socket))
-            {
-                await socket.ConnectAsync(_host, _port).ConfigureAwait(false);
-            }
-#else
-            await socket.ConnectAsync(_host, _port, cancellationToken).ConfigureAwait(false);
-#endif
             return new TcpTransport(socket, _pauseThreshold);
         }
         catch

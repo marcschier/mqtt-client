@@ -12,14 +12,15 @@ scan in one screen.
 | File | Purpose |
 | --- | --- |
 | `MqttClient.cs` | The client. Channels-style `PublishAsync` / `TryPublish` / `SubscribeAsync` / `DisconnectAsync`, hidden send + receive loops, auto-reconnect, vectored writes. |
-| `MqttClientBuilder.cs` | Fluent builder. URI parsing for `mqtt://` / `mqtts://` / `ws://` / `wss://`; credentials, mTLS, keep-alive, last-will, reconnect, persistence, logging. |
+| `MqttClientBuilder.cs` | Fluent builder. URI parsing for `mqtt://` / `mqtts://` / `ws://` / `wss://`; credentials, mTLS, keep-alive, last-will, reconnect, persistence, logging, SOCKS5 proxy. |
 | `MqttClientOptions.cs` | Strongly-typed options bag. Includes `MaxIncomingPacketSize`, `ClearPooledBuffers`, `OperationTimeout`, `ReceiveMaximum`, etc. Plus `MqttTransportType` and `MqttReconnectPolicy`. |
 | `MqttSubscription.cs` | Per-subscription `ChannelReader<MqttMessage>`. Configurable backpressure (Wait / DropOldest / DropNewest). |
 | `MqttSubscriptionOptions.cs` | Per-subscribe overrides + `MqttOverflowMode`. |
 | `MqttMessage.cs` | Inbound message DTO. Plus `MqttConnectResult`, `MqttPublishResult`. |
 | `PublicTypes.cs` | `MqttPublishProperties`, `MqttLastWill`, `MqttUserProperty`. |
 | `Enums.cs` | `MqttProtocolVersion`, `MqttQoS`, `MqttConnectionState`. |
-| `Exceptions.cs` | `MqttProtocolException`, `MqttConnectionException`. |
+| `Exceptions.cs` | `MqttProtocolException`, `MqttConnectionException`, `Socks5ProxyException`. |
+| `Socks5ProxyOptions.cs` | SOCKS5 proxy configuration (`Host`, `Port`, `Username`, `Password`, `ResolveHostnamesRemotely`). |
 
 ## Codec (protocol)
 
@@ -40,6 +41,9 @@ scan in one screen.
 | `TcpTransport.cs` | TCP transport over `Socket` + `NetworkStream`. Includes `StreamPipeReader` / `StreamPipeWriter` Stream→Pipe pumps with tunable pause threshold. |
 | `TlsTransport.cs` | TCP+TLS via `SslStream`; secure defaults (TLS 1.2/1.3, CRL on) applied in `MqttClient.ApplySecureTlsDefaults`. mTLS via `MqttClientBuilder.WithClientCertificate`. |
 | `WebSocketTransport.cs` | `ClientWebSocket`-based transport with subprotocol `"mqtt"`. |
+| `ISocketConnector.cs` | `ISocketConnector` seam (returns a connected `Socket` for TCP/TLS) + `SocketConnect` helper. |
+| `DefaultConnector.cs` | `DefaultConnector` — direct (no-proxy) socket connector. |
+| `Socks5Connector.cs` | `Socks5SocketConnector` — tunnels TCP/TLS connections through a SOCKS5 proxy (RFC 1928 / RFC 1929). |
 
 ## Internals
 

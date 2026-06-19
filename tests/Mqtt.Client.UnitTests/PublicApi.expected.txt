@@ -79,6 +79,8 @@ class Mqtt.Client.MqttClientBuilder
   Mqtt.Client.MqttClientBuilder WithPersistence(Mqtt.Client.IPersistentSessionStore)
   Mqtt.Client.MqttClientBuilder WithProtocol(Mqtt.Client.MqttProtocolVersion)
   Mqtt.Client.MqttClientBuilder WithReconnect(Mqtt.Client.MqttReconnectPolicy)
+  Mqtt.Client.MqttClientBuilder WithSocks5Proxy(Mqtt.Client.Socks5ProxyOptions)
+  Mqtt.Client.MqttClientBuilder WithSocks5Proxy(System.String, Int32, System.String, System.String)
   Mqtt.Client.MqttClientBuilder WithTls(System.Action`1[System.Net.Security.SslClientAuthenticationOptions])
   Void .ctor()
 class Mqtt.Client.MqttClientOptions
@@ -108,6 +110,8 @@ class Mqtt.Client.MqttClientOptions
   Mqtt.Client.MqttReconnectPolicy get_Reconnect()
   Mqtt.Client.MqttTransportType Transport
   Mqtt.Client.MqttTransportType get_Transport()
+  Mqtt.Client.Socks5ProxyOptions Proxy
+  Mqtt.Client.Socks5ProxyOptions get_Proxy()
   System.Net.Security.SslClientAuthenticationOptions Tls
   System.Net.Security.SslClientAuthenticationOptions get_Tls()
   System.String ClientId
@@ -140,6 +144,7 @@ class Mqtt.Client.MqttClientOptions
   Void set_Password(Byte[])
   Void set_Port(Int32)
   Void set_ProtocolVersion(Mqtt.Client.MqttProtocolVersion)
+  Void set_Proxy(Mqtt.Client.Socks5ProxyOptions)
   Void set_ReceiveMaximum(UInt16)
   Void set_Reconnect(Mqtt.Client.MqttReconnectPolicy)
   Void set_RetainableInboundMessages(Boolean)
@@ -421,3 +426,23 @@ struct Mqtt.Client.MqttUserProperty
   Void Deconstruct(System.String ByRef, System.String ByRef)
   Void set_Name(System.String)
   Void set_Value(System.String)
+class Mqtt.Client.Socks5ProxyException
+  Void .ctor(System.String)
+  Void .ctor(System.String, System.Exception)
+class Mqtt.Client.Socks5ProxyOptions
+  Boolean ResolveHostnamesRemotely
+  Boolean get_ResolveHostnamesRemotely()
+  Int32 Port
+  Int32 get_Port()
+  System.String Host
+  System.String Password
+  System.String Username
+  System.String get_Host()
+  System.String get_Password()
+  System.String get_Username()
+  Void .ctor()
+  Void set_Host(System.String)
+  Void set_Password(System.String)
+  Void set_Port(Int32)
+  Void set_ResolveHostnamesRemotely(Boolean)
+  Void set_Username(System.String)

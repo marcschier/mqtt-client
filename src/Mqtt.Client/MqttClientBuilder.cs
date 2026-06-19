@@ -112,6 +112,40 @@ public sealed class MqttClientBuilder
         return this;
     }
 
+    /// <summary>
+    /// Routes the broker connection through a SOCKS5 proxy (RFC 1928). Supported for TCP and TLS
+    /// transports. Supply <paramref name="username"/>/<paramref name="password"/> for RFC 1929
+    /// username/password authentication.
+    /// </summary>
+    public MqttClientBuilder WithSocks5Proxy(
+        string host,
+        int port = 1080,
+        string? username = null,
+        string? password = null)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            throw new ArgumentException("Proxy host is required.", nameof(host));
+        }
+        _options.Proxy = new Socks5ProxyOptions
+        {
+            Host = host,
+            Port = port,
+            Username = username,
+            Password = password,
+        };
+        return this;
+    }
+
+    /// <summary>
+    /// Routes the broker connection through a SOCKS5 proxy using the supplied options.
+    /// </summary>
+    public MqttClientBuilder WithSocks5Proxy(Socks5ProxyOptions options)
+    {
+        _options.Proxy = options ?? throw new ArgumentNullException(nameof(options));
+        return this;
+    }
+
     public MqttClientBuilder WithLogging(ILoggerFactory loggerFactory)
     {
         _loggerFactory = loggerFactory;

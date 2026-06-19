@@ -33,6 +33,42 @@ var client = MqttClient.CreateBuilder()
     .Build();
 ```
 
+## Connect through a SOCKS5 proxy
+
+Route the broker connection through a SOCKS5 proxy (RFC 1928). Supported for the TCP and TLS
+transports. The broker host is resolved at the proxy by default (remote DNS).
+
+```csharp
+var client = MqttClient.CreateBuilder()
+    .ConnectTo("mqtt://broker:1883")
+    .WithSocks5Proxy("proxy.internal", 1080)
+    .Build();
+```
+
+With username/password authentication (RFC 1929), and combined with TLS to the broker — TLS still
+terminates at the broker through the tunnel, so certificate validation targets the broker host:
+
+```csharp
+var client = MqttClient.CreateBuilder()
+    .ConnectTo("mqtts://broker:8883")
+    .WithSocks5Proxy("proxy.internal", 1080, username: "u", password: "p")
+    .Build();
+```
+
+To resolve the broker host locally instead of at the proxy, configure the options directly:
+
+```csharp
+var client = MqttClient.CreateBuilder()
+    .ConnectTo("mqtt://broker:1883")
+    .WithSocks5Proxy(new Socks5ProxyOptions
+    {
+        Host = "proxy.internal",
+        Port = 1080,
+        ResolveHostnamesRemotely = false,
+    })
+    .Build();
+```
+
 ## Last will
 
 ```csharp

@@ -7,6 +7,11 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 ## [Unreleased]
 
 ### Added
+- **SOCKS5 proxy support** (RFC 1928) for the TCP and TLS transports, with optional RFC 1929
+  username/password authentication. Configure via `MqttClientBuilder.WithSocks5Proxy(...)` or
+  `MqttClientOptions.Proxy` (`Socks5ProxyOptions`). Broker host names are resolved at the proxy
+  by default (remote DNS); set `ResolveHostnamesRemotely = false` to resolve locally. WebSocket
+  transports do not support SOCKS5. New public `Socks5ProxyException` surfaces proxy failures.
 - `tests/README.md`, `src/README.md` — per-folder content guides.
 - `PublishAsync(string, ReadOnlySequence<byte>, …)` overload — publish payloads that span
   multiple buffer segments (pre-chunked / pipelined data) without first concatenating them.

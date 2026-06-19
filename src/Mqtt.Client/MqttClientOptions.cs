@@ -32,6 +32,13 @@ public sealed class MqttClientOptions
     public SslClientAuthenticationOptions? Tls { get; set; }
 
     /// <summary>
+    /// Optional SOCKS5 proxy to tunnel the broker connection through. Supported for the
+    /// <see cref="MqttTransportType.Tcp"/> and <see cref="MqttTransportType.Tls"/> transports;
+    /// configuring a proxy with a WebSocket transport throws on connect.
+    /// </summary>
+    public Socks5ProxyOptions? Proxy { get; set; }
+
+    /// <summary>
     /// Protocol version to use.
     /// </summary>
     public MqttProtocolVersion ProtocolVersion { get; set; } = MqttProtocolVersion.V500;

@@ -25,3 +25,15 @@ public sealed class MqttConnectionException : Exception
         string message,
         Exception innerException) : base(message, innerException) { }
 }
+
+/// <summary>
+/// Exception thrown when a SOCKS5 proxy connection or handshake fails (RFC 1928 / RFC 1929):
+/// proxy unreachable, authentication rejected, or the proxy refused the CONNECT request.
+/// </summary>
+public sealed class Socks5ProxyException : Exception
+{
+    public Socks5ProxyException(string message) : base(message) { }
+    public Socks5ProxyException(
+        string message,
+        Exception innerException) : base(message, innerException) { }
+}

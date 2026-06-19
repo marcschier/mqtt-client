@@ -8,6 +8,7 @@ A high-performance, low-allocation MQTT 3.1.1 + 5.0 client for .NET — designed
 - **Channels-style API** — `ChannelReader<MqttMessage>` for subscriptions, `TryPublish` / `PublishAsync` for sending.
 - **Built-in** DI extensions, source-generated logging, `System.Diagnostics.Metrics`, `ActivitySource`.
 - **Transports**: TCP, TLS, WebSocket, Secure WebSocket.
+- **SOCKS5 proxy** (RFC 1928, with optional RFC 1929 username/password auth) for TCP/TLS.
 - **Auto-reconnect** with exponential backoff + jitter; queued publishes survive reconnect.
 - **Pluggable** session persistence for QoS 1/2 in-flight state.
 - **Secure defaults** — TLS 1.2/1.3, CRL checking, capped incoming packet size.
