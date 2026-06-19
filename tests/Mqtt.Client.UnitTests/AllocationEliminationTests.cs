@@ -202,4 +202,30 @@ public class AllocationEliminationTests
         // iteration, so a warmed-up encode allocates nothing on the managed heap.
         await Assert.That(allocated).IsEqualTo(0L);
     }
+
+    [Test]
+    public async Task Encode_puback_is_allocation_free()
+    {
+        // The QoS 1 receive path sends a PUBACK per message; it must not allocate (encoders take
+        // the packet id + reason code directly rather than constructing a PubAckPacket object).
+        for (var i = 0; i < 16; i++)
+        {
+            var warm = new MqttBufferWriter(8);
+            MqttPacketEncoder.EncodePubAck(1, MqttReasonCode.Success, MqttProtocolVersion.V500,
+                ref warm);
+            warm.Dispose();
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 100; i++)
+        {
+            var w = new MqttBufferWriter(8);
+            MqttPacketEncoder.EncodePubAck(1, MqttReasonCode.Success, MqttProtocolVersion.V500,
+                ref w);
+            w.Dispose();
+        }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        await Assert.That(allocated).IsEqualTo(0L);
+    }
 }

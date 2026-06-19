@@ -183,18 +183,12 @@ internal static class MqttPacketEncoder
     }
 
     public static void EncodePubAck<TWriter>(
-        PubAckPacket packet,
+        ushort packetId,
+        MqttReasonCode rc,
         MqttProtocolVersion version,
         ref TWriter writer)
         where TWriter : struct, IMqttBufferWriter
-        => EncodeAckLike(
-            MqttPacketType.PubAck,
-            packet.PacketId,
-            packet.ReasonCode,
-            packet.ReasonString,
-            packet.UserProperties,
-            version,
-            ref writer);
+        => EncodeAckLike(MqttPacketType.PubAck, packetId, rc, null, null, version, ref writer);
     public static void EncodePubRec<TWriter>(
         ushort packetId,
         MqttReasonCode rc,

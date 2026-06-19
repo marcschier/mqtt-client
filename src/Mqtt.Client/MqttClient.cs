@@ -772,10 +772,7 @@ public sealed class MqttClient : IAsyncDisposable
     private void EnqueuePubAck(ushort packetId, MqttReasonCode rc)
     {
         var w = new MqttBufferWriter(8);
-        MqttPacketEncoder.EncodePubAck(
-            new PubAckPacket { PacketId = packetId, ReasonCode = rc },
-            _options.ProtocolVersion,
-            ref w);
+        MqttPacketEncoder.EncodePubAck(packetId, rc, _options.ProtocolVersion, ref w);
         _ = EnqueueAsync(NewEnvelopeFrom(w));
     }
 
