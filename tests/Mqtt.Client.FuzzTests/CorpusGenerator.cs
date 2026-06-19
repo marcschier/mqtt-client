@@ -78,9 +78,16 @@ internal static class CorpusGenerator
             PacketId = qos == MqttQoS.AtMostOnce ? (ushort)0 : (ushort)1,
             PayloadMemory = payload,
         };
-        using var w = new MqttBufferWriter(payload.Length + 32);
-        MqttPacketEncoder.EncodePublish(packet, MqttProtocolVersion.V500, w);
-        File.WriteAllBytes(Path.Combine(dir, fileName), w.WrittenSpan.ToArray());
+        var w = new MqttBufferWriter(payload.Length + 32);
+        try
+        {
+            MqttPacketEncoder.EncodePublish(packet, MqttProtocolVersion.V500, ref w);
+            File.WriteAllBytes(Path.Combine(dir, fileName), w.WrittenSpan.ToArray());
+        }
+        finally
+        {
+            w.Dispose();
+        }
     }
 
     private static byte[] CombineWithLength(byte[] filter, byte[] topic)

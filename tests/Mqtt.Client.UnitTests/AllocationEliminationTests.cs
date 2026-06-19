@@ -39,9 +39,16 @@ public class AllocationEliminationTests
             QoS = MqttQoS.AtMostOnce,
             PayloadMemory = payload,
         };
-        using var w = new MqttBufferWriter(payload.Length + 64);
-        MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V500, w);
-        return w.WrittenSpan.ToArray();
+        var w = new MqttBufferWriter(payload.Length + 64);
+        try
+        {
+            MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V500, ref w);
+            return w.WrittenSpan.ToArray();
+        }
+        finally
+        {
+            w.Dispose();
+        }
     }
 
     [Test]
@@ -162,5 +169,37 @@ public class AllocationEliminationTests
             msg.Properties.CorrelationData!.Value.ToArray().AsSpan().SequenceEqual(correlation))
             .IsTrue();
         msg.Dispose();
+    }
+
+    [Test]
+    public async Task Encode_publish_header_is_allocation_free()
+    {
+        var packet = new PublishPacket
+        {
+            Topic = "alloc/header",
+            QoS = MqttQoS.AtMostOnce,
+            PayloadMemory = new byte[16],
+        };
+
+        // Warm up: prime the JIT and seed the ArrayPool so the measured loop reuses one buffer.
+        for (var i = 0; i < 16; i++)
+        {
+            var warm = new MqttBufferWriter(128);
+            MqttPacketEncoder.EncodePublishHeader(packet, MqttProtocolVersion.V500, ref warm);
+            warm.Dispose();
+        }
+
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 100; i++)
+        {
+            var w = new MqttBufferWriter(128);
+            MqttPacketEncoder.EncodePublishHeader(packet, MqttProtocolVersion.V500, ref w);
+            w.Dispose();
+        }
+        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // The writer is now a value type (stack) and the backing array is pooled + returned each
+        // iteration, so a warmed-up encode allocates nothing on the managed heap.
+        await Assert.That(allocated).IsEqualTo(0L);
     }
 }

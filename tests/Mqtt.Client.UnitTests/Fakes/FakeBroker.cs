@@ -212,9 +212,7 @@ internal sealed class FakeBroker
             PacketId = packetId,
             PayloadMemory = payload,
         };
-        using var w = new MqttBufferWriter(payload.Length + 32);
-        MqttPacketEncoder.EncodePublish(packet, _version, w);
-        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+        await SendEncodedPublishAsync(packet, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -237,9 +235,7 @@ internal sealed class FakeBroker
             PayloadMemory = payload,
             Properties = new MqttPublishProperties { TopicAlias = alias },
         };
-        using var w = new MqttBufferWriter(payload.Length + 32);
-        MqttPacketEncoder.EncodePublish(packet, _version, w);
-        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+        await SendEncodedPublishAsync(packet, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -261,9 +257,7 @@ internal sealed class FakeBroker
             PayloadMemory = payload,
             Properties = new MqttPublishProperties { SubscriptionIdentifiers = subscriptionIds },
         };
-        using var w = new MqttBufferWriter(payload.Length + 32);
-        MqttPacketEncoder.EncodePublish(packet, _version, w);
-        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+        await SendEncodedPublishAsync(packet, ct).ConfigureAwait(false);
     }
 
     /// <summary>MQTT 5 variant: sends a PUBLISH carrying a CorrelationData property.</summary>
@@ -283,9 +277,7 @@ internal sealed class FakeBroker
             PayloadMemory = payload,
             Properties = new MqttPublishProperties { CorrelationData = correlationData },
         };
-        using var w = new MqttBufferWriter(payload.Length + 32);
-        MqttPacketEncoder.EncodePublish(packet, _version, w);
-        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+        await SendEncodedPublishAsync(packet, ct).ConfigureAwait(false);
     }
 
     public async Task SendPingRespAsync(CancellationToken ct = default)
@@ -309,9 +301,16 @@ internal sealed class FakeBroker
             AuthenticationMethod = method,
             AuthenticationData = data.IsEmpty ? null : data.ToArray(),
         };
-        using var w = new MqttBufferWriter(64 + data.Length);
-        MqttPacketEncoder.EncodeAuth(pkt, w);
-        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+        var w = new MqttBufferWriter(64 + data.Length);
+        try
+        {
+            MqttPacketEncoder.EncodeAuth(pkt, ref w);
+            await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            w.Dispose();
+        }
     }
 
     /// <summary>
@@ -377,6 +376,20 @@ internal sealed class FakeBroker
             w.WriteUInt16BigEndian(packetId);
         }
         await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+    }
+
+    private async Task SendEncodedPublishAsync(PublishPacket packet, CancellationToken ct)
+    {
+        var w = new MqttBufferWriter((int)packet.Payload.Length + 32);
+        try
+        {
+            MqttPacketEncoder.EncodePublish(packet, _version, ref w);
+            await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
+        }
+        finally
+        {
+            w.Dispose();
+        }
     }
 
     private async Task SendBytesAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct)

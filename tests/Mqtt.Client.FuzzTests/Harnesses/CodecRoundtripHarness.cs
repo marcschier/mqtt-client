@@ -29,24 +29,31 @@ internal static class CodecRoundtripHarness
             PayloadMemory = payload,
         };
 
-        using var writer = new MqttBufferWriter(payload.Length + 32);
-        MqttPacketEncoder.EncodePublish(packet, version, writer);
+        var writer = new MqttBufferWriter(payload.Length + 32);
+        try
+        {
+            MqttPacketEncoder.EncodePublish(packet, version, ref writer);
 
-        if (!MqttPacketDecoder.TryDecode(
-                new ReadOnlySequence<byte>(writer.WrittenMemory),
-                version,
-                out var decoded,
-                out _,
-                out _))
-        {
-            throw new InvalidOperationException("Decoder rejected own encoder output.");
+            if (!MqttPacketDecoder.TryDecode(
+                    new ReadOnlySequence<byte>(writer.WrittenMemory),
+                    version,
+                    out var decoded,
+                    out _,
+                    out _))
+            {
+                throw new InvalidOperationException("Decoder rejected own encoder output.");
+            }
+            if (decoded is not PublishPacket d ||
+                d.Topic != "fuzz/roundtrip" ||
+                (int)d.Payload.Length != payload.Length ||
+                !d.Payload.FirstSpan.SequenceEqual(payload))
+            {
+                throw new InvalidOperationException("Roundtrip mismatch.");
+            }
         }
-        if (decoded is not PublishPacket d ||
-            d.Topic != "fuzz/roundtrip" ||
-            (int)d.Payload.Length != payload.Length ||
-            !d.Payload.FirstSpan.SequenceEqual(payload))
+        finally
         {
-            throw new InvalidOperationException("Roundtrip mismatch.");
+            writer.Dispose();
         }
     }
 }

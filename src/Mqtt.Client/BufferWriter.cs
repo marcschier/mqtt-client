@@ -9,10 +9,17 @@ using System.Text;
 namespace Mqtt.Client;
 
 /// <summary>
-/// Pooled buffer writer for MQTT control packets. Wraps an <see cref="ArrayPool{T}"/> rented array
-/// and exposes primitive helpers for writing MQTT data representations.
+/// Pooled buffer writer for MQTT control packets. A mutable value type that wraps an
+/// <see cref="ArrayPool{T}"/> rented array and exposes primitive helpers for writing MQTT data
+/// representations.
 /// </summary>
-internal sealed class MqttBufferWriter : IDisposable
+/// <remarks>
+/// Being a struct, instances live on the stack (no per-packet object allocation); only the backing
+/// array is pooled. Pass by <c>ref</c> wherever mutation must be observed by the caller (encoders
+/// take <c>ref TWriter</c>); copies share the same backing array, so exactly one copy may be
+/// disposed to avoid a double-return to the pool.
+/// </remarks>
+internal struct MqttBufferWriter : IMqttBufferWriter
 {
     private byte[] _buffer;
     private int _written;
@@ -23,11 +30,11 @@ internal sealed class MqttBufferWriter : IDisposable
         _written = 0;
     }
 
-    public int WrittenCount => _written;
+    public readonly int WrittenCount => _written;
 
-    public ReadOnlyMemory<byte> WrittenMemory => _buffer.AsMemory(0, _written);
+    public readonly ReadOnlyMemory<byte> WrittenMemory => _buffer.AsMemory(0, _written);
 
-    public ReadOnlySpan<byte> WrittenSpan => _buffer.AsSpan(0, _written);
+    public readonly ReadOnlySpan<byte> WrittenSpan => _buffer.AsSpan(0, _written);
 
     public void Dispose()
     {
@@ -37,6 +44,42 @@ internal sealed class MqttBufferWriter : IDisposable
             _buffer = null!;
             _written = 0;
         }
+    }
+
+    /// <summary>
+    /// Transfers ownership of the rented backing array to the caller and resets this writer to an
+    /// empty, non-owning state. The caller MUST return the array to
+    /// <see cref="ArrayPool{T}.Shared"/>. Used to hand the encoded bytes to an outbound envelope
+    /// without a copy.
+    /// </summary>
+    public byte[] DetachBuffer(out int length)
+    {
+        length = _written;
+        var detached = _buffer;
+        _buffer = null!;
+        _written = 0;
+        return detached;
+    }
+
+    public Span<byte> GetSpan(int sizeHint = 0)
+    {
+        EnsureCapacity(sizeHint <= 0 ? 1 : sizeHint);
+        return _buffer.AsSpan(_written);
+    }
+
+    public Memory<byte> GetMemory(int sizeHint = 0)
+    {
+        EnsureCapacity(sizeHint <= 0 ? 1 : sizeHint);
+        return _buffer.AsMemory(_written);
+    }
+
+    public void Advance(int count)
+    {
+        if (count < 0 || _written + count > _buffer.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(count));
+        }
+        _written += count;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -70,14 +70,14 @@ public class DecoderAdditionalCoverageTests
     [Test]
     public async Task Auth_v5_round_trips_via_encoder_decoder()
     {
-        using var w = new MqttBufferWriter(64);
+        var w = new MqttBufferWriter(64);
         MqttPacketEncoder.EncodeAuth(new AuthPacket
         {
             ReasonCode = MqttReasonCode.ContinueAuthentication,
             AuthenticationMethod = "M",
             AuthenticationData = new byte[] { 1, 2 },
             ReasonString = "r",
-        }, w);
+        }, ref w);
         MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(w.WrittenMemory),
             MqttProtocolVersion.V500, out var packet, out _, out _);
         var auth = (AuthPacket)packet!;

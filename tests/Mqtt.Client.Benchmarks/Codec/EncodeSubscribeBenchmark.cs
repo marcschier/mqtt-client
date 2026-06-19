@@ -56,8 +56,15 @@ public class EncodeSubscribeBenchmark
     [Benchmark(Description = "Mqtt.Client")]
     public int MqttClient_Encode()
     {
-        using var w = new Mqtt.Client.MqttBufferWriter(64);
-        MqttPacketEncoder.EncodeSubscribe(_ourPacket, MqttProtocolVersion.V500, w);
-        return w.WrittenCount;
+        var w = new Mqtt.Client.MqttBufferWriter(64);
+        try
+        {
+            MqttPacketEncoder.EncodeSubscribe(_ourPacket, MqttProtocolVersion.V500, ref w);
+            return w.WrittenCount;
+        }
+        finally
+        {
+            w.Dispose();
+        }
     }
 }

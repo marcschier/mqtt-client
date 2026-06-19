@@ -57,8 +57,8 @@ public class SequencePayloadAndPoolingTests
             QoS = MqttQoS.AtMostOnce,
             Payload = seq,
         };
-        using var w = new MqttBufferWriter(64);
-        MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V500, w);
+        var w = new MqttBufferWriter(64);
+        MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V500, ref w);
 
         var ok = MqttPacketDecoder.TryDecode(
             new ReadOnlySequence<byte>(w.WrittenMemory),

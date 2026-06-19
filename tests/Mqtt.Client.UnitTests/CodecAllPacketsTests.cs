@@ -32,8 +32,8 @@ public class CodecAllPacketsTests
             AuthenticationMethod = "SCRAM-SHA-256",
             AuthenticationData = new byte[] { 0xAA, 0xBB },
         };
-        using var w = new MqttBufferWriter(256);
-        MqttPacketEncoder.EncodeConnect(pkt, w);
+        var w = new MqttBufferWriter(256);
+        MqttPacketEncoder.EncodeConnect(pkt, ref w);
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0x10);
         await Assert.That(w.WrittenCount).IsGreaterThan(30);
     }
@@ -59,8 +59,8 @@ public class CodecAllPacketsTests
                 UserProperties = new[] { new MqttUserProperty("k", "v") },
             },
         };
-        using var w = new MqttBufferWriter(64);
-        MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V500, w);
+        var w = new MqttBufferWriter(64);
+        MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V500, ref w);
 
         var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(w.WrittenMemory),
             MqttProtocolVersion.V500, out var decoded, out _, out _);
@@ -85,8 +85,8 @@ public class CodecAllPacketsTests
             QoS = MqttQoS.AtMostOnce,
             PayloadMemory = payload,
         };
-        using var w = new MqttBufferWriter(128);
-        MqttPacketEncoder.EncodePublishHeader(pkt, MqttProtocolVersion.V500, w);
+        var w = new MqttBufferWriter(128);
+        MqttPacketEncoder.EncodePublishHeader(pkt, MqttProtocolVersion.V500, ref w);
 
         // Compose header + payload into a single buffer (what the pipe would emit on the wire).
         var combined = new byte[w.WrittenCount + payload.Length];
@@ -104,28 +104,28 @@ public class CodecAllPacketsTests
     [Test]
     public async Task PubRec_PubRel_PubComp_v5_roundtrip()
     {
-        var cases = new (string, Action<MqttBufferWriter>, byte)[]
+        var cases = new (string, RefBufferWriterEncode, byte)[]
         {
-            ("PubRec", w => MqttPacketEncoder.EncodePubRec(
+            ("PubRec", (ref MqttBufferWriter w) => MqttPacketEncoder.EncodePubRec(
                 42,
                 MqttReasonCode.Success,
                 MqttProtocolVersion.V500,
-                w), 0x50),
-            ("PubRel", w => MqttPacketEncoder.EncodePubRel(
+                ref w), 0x50),
+            ("PubRel", (ref MqttBufferWriter w) => MqttPacketEncoder.EncodePubRel(
                 42,
                 MqttReasonCode.Success,
                 MqttProtocolVersion.V500,
-                w), 0x62),
-            ("PubComp", w => MqttPacketEncoder.EncodePubComp(
+                ref w), 0x62),
+            ("PubComp", (ref MqttBufferWriter w) => MqttPacketEncoder.EncodePubComp(
                 42,
                 MqttReasonCode.Success,
                 MqttProtocolVersion.V500,
-                w), 0x70),
+                ref w), 0x70),
         };
         foreach (var (name, encode, expectedFirstByte) in cases)
         {
-            using var w = new MqttBufferWriter(8);
-            encode(w);
+            var w = new MqttBufferWriter(8);
+            encode(ref w);
             await Assert.That(w.WrittenSpan[0]).IsEqualTo(expectedFirstByte);
         }
     }
@@ -134,8 +134,8 @@ public class CodecAllPacketsTests
     public async Task Unsubscribe_v5_roundtrips()
     {
         var pkt = new UnsubscribePacket { PacketId = 9, Topics = new[] { "a/b", "c/d" } };
-        using var w = new MqttBufferWriter(32);
-        MqttPacketEncoder.EncodeUnsubscribe(pkt, MqttProtocolVersion.V500, w);
+        var w = new MqttBufferWriter(32);
+        MqttPacketEncoder.EncodeUnsubscribe(pkt, MqttProtocolVersion.V500, ref w);
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0xA2);
     }
 
@@ -149,8 +149,8 @@ public class CodecAllPacketsTests
             ReasonString = "shutdown",
             ServerReference = "alt-broker:1883",
         };
-        using var w = new MqttBufferWriter(64);
-        MqttPacketEncoder.EncodeDisconnect(pkt, MqttProtocolVersion.V500, w);
+        var w = new MqttBufferWriter(64);
+        MqttPacketEncoder.EncodeDisconnect(pkt, MqttProtocolVersion.V500, ref w);
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0xE0);
         await Assert.That(w.WrittenCount).IsGreaterThan(2);
     }
@@ -159,8 +159,8 @@ public class CodecAllPacketsTests
     public async Task Disconnect_v311_is_two_bytes_with_no_reason_code()
     {
         var pkt = new DisconnectPacket();
-        using var w = new MqttBufferWriter(2);
-        MqttPacketEncoder.EncodeDisconnect(pkt, MqttProtocolVersion.V311, w);
+        var w = new MqttBufferWriter(2);
+        MqttPacketEncoder.EncodeDisconnect(pkt, MqttProtocolVersion.V311, ref w);
         await Assert.That(w.WrittenCount).IsEqualTo(2);
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0xE0);
         await Assert.That(w.WrittenSpan[1]).IsEqualTo((byte)0x00);
@@ -175,8 +175,8 @@ public class CodecAllPacketsTests
             AuthenticationMethod = "SCRAM-SHA-256",
             AuthenticationData = new byte[] { 1, 2, 3 },
         };
-        using var w = new MqttBufferWriter(32);
-        MqttPacketEncoder.EncodeAuth(pkt, w);
+        var w = new MqttBufferWriter(32);
+        MqttPacketEncoder.EncodeAuth(pkt, ref w);
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0xF0);
     }
 

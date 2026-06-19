@@ -4,7 +4,9 @@ using System.Collections.Generic;
 namespace Mqtt.Client;
 
 /// <summary>
-/// Stateless encoder for MQTT control packets (3.1.1 and 5.0).
+/// Stateless encoder for MQTT control packets (3.1.1 and 5.0). Methods are generic over the writer
+/// type (<c>where TWriter : struct, IMqttBufferWriter</c>) so the JIT specializes each call site,
+/// devirtualizing the writer calls with no boxing and no per-packet writer allocation.
 /// </summary>
 internal static class MqttPacketEncoder
 {
@@ -15,7 +17,8 @@ internal static class MqttPacketEncoder
     private const byte PasswordFlag = 0x40;
     private const byte UsernameFlag = 0x80;
 
-    public static void EncodeConnect(ConnectPacket packet, MqttBufferWriter writer)
+    public static void EncodeConnect<TWriter>(ConnectPacket packet, ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
     {
         var v5 = packet.ProtocolVersion == MqttProtocolVersion.V500;
         const byte firstByte = (byte)((byte)MqttPacketType.Connect << 4);
@@ -65,7 +68,7 @@ internal static class MqttPacketEncoder
             if (!packet.AuthenticationData.IsEmpty) { writer.WriteByte(
                 (byte)MqttPropertyId.AuthenticationData); writer.WriteBinaryData(
                 packet.AuthenticationData.Span); }
-            WriteUserProperties(writer, packet.UserProperties);
+            WriteUserProperties(ref writer, packet.UserProperties);
             writer.PatchVarIntField(propOff, (uint)(writer.WrittenCount - propStart));
         }
 
@@ -79,7 +82,10 @@ internal static class MqttPacketEncoder
                 if (packet.Will.DelayIntervalSeconds is { } d) { writer.WriteByte(
                     (byte)MqttPropertyId.WillDelayInterval); writer
                     .WriteUInt32BigEndian(d); }
-                if (packet.Will.Properties is { } wprops) WritePublishProperties(writer, wprops);
+                if (packet.Will.Properties is { } wprops)
+                {
+                    WritePublishProperties(ref writer, wprops);
+                }
                 writer.PatchVarIntField(wpOff, (uint)(writer.WrittenCount - wpStart));
             }
             writer.WriteString(packet.Will.Topic);
@@ -91,28 +97,31 @@ internal static class MqttPacketEncoder
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodePublish(
+    public static void EncodePublish<TWriter>(
         PublishPacket packet,
         MqttProtocolVersion version,
-        MqttBufferWriter writer)
-        => EncodePublishCore(packet, version, writer, includePayload: true);
+        ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
+        => EncodePublishCore(packet, version, ref writer, includePayload: true);
 
     /// <summary>
     /// Encodes only the fixed + variable header of a PUBLISH (omitting the payload bytes); the
     /// remaining-length field is patched as if the payload had been written. Use together with a
     /// vectored write of the actual payload to avoid copying large payloads through the writer.
     /// </summary>
-    public static void EncodePublishHeader(
+    public static void EncodePublishHeader<TWriter>(
         PublishPacket packet,
         MqttProtocolVersion version,
-        MqttBufferWriter writer)
-        => EncodePublishCore(packet, version, writer, includePayload: false);
+        ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
+        => EncodePublishCore(packet, version, ref writer, includePayload: false);
 
-    private static void EncodePublishCore(
+    private static void EncodePublishCore<TWriter>(
         PublishPacket packet,
         MqttProtocolVersion version,
-        MqttBufferWriter writer,
+        ref TWriter writer,
         bool includePayload)
+        where TWriter : struct, IMqttBufferWriter
     {
         var v5 = version == MqttProtocolVersion.V500;
         byte firstByte = (byte)((byte)MqttPacketType.Publish << 4);
@@ -132,7 +141,7 @@ internal static class MqttPacketEncoder
         {
             var propOff = writer.ReserveVarIntPlaceholder();
             var propStart = writer.WrittenCount;
-            if (packet.Properties is { } pp) WritePublishProperties(writer, pp);
+            if (packet.Properties is { } pp) WritePublishProperties(ref writer, pp);
             writer.PatchVarIntField(propOff, (uint)(writer.WrittenCount - propStart));
         }
 
@@ -150,7 +159,8 @@ internal static class MqttPacketEncoder
         }
     }
 
-    private static void WritePublishProperties(MqttBufferWriter p, MqttPublishProperties pp)
+    private static void WritePublishProperties<TWriter>(ref TWriter p, MqttPublishProperties pp)
+        where TWriter : struct, IMqttBufferWriter
     {
         if (pp.PayloadFormatIndicator is { } pfi) { p.WriteByte(
             (byte)MqttPropertyId.PayloadFormatIndicator); p.WriteByte(pfi); }
@@ -166,16 +176,17 @@ internal static class MqttPacketEncoder
             .WriteString(ct); }
         if (pp.SubscriptionIdentifiers is { } sids)
         {
-            foreach (var id in sids) { p.WriteByte((byte)MqttPropertyId.SubscriptionIdentifier); p
-                .WriteVarInt(id); }
+            for (var i = 0; i < sids.Count; i++) { p.WriteByte(
+                (byte)MqttPropertyId.SubscriptionIdentifier); p.WriteVarInt(sids[i]); }
         }
-        WriteUserProperties(p, pp.UserProperties);
+        WriteUserProperties(ref p, pp.UserProperties);
     }
 
-    public static void EncodePubAck(
+    public static void EncodePubAck<TWriter>(
         PubAckPacket packet,
         MqttProtocolVersion version,
-        MqttBufferWriter writer)
+        ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
         => EncodeAckLike(
             MqttPacketType.PubAck,
             packet.PacketId,
@@ -183,18 +194,20 @@ internal static class MqttPacketEncoder
             packet.ReasonString,
             packet.UserProperties,
             version,
-            writer);
-    public static void EncodePubRec(
+            ref writer);
+    public static void EncodePubRec<TWriter>(
         ushort packetId,
         MqttReasonCode rc,
         MqttProtocolVersion v,
-        MqttBufferWriter w)
-        => EncodeAckLike(MqttPacketType.PubRec, packetId, rc, null, null, v, w);
-    public static void EncodePubRel(
+        ref TWriter w)
+        where TWriter : struct, IMqttBufferWriter
+        => EncodeAckLike(MqttPacketType.PubRec, packetId, rc, null, null, v, ref w);
+    public static void EncodePubRel<TWriter>(
         ushort packetId,
         MqttReasonCode rc,
         MqttProtocolVersion v,
-        MqttBufferWriter w)
+        ref TWriter w)
+        where TWriter : struct, IMqttBufferWriter
         => EncodeAckLike(
             MqttPacketType.PubRel,
             packetId,
@@ -202,24 +215,26 @@ internal static class MqttPacketEncoder
             null,
             null,
             v,
-            w,
+            ref w,
             fixedHeaderFlags: 0x02);
-    public static void EncodePubComp(
+    public static void EncodePubComp<TWriter>(
         ushort packetId,
         MqttReasonCode rc,
         MqttProtocolVersion v,
-        MqttBufferWriter w)
-        => EncodeAckLike(MqttPacketType.PubComp, packetId, rc, null, null, v, w);
+        ref TWriter w)
+        where TWriter : struct, IMqttBufferWriter
+        => EncodeAckLike(MqttPacketType.PubComp, packetId, rc, null, null, v, ref w);
 
-    private static void EncodeAckLike(
+    private static void EncodeAckLike<TWriter>(
         MqttPacketType type,
         ushort packetId,
         MqttReasonCode rc,
         string? reasonString,
         IReadOnlyList<MqttUserProperty>? userProps,
         MqttProtocolVersion version,
-        MqttBufferWriter writer,
+        ref TWriter writer,
         byte fixedHeaderFlags = 0)
+        where TWriter : struct, IMqttBufferWriter
     {
         var v5 = version == MqttProtocolVersion.V500;
         var firstByte = (byte)(((byte)type << 4) | fixedHeaderFlags);
@@ -238,17 +253,18 @@ internal static class MqttPacketEncoder
                 if (!string.IsNullOrEmpty(reasonString)) { writer.WriteByte(
                     (byte)MqttPropertyId.ReasonString); writer.WriteString(
                     reasonString!); }
-                WriteUserProperties(writer, userProps);
+                WriteUserProperties(ref writer, userProps);
                 writer.PatchVarIntField(propOff, (uint)(writer.WrittenCount - propStart));
             }
         }
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodeSubscribe(
+    public static void EncodeSubscribe<TWriter>(
         SubscribePacket packet,
         MqttProtocolVersion version,
-        MqttBufferWriter writer)
+        ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
     {
         var v5 = version == MqttProtocolVersion.V500;
         const byte firstByte = (byte)(((byte)MqttPacketType.Subscribe << 4) | 0x02);
@@ -263,11 +279,13 @@ internal static class MqttPacketEncoder
             if (packet.SubscriptionIdentifier is { } sid) { writer.WriteByte(
                 (byte)MqttPropertyId.SubscriptionIdentifier); writer.WriteVarInt(
                 sid); }
-            WriteUserProperties(writer, packet.UserProperties);
+            WriteUserProperties(ref writer, packet.UserProperties);
             writer.PatchVarIntField(propOff, (uint)(writer.WrittenCount - propStart));
         }
-        foreach (var f in packet.Filters)
+        var filters = packet.Filters;
+        for (var i = 0; i < filters.Count; i++)
         {
+            var f = filters[i];
             writer.WriteString(f.Topic);
             byte opts = (byte)f.QoS;
             if (v5)
@@ -281,10 +299,11 @@ internal static class MqttPacketEncoder
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodeUnsubscribe(
+    public static void EncodeUnsubscribe<TWriter>(
         UnsubscribePacket packet,
         MqttProtocolVersion version,
-        MqttBufferWriter writer)
+        ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
     {
         var v5 = version == MqttProtocolVersion.V500;
         const byte firstByte = (byte)(((byte)MqttPacketType.Unsubscribe << 4) | 0x02);
@@ -295,23 +314,26 @@ internal static class MqttPacketEncoder
         {
             var propOff = writer.ReserveVarIntPlaceholder();
             var propStart = writer.WrittenCount;
-            WriteUserProperties(writer, packet.UserProperties);
+            WriteUserProperties(ref writer, packet.UserProperties);
             writer.PatchVarIntField(propOff, (uint)(writer.WrittenCount - propStart));
         }
-        foreach (var t in packet.Topics) writer.WriteString(t);
+        var topics = packet.Topics;
+        for (var i = 0; i < topics.Count; i++) writer.WriteString(topics[i]);
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodePingReq(MqttBufferWriter writer)
+    public static void EncodePingReq<TWriter>(ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
     {
         writer.WriteByte((byte)((byte)MqttPacketType.PingReq << 4));
         writer.WriteByte(0);
     }
 
-    public static void EncodeDisconnect(
+    public static void EncodeDisconnect<TWriter>(
         DisconnectPacket packet,
         MqttProtocolVersion version,
-        MqttBufferWriter writer)
+        ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
     {
         var v5 = version == MqttProtocolVersion.V500;
         const byte firstByte = (byte)((byte)MqttPacketType.Disconnect << 4);
@@ -341,13 +363,14 @@ internal static class MqttPacketEncoder
             if (!string.IsNullOrEmpty(packet.ServerReference)) { writer.WriteByte(
                 (byte)MqttPropertyId.ServerReference); writer.WriteString(
                 packet.ServerReference!); }
-            WriteUserProperties(writer, packet.UserProperties);
+            WriteUserProperties(ref writer, packet.UserProperties);
             writer.PatchVarIntField(propOff, (uint)(writer.WrittenCount - propStart));
         }
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    public static void EncodeAuth(AuthPacket packet, MqttBufferWriter writer)
+    public static void EncodeAuth<TWriter>(AuthPacket packet, ref TWriter writer)
+        where TWriter : struct, IMqttBufferWriter
     {
         const byte firstByte = (byte)((byte)MqttPacketType.Auth << 4);
         var hdrOffset = writer.WriteFixedHeaderStart(firstByte);
@@ -365,14 +388,15 @@ internal static class MqttPacketEncoder
         if (!string.IsNullOrEmpty(packet.ReasonString)) { writer.WriteByte(
             (byte)MqttPropertyId.ReasonString); writer.WriteString(
             packet.ReasonString!); }
-        WriteUserProperties(writer, packet.UserProperties);
+        WriteUserProperties(ref writer, packet.UserProperties);
         writer.PatchVarIntField(propOff, (uint)(writer.WrittenCount - propStart));
         writer.PatchRemainingLength(hdrOffset, writer.WrittenCount - payloadStart);
     }
 
-    private static void WriteUserProperties(
-        MqttBufferWriter p,
+    private static void WriteUserProperties<TWriter>(
+        ref TWriter p,
         IReadOnlyList<MqttUserProperty>? userProps)
+        where TWriter : struct, IMqttBufferWriter
     {
         if (userProps is null) return;
         for (var i = 0; i < userProps.Count; i++)

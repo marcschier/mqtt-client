@@ -6,10 +6,10 @@
   "DecodePublishBenchmark.MqttClient_Decode[PayloadSize=16384]": 16520,
   "DecodePublishBenchmark.MqttClient_Decode[PayloadSize=65536]": 65672,
   "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=64]": 0,
-  "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=256]": 32,
+  "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=256]": 0,
   "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=1024]": 0,
-  "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=4096]": 32,
+  "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=4096]": 0,
   "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=16384]": 0,
-  "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=65536]": 32,
-  "EncodeSubscribeBenchmark.MqttClient_Encode": 64
+  "EncodePublishBenchmark.MqttClient_Encode[PayloadSize=65536]": 0,
+  "EncodeSubscribeBenchmark.MqttClient_Encode": 0
 }

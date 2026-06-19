@@ -39,8 +39,8 @@ public class CodecTests
             Password = "secret"u8.ToArray(),
             ReceiveMaximum = 10,
         };
-        using var w = new MqttBufferWriter(128);
-        MqttPacketEncoder.EncodeConnect(pkt, w);
+        var w = new MqttBufferWriter(128);
+        MqttPacketEncoder.EncodeConnect(pkt, ref w);
 
         // Decoder round-trip checks packet bytes are well-formed; first byte is CONNECT.
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0x10);
@@ -58,8 +58,8 @@ public class CodecTests
             QoS = MqttQoS.AtMostOnce,
             PayloadMemory = new byte[] { 0x01, 0x02, 0x03 },
         };
-        using var w = new MqttBufferWriter(32);
-        MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V311, w);
+        var w = new MqttBufferWriter(32);
+        MqttPacketEncoder.EncodePublish(pkt, MqttProtocolVersion.V311, ref w);
 
         var ok = MqttPacketDecoder.TryDecode(
             new ReadOnlySequence<byte>(w.WrittenMemory),
@@ -79,8 +79,8 @@ public class CodecTests
     [Test]
     public async Task PingReq_Encodes_To_TwoBytes()
     {
-        using var w = new MqttBufferWriter(2);
-        MqttPacketEncoder.EncodePingReq(w);
+        var w = new MqttBufferWriter(2);
+        MqttPacketEncoder.EncodePingReq(ref w);
         await Assert.That(w.WrittenCount).IsEqualTo(2);
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0xC0);
         await Assert.That(w.WrittenSpan[1]).IsEqualTo((byte)0x00);
@@ -115,8 +115,8 @@ public class CodecTests
                     RetainAsPublished: true),
             },
         };
-        using var w = new MqttBufferWriter(32);
-        MqttPacketEncoder.EncodeSubscribe(pkt, MqttProtocolVersion.V500, w);
+        var w = new MqttBufferWriter(32);
+        MqttPacketEncoder.EncodeSubscribe(pkt, MqttProtocolVersion.V500, ref w);
         // First byte is SUBSCRIBE (0x80) | reserved 0x02 = 0x82
         await Assert.That(w.WrittenSpan[0]).IsEqualTo((byte)0x82);
     }

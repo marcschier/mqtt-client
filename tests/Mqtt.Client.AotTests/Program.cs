@@ -17,17 +17,18 @@ var client = MqttClient.CreateBuilder()
 Console.WriteLine($"Built client. State={client.State}");
 
 // Encode + decode roundtrip
-using var w = new MqttBufferWriter(32);
+var w = new MqttBufferWriter(32);
 var pub = new PublishPacket
 {
     Topic = "smoke/aot",
     QoS = MqttQoS.AtMostOnce,
     PayloadMemory = new byte[] { 1, 2, 3, 4 },
 };
-MqttPacketEncoder.EncodePublish(pub, MqttProtocolVersion.V500, w);
+MqttPacketEncoder.EncodePublish(pub, MqttProtocolVersion.V500, ref w);
 var ok = MqttPacketDecoder.TryDecode(new ReadOnlySequence<byte>(w.WrittenMemory),
     MqttProtocolVersion.V500, out var packet, out _, out _);
 Console.WriteLine($"Roundtrip ok={ok}, packet={packet?.GetType().Name}");
+w.Dispose();
 
 // Topic trie
 var trie = new TopicFilterTrie<string>();

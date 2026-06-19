@@ -25,15 +25,22 @@ public class DecodePublishBenchmark
         var payload = new byte[PayloadSize];
         new Random(42).NextBytes(payload);
         // Encode once with our encoder; both decoders read the same bytes (codec is identical on the wire).
-        using var w = new Mqtt.Client.MqttBufferWriter(PayloadSize + 64);
-        MqttPacketEncoder.EncodePublish(new PublishPacket
+        var w = new Mqtt.Client.MqttBufferWriter(PayloadSize + 64);
+        try
         {
-            Topic = "bench/decode",
-            QoS = Mqtt.Client.MqttQoS.AtMostOnce,
-            PacketId = 0,
-            PayloadMemory = payload,
-        }, MqttProtocolVersion.V500, w);
-        _encoded = w.WrittenSpan.ToArray();
+            MqttPacketEncoder.EncodePublish(new PublishPacket
+            {
+                Topic = "bench/decode",
+                QoS = Mqtt.Client.MqttQoS.AtMostOnce,
+                PacketId = 0,
+                PayloadMemory = payload,
+            }, MqttProtocolVersion.V500, ref w);
+            _encoded = w.WrittenSpan.ToArray();
+        }
+        finally
+        {
+            w.Dispose();
+        }
         _encodedSequence = new ReadOnlySequence<byte>(_encoded);
 
         var writeBuf = new MQTTnet.Formatter.MqttBufferWriter(64, PayloadSize * 2 + 1024);
