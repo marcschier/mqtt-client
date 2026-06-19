@@ -10,31 +10,58 @@ namespace Mqtt.Client;
 
 /// <summary>
 /// Allocation-free reader for MQTT-encoded primitives over a <see cref="ReadOnlySequence{Byte}"/>.
+/// Inbound packets are almost always contiguous, so a single-segment fast path reads directly from
+/// the segment span (via <see cref="BinaryPrimitives"/>) and only falls back to
+/// <see cref="SequenceReader{T}"/> for the rare multi-segment case.
 /// </summary>
 internal ref struct MqttSequenceReader
 {
-    private SequenceReader<byte> _reader;
     private readonly ReadOnlySequence<byte> _sequence;
+    private readonly bool _single;
+    private readonly ReadOnlySpan<byte> _span; // single-segment fast path
+    private int _pos;
+    private SequenceReader<byte> _reader;      // multi-segment fallback
 
     public MqttSequenceReader(ReadOnlySequence<byte> sequence)
     {
         _sequence = sequence;
-        _reader = new SequenceReader<byte>(sequence);
+        _pos = 0;
+        if (sequence.IsSingleSegment)
+        {
+            _single = true;
+            _span = sequence.FirstSpan;
+            _reader = default;
+        }
+        else
+        {
+            _single = false;
+            _span = default;
+            _reader = new SequenceReader<byte>(sequence);
+        }
     }
 
-    private ReadOnlySequence<byte> UnreadSequence => _sequence.Slice(_reader.Position);
+    private ReadOnlySequence<byte> UnreadSequence
+        => _single ? _sequence.Slice(_pos) : _sequence.Slice(_reader.Position);
 
-    public long Consumed => _reader.Consumed;
+    public long Consumed => _single ? _pos : _reader.Consumed;
 
-    public long Remaining => _reader.Remaining;
+    public long Remaining => _single ? _span.Length - _pos : _reader.Remaining;
 
-    public bool End => _reader.End;
+    public bool End => _single ? _pos >= _span.Length : _reader.End;
 
-    public SequencePosition Position => _reader.Position;
+    public SequencePosition Position => _single ? _sequence.GetPosition(_pos) : _reader.Position;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte ReadByte()
     {
+        if (_single)
+        {
+            if ((uint)_pos >= (uint)_span.Length)
+            {
+                throw new MqttProtocolException("Unexpected end of packet.");
+            }
+            return _span[_pos++];
+        }
         if (!_reader.TryRead(out var value))
         {
             throw new MqttProtocolException("Unexpected end of packet.");
@@ -45,21 +72,41 @@ internal ref struct MqttSequenceReader
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ushort ReadUInt16BigEndian()
     {
-        if (!_reader.TryReadBigEndian(out short value))
+        if (_single)
+        {
+            if ((uint)(_pos + 2) > (uint)_span.Length)
+            {
+                throw new MqttProtocolException("Unexpected end of packet.");
+            }
+            var value = BinaryPrimitives.ReadUInt16BigEndian(_span.Slice(_pos));
+            _pos += 2;
+            return value;
+        }
+        if (!_reader.TryReadBigEndian(out short v))
         {
             throw new MqttProtocolException("Unexpected end of packet.");
         }
-        return (ushort)value;
+        return (ushort)v;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public uint ReadUInt32BigEndian()
     {
-        if (!_reader.TryReadBigEndian(out int value))
+        if (_single)
+        {
+            if ((uint)(_pos + 4) > (uint)_span.Length)
+            {
+                throw new MqttProtocolException("Unexpected end of packet.");
+            }
+            var value = BinaryPrimitives.ReadUInt32BigEndian(_span.Slice(_pos));
+            _pos += 4;
+            return value;
+        }
+        if (!_reader.TryReadBigEndian(out int v))
         {
             throw new MqttProtocolException("Unexpected end of packet.");
         }
-        return (uint)value;
+        return (uint)v;
     }
 
     public uint ReadVarInt(out int byteCount)
@@ -91,18 +138,23 @@ internal ref struct MqttSequenceReader
         {
             return string.Empty;
         }
-        return ReadStringPayload(length);
+        if (_single)
+        {
+            if ((uint)(_pos + length) > (uint)_span.Length)
+            {
+                throw new MqttProtocolException("Unexpected end of packet.");
+            }
+            var s = Encoding.UTF8.GetString(_span.Slice(_pos, length));
+            _pos += length;
+            return s;
+        }
+        return ReadStringPayloadSegmented(length);
     }
 
-    private string ReadStringPayload(int length)
+    private string ReadStringPayloadSegmented(int length)
     {
-        // Slice and decode UTF-8; handles segmented sequences via a pooled scratch buffer.
         var slice = UnreadSequence.Slice(0, length);
         _reader.Advance(length);
-        if (slice.IsSingleSegment)
-        {
-            return Encoding.UTF8.GetString(slice.FirstSpan);
-        }
         var rented = ArrayPool<byte>.Shared.Rent(length);
         try
         {
@@ -122,11 +174,21 @@ internal ref struct MqttSequenceReader
         {
             return Array.Empty<byte>();
         }
+        if (_single)
+        {
+            if ((uint)(_pos + length) > (uint)_span.Length)
+            {
+                throw new MqttProtocolException("Unexpected end of packet.");
+            }
+            var arr = _span.Slice(_pos, length).ToArray();
+            _pos += length;
+            return arr;
+        }
         var slice = UnreadSequence.Slice(0, length);
         _reader.Advance(length);
-        var arr = new byte[length];
-        slice.CopyTo(arr);
-        return arr;
+        var copy = new byte[length];
+        slice.CopyTo(copy);
+        return copy;
     }
 
     /// <summary>
@@ -141,7 +203,7 @@ internal ref struct MqttSequenceReader
             return ReadOnlyMemory<byte>.Empty;
         }
         var slice = UnreadSequence.Slice(0, length);
-        _reader.Advance(length);
+        Advance(length);
         if (slice.IsSingleSegment)
         {
             return slice.First;
@@ -154,9 +216,19 @@ internal ref struct MqttSequenceReader
     public ReadOnlySequence<byte> ReadSequence(int length)
     {
         var slice = UnreadSequence.Slice(0, length);
-        _reader.Advance(length);
+        Advance(length);
         return slice;
     }
 
-    public void Advance(long count) => _reader.Advance(count);
+    public void Advance(long count)
+    {
+        if (_single)
+        {
+            _pos += (int)count;
+        }
+        else
+        {
+            _reader.Advance(count);
+        }
+    }
 }

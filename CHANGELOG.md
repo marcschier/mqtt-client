@@ -17,6 +17,15 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
   receive buffer, valid only inside the handler). Back-pressure flows to the broker while it runs.
 
 ### Changed
+- **Codec performance.** The encoder no longer reserves 4 bytes for every remaining-length field and
+  shifts the body to fit (it reserves 1 and grows in place only for large packets), and MQTT 5
+  property blocks are written **inline** behind a 1-byte length placeholder instead of into a second
+  pooled `MqttBufferWriter` that was copied in — removing a pool rent + copy per properties-bearing
+  packet. The decoder reads contiguous (single-segment) packets directly from the segment span via
+  `BinaryPrimitives`, falling back to `SequenceReader<byte>` only for multi-segment input, and avoids
+  a `List<uint>` allocation for the common single subscription identifier. Result (256 B PUBLISH,
+  same hardware): encode ≈ 100 → 60 ns and per-encode allocation 64 → 0–32 B; small-packet decode
+  ≈ 229 → 158 ns. All AOT-clean (no `unsafe`/suppressions).
 - **API (breaking, pre-1.0):** the default payload type is now `ReadOnlySequence<byte>`.
   `MqttMessage.Payload` and `MqttLastWill.Payload` changed from `ReadOnlyMemory<byte>` to
   `ReadOnlySequence<byte>`; the `ReadOnlyMemory<byte>` form is available via the `PayloadMemory`

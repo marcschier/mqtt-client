@@ -300,6 +300,9 @@ internal static class MqttPacketDecoder
         string? rt = null;
         ReadOnlyMemory<byte>? cd = null;
         string? ct = null;
+        // Subscription identifiers are usually 0 or 1; avoid the List allocation for the 1 case.
+        uint firstSid = 0;
+        var hasSid = false;
         List<uint>? sids = null;
         List<MqttUserProperty>? ups = null;
 
@@ -318,8 +321,12 @@ internal static class MqttPacketDecoder
                     cd = sliceMode ? reader.ReadBinaryDataMemory() : reader.ReadBinaryData();
                     break;
                 case MqttPropertyId.ContentType: ct = reader.ReadString(); break;
-                case MqttPropertyId.SubscriptionIdentifier: (sids ??= new List<uint>()).Add(
-                    reader.ReadVarInt(out _)); break;
+                case MqttPropertyId.SubscriptionIdentifier:
+                    var sid = reader.ReadVarInt(out _);
+                    if (sids is not null) { sids.Add(sid); }
+                    else if (hasSid) { sids = new List<uint> { firstSid, sid }; }
+                    else { firstSid = sid; hasSid = true; }
+                    break;
                 case MqttPropertyId.UserProperty: (ups ??= new List<MqttUserProperty>()).Add(
                     new(reader.ReadString(), reader.ReadString())); break;
                 default: throw new MqttProtocolException(
@@ -334,7 +341,8 @@ internal static class MqttPacketDecoder
             ResponseTopic = rt,
             CorrelationData = cd,
             ContentType = ct,
-            SubscriptionIdentifiers = sids,
+            SubscriptionIdentifiers = (IReadOnlyList<uint>?)sids
+                ?? (hasSid ? new[] { firstSid } : null),
             UserProperties = ups,
         };
     }

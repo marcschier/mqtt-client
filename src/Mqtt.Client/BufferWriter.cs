@@ -145,21 +145,24 @@ internal sealed class MqttBufferWriter : IDisposable
     }
 
     /// <summary>
-    /// Writes a fixed header byte then a placeholder length, returning the offset to patch.
+    /// Writes a fixed header byte then a single placeholder length byte, returning the offset to
+    /// patch. One byte is reserved optimistically (covers remaining lengths 0–127, the common
+    /// case); <see cref="PatchRemainingLength"/> grows the field in place only when a larger
+    /// remaining length needs more varint bytes.
     /// </summary>
     public int WriteFixedHeaderStart(byte firstByte)
     {
         WriteByte(firstByte);
-        // Reserve 4 bytes for the worst-case remaining length encoding; we patch the actual
-        // length in <see cref="PatchRemainingLength"/>.
-        EnsureCapacity(4);
+        EnsureCapacity(1);
         var offset = _written;
-        _written += 4;
+        _written++;
         return offset;
     }
 
     /// <summary>
-    /// Patches a remaining-length VarInt at the given offset.
+    /// Patches a remaining-length VarInt at the given offset (reserved as a single byte by
+    /// <see cref="WriteFixedHeaderStart"/>). When the value needs more than one byte, the body that
+    /// follows is shifted right to make room; the 1-byte common case never shifts.
     /// </summary>
     public void PatchRemainingLength(int lengthFieldOffset, int remainingLength)
     {
@@ -167,37 +170,57 @@ internal sealed class MqttBufferWriter : IDisposable
         {
             throw new MqttProtocolException("Remaining length exceeds MQTT maximum.");
         }
-        var value = (uint)remainingLength;
+        PatchVarIntField(lengthFieldOffset, (uint)remainingLength);
+    }
+
+    /// <summary>
+    /// Reserves a single placeholder byte for a length-prefixed section (e.g. an MQTT 5 property
+    /// block) and returns its offset; pair with <see cref="PatchVarIntField"/> after the section is
+    /// written.
+    /// </summary>
+    public int ReserveVarIntPlaceholder()
+    {
+        EnsureCapacity(1);
+        var offset = _written;
+        _written++;
+        return offset;
+    }
+
+    /// <summary>
+    /// Writes <paramref name="value"/> as a VarInt into the single byte reserved at
+    /// <paramref name="fieldOffset"/>, shifting the trailing body right when the value needs more
+    /// than one byte. The 1-byte common case writes in place with no copy.
+    /// </summary>
+    public void PatchVarIntField(int fieldOffset, uint value)
+    {
         Span<byte> encoded = stackalloc byte[4];
         var count = 0;
+        var v = value;
         do
         {
-            var b = (byte)(value & 0x7F);
-            value >>= 7;
-            if (value > 0)
+            var b = (byte)(v & 0x7F);
+            v >>= 7;
+            if (v > 0)
             {
                 b |= 0x80;
             }
             encoded[count++] = b;
         }
-        while (value > 0);
+        while (v > 0);
 
-        var payloadStart = lengthFieldOffset + 4;
-        var payloadEnd = _written;
-        if (count != 4)
+        if (count > 1)
         {
-            var shift = 4 - count;
-            Buffer.BlockCopy(
-                _buffer,
-                payloadStart,
-                _buffer,
-                payloadStart - shift,
-                payloadEnd - payloadStart);
-            _written -= shift;
+            // Grow the 1-byte placeholder to `count` bytes: shift the body that follows it right.
+            var extra = count - 1;
+            EnsureCapacity(extra);
+            var bodyStart = fieldOffset + 1;
+            var bodyLen = _written - bodyStart;
+            Buffer.BlockCopy(_buffer, bodyStart, _buffer, bodyStart + extra, bodyLen);
+            _written += extra;
         }
         for (var i = 0; i < count; i++)
         {
-            _buffer[lengthFieldOffset + i] = encoded[i];
+            _buffer[fieldOffset + i] = encoded[i];
         }
     }
 
