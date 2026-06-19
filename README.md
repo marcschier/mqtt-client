@@ -92,10 +92,11 @@ are MIT-licensed and the protocol wire formats are identical.
 
 ## 🧪 Tests
 
-- Unit tests (TUnit): `tests/Mqtt.Client.UnitTests` — runs on net8/9/10. **102 tests pass**, **83.8 %** line / **68.8 %** branch coverage of `src/Mqtt.Client` via a `FakePipeTransport` + `FakeBroker` in-process harness.
-- Integration tests vs MQTTnet broker: `tests/Mqtt.Client.IntegrationTests` — **3 tests pass**, lifts combined coverage to **88.5 %** line / **75.1 %** branch.
+- Unit tests (TUnit): `tests/Mqtt.Client.UnitTests` — runs on net8/9/10. **136 tests pass**, **84.9 %** line / **70.1 %** branch coverage of `src/Mqtt.Client` via a `FakePipeTransport` + `FakeBroker` in-process harness.
+- Integration tests vs MQTTnet broker: `tests/Mqtt.Client.IntegrationTests` — **7 tests pass**, lifts combined coverage to **88.8 %** line / **75.7 %** branch.
 - NativeAOT smoke: `tests/Mqtt.Client.AotTests` (publishes with `PublishAot=true`).
 - Fuzz harnesses (SharpFuzz + libFuzzer, Linux): `tests/Mqtt.Client.FuzzTests`.
+- Allocation-regression gate (codec): `pwsh scripts/perf-gate.ps1` (CI: `.github/workflows/perf-gate.yml`).
 
 Reproduce coverage locally with `pwsh scripts/coverage.ps1`. Full breakdown in [docs/coverage.md](docs/coverage.md).
 
