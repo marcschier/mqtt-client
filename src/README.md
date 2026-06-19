@@ -1,11 +1,8 @@
-# `src/Mqtt.Client/`
+# Source
 
-Single project, single NuGet (`Mqtt.Client`). Multi-TFM (`netstandard2.1`, `net8.0`,
-`net9.0`, `net10.0`); the `net10.0` build is `IsAotCompatible=true` and ships
-without a single trim/AOT warning.
+This is a single project, single NuGet (`Mqtt.Client`). Multi-TFM (`netstandard2.1`, `net8.0`, `net9.0`, `net10.0`); the `net10.0` build is `IsAotCompatible=true` and ships without a single trim/AOT warning.
 
-Files are flat — there are no subfolders — so the public surface is small enough to
-scan in one screen.
+Files are flat — there are no subfolders. This is intentional to show the simplicity as the public surface is small enough to scan in one screen.
 
 ## Public surface (touched by every consumer)
 

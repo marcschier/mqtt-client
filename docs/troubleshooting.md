@@ -12,6 +12,7 @@
 
 The broker accepted the TCP/TLS connection but rejected the MQTT handshake. Most
 common causes:
+
 - Wrong protocol version (`WithProtocol(MqttProtocolVersion.V311)` for legacy brokers).
 - Broker requires authentication you haven't supplied.
 - Broker requires a unique `ClientId`; another client is connected under that ID.

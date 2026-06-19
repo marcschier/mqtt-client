@@ -46,37 +46,3 @@ Maps OASIS MQTT 3.1.1 and 5.0 normative chapters to the implementation in `Mqtt.
 | 4.7.2 (inbound) | Topic alias inbound expansion | ❌ tracked as `v010-inbound-topic-alias` |
 | 4.8.2 | Shared subscriptions (`$share/<group>/<filter>`) | ❌ tracked as `v1-shared-subs` |
 | 4.10 | Subscription identifier | ❌ tracked as `v010-subscription-id` |
-
-## Subsystems
-
-### Transports
-TCP, TCP+TLS (mTLS-ready, TLS 1.2/1.3 default, CRL on), WebSocket, Secure WebSocket — all in.
-
-### Auto-reconnect
-`MqttReconnectPolicy.Exponential()` (default) / `Fixed(delay)`. On transport close, the
-reconnect loop fires unless the caller called `DisconnectAsync` (manual disconnect).
-Outbound publish queue survives across reconnect.
-
-### Persistence
-`IPersistentSessionStore` is pluggable; `InMemorySessionStore` ships in-box.
-File-based store tracked as `v010-file-persistence`.
-
-### NativeAOT
-`net10.0` build is `IsAotCompatible=true` with `EnableAotAnalyzer` / `EnableTrimAnalyzer` /
-`EnableSingleFileAnalyzer`. The `Mqtt.Client.AotTests` project publishes with
-`PublishAot=true` as a CI gate; zero IL/trim warnings on the library.
-
-### Security
-`MqttClientOptions.MaxIncomingPacketSize` (1 MiB default) caps decoder buffering;
-`ClearPooledBuffers` (opt-in) zeros pooled payload before pool-return; TLS defaults to
-1.2/1.3 + CRL on. Full threat-model and findings in
-[`security-audit.md`](./security-audit.md).
-
-### Fuzzing
-`tests/Mqtt.Client.FuzzTests` ships SharpFuzz + libFuzzer harnesses for decoder, codec
-round-trip, and topic-trie. Crash inputs are auto-replayed by
-`FuzzFindingsReproducerTests` on every unit-test run.
-
-### Coverage
-Unit: **81.1 %** line / **65.4 %** branch. Combined with integration: **86.4 % / 71.9 %**.
-See [`coverage.md`](./coverage.md).

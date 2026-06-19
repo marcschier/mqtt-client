@@ -58,18 +58,6 @@ Histogram: `mqtt.client.publish.ack.duration` (milliseconds).
 Subscribe to the `Mqtt.Client` `ActivitySource` for OpenTelemetry spans around
 connect/publish/subscribe.
 
-## NativeAOT
-
-The `net10.0` target ships with:
-
-- `IsAotCompatible=true`
-- `IsTrimmable=true`
-- `EnableAotAnalyzer=true`, `EnableTrimAnalyzer=true`, `EnableSingleFileAnalyzer=true`
-
-There are no reflection-only code paths, no `dynamic`, no `Activator.CreateInstance`.
-The `tests/Mqtt.Client.AotTests` project publishes with `PublishAot=true` on CI as a
-gate — any new trim/AOT warning fails the build.
-
 ## Tuning the receive maximum
 
 MQTT 5 lets the client advertise `Receive Maximum` — the number of QoS 1/2 PUBLISHes

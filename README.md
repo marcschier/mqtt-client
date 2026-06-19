@@ -44,7 +44,7 @@ await foreach (var msg in sub.Reader.ReadAllAsync())
 await client.PublishAsync("commands/svc-1", "ping"u8.ToArray());
 ```
 
-**Low-allocation extras**
+### Low-allocation extras
 
 ```csharp
 // Publish a payload that's already split across buffers — no concatenation needed.
@@ -91,18 +91,7 @@ intentionally doesn't:
 **client** library for .NET services. Pick whichever fits your situation; both projects
 are MIT-licensed and the protocol wire formats are identical.
 
-## 🧪 Tests
-
-- Unit tests (TUnit): `tests/Mqtt.Client.UnitTests` — runs on net8/9/10. **136 tests pass**, **84.9 %** line / **70.1 %** branch coverage of `src/Mqtt.Client` via a `FakePipeTransport` + `FakeBroker` in-process harness.
-- Integration tests vs MQTTnet broker: `tests/Mqtt.Client.IntegrationTests` — **7 tests pass**, lifts combined coverage to **88.8 %** line / **75.7 %** branch.
-- NativeAOT smoke: `tests/Mqtt.Client.AotTests` (publishes with `PublishAot=true`).
-- Fuzz harnesses (SharpFuzz + libFuzzer, Linux): `tests/Mqtt.Client.FuzzTests`.
-- Allocation-regression gate (codec): `pwsh scripts/perf-gate.ps1` (CI: `.github/workflows/perf-gate.yml`).
-
-Reproduce coverage locally with `pwsh scripts/coverage.ps1`. Full breakdown in [docs/coverage.md](docs/coverage.md).
-
 ## 🔐 Security
 
 Found something? Please file privately via GitHub Security Advisories — see
-[SECURITY.md](SECURITY.md). Threat model and audit findings are in
-[docs/security-audit.md](docs/security-audit.md).
+[SECURITY.md](SECURITY.md).

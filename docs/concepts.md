@@ -17,6 +17,7 @@ the matching channel(s) by an alloc-free topic filter trie.
 ## Threading model (hidden by design)
 
 There is exactly **one send loop** and **one receive loop** behind every connection.
+
 - `PublishAsync` enqueues into a bounded outbound channel.
 - `TryPublish` is non-blocking and returns `false` if the outbound queue is full.
 - `SubscribeAsync` registers a topic filter and returns a `MqttSubscription` whose
@@ -58,17 +59,3 @@ duplicate-sensitive control messages, not for telemetry.
 client will retry with exponential backoff + jitter until you call `DisconnectAsync`,
 the broker disconnects you with `Banned`, or you dispose the client. The outbound
 publish queue **survives** a reconnect so queued messages still get sent.
-
-## Observability
-
-- **Logging** — source-generated via `[LoggerMessage]`. Hook up an `ILoggerFactory`
-  via `WithLogging(...)` or the DI extensions.
-- **Metrics** — `System.Diagnostics.Metrics` meter named `Mqtt.Client`. Counters for
-  publishes/receives/bytes sent/bytes received/reconnects, histogram for publish-ack
-  latency.
-- **Tracing** — `ActivitySource` named `Mqtt.Client` for OpenTelemetry friendly spans.
-
-## NativeAOT
-
-The `net10.0` build is `IsAotCompatible=true` with `EnableAotAnalyzer` and
-`EnableTrimAnalyzer` enabled. Trim-warning-free. See [advanced](./advanced.md).

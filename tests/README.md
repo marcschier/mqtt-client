@@ -1,4 +1,4 @@
-# `tests/`
+# Tests
 
 Five projects backing the `Mqtt.Client` library. Run with `dotnet test` (where
 applicable) or by invoking the test runner exe directly. A coverage script that
@@ -12,6 +12,7 @@ Fast, in-process tests on `net8.0` / `net9.0` / `net10.0`. **81 tests, ~76.6 % l
 see [`docs/coverage.md`](../docs/coverage.md)).
 
 The `Fakes/` folder is the secret sauce:
+
 - `FakePipeTransport` — implements `IMqttTransport` over a paired `Pipe`, so the
   client can be driven end-to-end with no real broker.
 - `FakeBroker` — small DSL that consumes packets the client sent and emits canned
@@ -67,6 +68,7 @@ dotnet publish tests/Mqtt.Client.AotTests -c Release
 ## `Mqtt.Client.FuzzTests/` — SharpFuzz + libFuzzer (Linux)
 
 Three harnesses dispatched by the first command-line argument:
+
 - `decoder` — feeds random bytes through `MqttPacketDecoder.TryDecode`.
 - `codec-roundtrip` — interprets random bytes as a structured publish; encodes →
   decodes → asserts equality.
@@ -90,6 +92,3 @@ The CI workflow `.github/workflows/fuzz.yml` is `workflow_dispatch`-only;
 ```bash
 pwsh scripts/coverage.ps1
 ```
-
-Builds in Release, runs unit + integration under `dotnet-coverage`, merges, and
-prints the headline numbers. See [`docs/coverage.md`](../docs/coverage.md).

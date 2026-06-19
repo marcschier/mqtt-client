@@ -1,22 +1,27 @@
-# Migrating from MQTTnet
+# Mqtt.Client vs. MQTTnet
 
 `Mqtt.Client` and [MQTTnet](https://github.com/dotnet/MQTTnet) solve overlapping problems with different priorities. This guide is a side-by-side cheat sheet for common operations.
 
 ## When to pick which
 
 **Pick MQTTnet when:**
+
 - You need a hosted **broker** (`MQTTnet.Server`)
 - You need deep ASP.NET Core integration / middleware
 - You depend on the broadest possible MQTT 5 option surface available today
 - Your app already uses MQTTnet and the cost of switching outweighs perf wins
 
 **Pick Mqtt.Client when:**
+
 - You want the lowest-allocation client (≤ MQTTnet bytes/op on every measured workload, often half)
 - You want a Channels-style consumer API (`ChannelReader<MqttMessage>`, `IAsyncEnumerable`)
 - You want NativeAOT support on .NET 10 with zero suppressions
 - You want first-class `Microsoft.Extensions.DependencyInjection` + source-generated logging out of the box
+- You want SOCKS5 support.
 
-## Construction
+## API Comparison
+
+### Construction
 
 | MQTTnet | Mqtt.Client |
 |---|---|
@@ -29,7 +34,7 @@
 | `.WithKeepAlivePeriod(TimeSpan.FromSeconds(60))` | `.WithKeepAlive(60)` |
 | `.WithWillTopic(...).WithWillPayload(...).WithWillQualityOfServiceLevel(...)` | `.WithLastWill(new MqttLastWill { Topic=..., Payload=..., QoS=... })` |
 
-## Connect / disconnect
+### Connect / disconnect
 
 | MQTTnet | Mqtt.Client |
 |---|---|
@@ -39,7 +44,7 @@
 | `client.DisconnectedAsync += ...` | `client.Disconnected += ...` |
 | _no equivalent_ | `client.StateChanged += (s, state) => ...` |
 
-## Publish
+### Publish
 
 ```csharp
 // MQTTnet
@@ -56,7 +61,7 @@ await client.PublishAsync("t", payload, MqttQoS.AtLeastOnce);
 client.TryPublish("t", payload);
 ```
 
-## Subscribe + consume
+### Subscribe + consume
 
 ```csharp
 // MQTTnet
@@ -76,7 +81,7 @@ await foreach (var msg in sub.Reader.ReadAllAsync(ct))
 await sub.DisposeAsync();
 ```
 
-## DI
+### DI
 
 ```csharp
 // Mqtt.Client
@@ -90,7 +95,7 @@ var factory = sp.GetRequiredService<IMqttClientFactory>();
 var primary = factory.Get("primary");
 ```
 
-## Observability
+### Observability
 
 | Concern | MQTTnet | Mqtt.Client |
 |---|---|---|
@@ -98,7 +103,7 @@ var primary = factory.Get("primary");
 | Metrics | Manual | `System.Diagnostics.Metrics`, meter `Mqtt.Client` |
 | Tracing | Manual | `ActivitySource` `Mqtt.Client` |
 
-## Things to know
+### Things to know
 
 - **QoS 2** outbound state machine is fully implemented in `Mqtt.Client` (PUBREC → PUBREL → PUBCOMP).
 - **Shared subscriptions** (`$share/group/topic`) are accepted; the broker performs distribution and `Mqtt.Client` routes the inbound messages via the underlying topic filter.
