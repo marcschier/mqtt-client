@@ -204,16 +204,11 @@ public sealed class MqttClient : IAsyncDisposable
             }
 
             var connectPkt = BuildConnectPacket();
-            var w = new MqttBufferWriter(256);
-            try
-            {
-                MqttPacketEncoder.EncodeConnect(connectPkt, ref w);
-                await WriteRawAsync(w.WrittenMemory, cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                w.Dispose();
-            }
+            var pw = new PipeBufferWriter(_transport!.Output, 256);
+            MqttPacketEncoder.EncodeConnect(connectPkt, ref pw);
+            var written = pw.WrittenCount;
+            pw.Commit();
+            await FlushOutputAsync(written, cancellationToken).ConfigureAwait(false);
             // Wait for CONNACK or run the AUTH exchange first.
             var connack = await ReadConnAckOrAuthAsync(handler, cancellationToken).ConfigureAwait(
                 false);
@@ -361,41 +356,28 @@ public sealed class MqttClient : IAsyncDisposable
             AuthenticationMethod = method,
             AuthenticationData = data,
         };
-        var w = new MqttBufferWriter(64 + data.Length);
-        try
-        {
-            MqttPacketEncoder.EncodeAuth(pkt, ref w);
-            await WriteRawAsync(w.WrittenMemory, ct).ConfigureAwait(false);
-        }
-        finally
-        {
-            w.Dispose();
-        }
+        var pw = new PipeBufferWriter(_transport!.Output, 64 + data.Length);
+        MqttPacketEncoder.EncodeAuth(pkt, ref pw);
+        var written = pw.WrittenCount;
+        pw.Commit();
+        await FlushOutputAsync(written, ct).ConfigureAwait(false);
     }
 
     private async Task SendDisconnectAsync(MqttReasonCode rc, CancellationToken ct)
     {
         try
         {
-            var w = new MqttBufferWriter(8);
-            try
-            {
-                MqttPacketEncoder.EncodeDisconnect(
-                    new DisconnectPacket { ReasonCode = rc },
-                    _options.ProtocolVersion,
-                    ref w);
-                await WriteRawAsync(w.WrittenMemory, ct).ConfigureAwait(false);
-            }
-            finally
-            {
-                w.Dispose();
-            }
+            var pw = new PipeBufferWriter(_transport!.Output, 8);
+            MqttPacketEncoder.EncodeDisconnect(
+                new DisconnectPacket { ReasonCode = rc },
+                _options.ProtocolVersion,
+                ref pw);
+            var written = pw.WrittenCount;
+            pw.Commit();
+            await FlushOutputAsync(written, ct).ConfigureAwait(false);
         }
         catch { /* best effort */ }
     }
-
-    private async Task WriteRawAsync(ReadOnlyMemory<byte> bytes, CancellationToken ct)
-        => await WriteRawAsync(bytes, ReadOnlySequence<byte>.Empty, ct).ConfigureAwait(false);
 
     private async Task WriteRawAsync(
         ReadOnlyMemory<byte> headerBytes,
@@ -431,6 +413,21 @@ public sealed class MqttClient : IAsyncDisposable
         _metrics.BytesSent.Add(headerBytes.Length + payload.Length);
         var result = await output.FlushAsync(ct).ConfigureAwait(false);
         if (result.IsCompleted) throw new MqttConnectionException("Transport closed during write.");
+    }
+
+    /// <summary>
+    /// Records the sent byte count and flushes the transport output. Used by the synchronous send
+    /// paths that encode a packet directly into the <see cref="PipeWriter"/> via
+    /// <see cref="PipeBufferWriter"/> and have already committed it.
+    /// </summary>
+    private async Task FlushOutputAsync(int byteCount, CancellationToken ct)
+    {
+        _metrics.BytesSent.Add(byteCount);
+        var result = await _transport!.Output.FlushAsync(ct).ConfigureAwait(false);
+        if (result.IsCompleted)
+        {
+            throw new MqttConnectionException("Transport closed during write.");
+        }
     }
 
     private async Task WriteLoopAsync(CancellationToken ct)
