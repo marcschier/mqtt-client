@@ -20,11 +20,18 @@ public abstract class BrokerBenchmarkBase
     protected MqttnetClient MqttnetClient = null!;
     protected Mqtt.Client.MqttClient OurClient = null!;
 
-    [Params(64, 256, 1024, 4096, 16384, 65536)]
+    [Params(64, 256, 1024, 4096, 16384, 65536, 1048576)]
     public int PayloadSize { get; set; }
 
     protected byte[] Payload = null!;
     protected const string TopicPrefix = "bench/e2e";
+
+    /// <summary>
+    /// Max packet size to allow on every connection so the largest payload (plus the MQTT header)
+    /// is delivered rather than rejected. Our client enforces <c>MaxIncomingPacketSize</c> locally
+    /// (it is not advertised in CONNECT), so the receiving side must be raised explicitly.
+    /// </summary>
+    protected int MaxPacket => Math.Max(1024 * 1024, PayloadSize + (64 * 1024));
 
     public virtual async Task Setup()
     {
@@ -40,6 +47,7 @@ public abstract class BrokerBenchmarkBase
             .WithClientId($"bench-mqttnet-{Guid.NewGuid():N}")
             .WithCleanStart(true)
             .WithKeepAlivePeriod(TimeSpan.FromSeconds(60))
+            .WithMaximumPacketSize((uint)MaxPacket)
             .Build();
         await MqttnetClient.ConnectAsync(nopts);
 
@@ -51,6 +59,7 @@ public abstract class BrokerBenchmarkBase
             .WithCleanStart(true)
             .WithKeepAlive(60)
             .WithReconnect(null)
+            .Configure(o => o.MaxIncomingPacketSize = MaxPacket)
             .Build();
         await OurClient.ConnectAsync();
 

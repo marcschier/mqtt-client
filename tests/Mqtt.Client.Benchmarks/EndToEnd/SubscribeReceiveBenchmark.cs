@@ -36,6 +36,7 @@ public class SubscribeReceiveBenchmark : BrokerBenchmarkBase
             .WithTcpServer(Broker.Host, Broker.Port)
             .WithProtocolVersion(MqttnetProtocolVersion.V500)
             .WithClientId($"bench-pub-{Guid.NewGuid():N}")
+            .WithMaximumPacketSize((uint)MaxPacket)
             .WithCleanStart(true).Build());
 
         _publishMessageMqttnet = new MqttApplicationMessageBuilder()
