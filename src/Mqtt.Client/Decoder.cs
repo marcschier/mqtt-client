@@ -274,7 +274,12 @@ internal static class MqttPacketDecoder
                 Properties = props,
             };
         }
+#if NETSTANDARD2_1
         var payload = new byte[payloadLen];
+#else
+        // Skip the redundant zero-init: every byte is overwritten by the copy that follows.
+        var payload = GC.AllocateUninitializedArray<byte>(payloadLen);
+#endif
         reader.ReadSequence(payloadLen).CopyTo(payload);
         return new PublishPacket
         {

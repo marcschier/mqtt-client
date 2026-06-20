@@ -46,6 +46,12 @@ internal struct MqttBufferWriter : IMqttBufferWriter
         }
     }
 
+    /// <summary>
+    /// Resets the write cursor to reuse this writer (and its pooled backing array) for another
+    /// packet without renting again. The array is retained; bytes are overwritten on next write.
+    /// </summary>
+    public void Reset() => _written = 0;
+
     public Span<byte> GetSpan(int sizeHint = 0)
     {
         EnsureCapacity(sizeHint <= 0 ? 1 : sizeHint);

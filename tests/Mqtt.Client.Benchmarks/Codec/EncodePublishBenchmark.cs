@@ -19,6 +19,7 @@ public class EncodePublishBenchmark
     private MqttPacketFormatterAdapter _mqttnetFormatter = null!;
     private MQTTnet.Formatter.MqttBufferWriter _mqttnetBuf = null!;
     private PublishPacket _ourPacket = null!;
+    private Mqtt.Client.MqttBufferWriter _ourWriter;
 
     public EncodePublishBenchmark() : this(full: false) { }
     public EncodePublishBenchmark(bool full) { _ = full; }
@@ -47,7 +48,15 @@ public class EncodePublishBenchmark
         _mqttnetFormatter = new MqttPacketFormatterAdapter(
             MqttnetProtocolVersion.V500,
             _mqttnetBuf);
+
+        // Reused across iterations (no per-op ArrayPool churn), mirroring MQTTnet's reused
+        // buffer above. MqttBufferWriter is array-backed exactly like the production
+        // PipeBufferWriter, so this measures the same encode-logic cost apples-to-apples.
+        _ourWriter = new Mqtt.Client.MqttBufferWriter(PayloadSize + 128);
     }
+
+    [GlobalCleanup]
+    public void Cleanup() => _ourWriter.Dispose();
 
     [Benchmark(Baseline = true, Description = "MQTTnet")]
     public int Mqttnet_Encode()
@@ -63,15 +72,8 @@ public class EncodePublishBenchmark
         // Both clients emit a packet whose body is a (header, payload) pair without copying
         // the payload bytes into the header buffer (MQTTnet's MqttPacketBuffer separates
         // Packet+Payload; ours uses EncodePublishHeader + vectored pipe write at runtime).
-        var w = new Mqtt.Client.MqttBufferWriter(128);
-        try
-        {
-            MqttPacketEncoder.EncodePublishHeader(_ourPacket, MqttProtocolVersion.V500, ref w);
-            return w.WrittenCount + (int)_ourPacket.Payload.Length;
-        }
-        finally
-        {
-            w.Dispose();
-        }
+        _ourWriter.Reset();
+        MqttPacketEncoder.EncodePublishHeader(_ourPacket, MqttProtocolVersion.V500, ref _ourWriter);
+        return _ourWriter.WrittenCount + (int)_ourPacket.Payload.Length;
     }
 }

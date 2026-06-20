@@ -10,6 +10,13 @@ namespace Mqtt.Client.Benchmarks;
 /// <summary>
 /// Connect + Disconnect latency. New client per iteration to capture full handshake cost.
 /// </summary>
+// Connect/disconnect is resource-heavy (a TCP handshake + an ephemeral local port per cycle).
+// A bounded, fixed invocation count keeps both clients well under the OS ephemeral-port range so
+// the benchmark measures latency rather than failing with port exhaustion (SocketException 10048);
+// a few hundred samples are ample for a millisecond-scale operation.
+[WarmupCount(3)]
+[IterationCount(10)]
+[InvocationCount(16, 1)]
 public class ConnectLatencyBenchmark
 {
     private InProcessBroker _broker = null!;

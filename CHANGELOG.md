@@ -22,6 +22,19 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
   receive buffer, valid only inside the handler). Back-pressure flows to the broker while it runs.
 
 ### Changed
+- **Encode/decode performance — now faster than MQTTnet across the codec micro-benchmarks.** PUBLISH
+  encoding writes the remaining-length varint at its exact width up front for the common
+  property-less case (no 1-byte placeholder + body-shift back-patch), `PipeBufferWriter` indexes a
+  cached `byte[]`+offset instead of re-deriving `Memory<byte>.Span` on every field write, and the
+  non-pooled decode path skips the redundant zero-init of the payload buffer
+  (`GC.AllocateUninitializedArray`). Result (Job.Default, same hardware): PUBLISH encode ≈ 0.70–0.75×
+  MQTTnet at every payload size (was ≈ 1.3×), large-payload decode ≈ 1.0× (was 1.38×), with all
+  memory ratios ≤ 1.0. AOT-clean.
+- **Graceful disconnect.** `DisconnectAsync` now waits briefly (≤ 2 s) for the broker to close the
+  TCP connection after the client sends `DISCONNECT`, so the broker is the active closer and the
+  client's ephemeral port is not parked in `TIME_WAIT`. This prevents local port-range exhaustion
+  (`SocketException 10048`) under rapid connect/disconnect churn; it falls back to a client-side
+  close if the broker doesn't close in time.
 - **Codec performance.** The encoder no longer reserves 4 bytes for every remaining-length field and
   shifts the body to fit (it reserves 1 and grows in place only for large packets), and MQTT 5
   property blocks are written **inline** behind a 1-byte length placeholder instead of into a second

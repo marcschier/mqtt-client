@@ -129,6 +129,35 @@ internal static class MqttPacketEncoder
         firstByte |= (byte)((byte)packet.QoS << 1);
         if (packet.Retain) firstByte |= 0x01;
 
+        // Fast path: with no MQTT 5 property block to size, the variable-header length is known up
+        // front, so the remaining-length varint is written at its exact width — no 1-byte
+        // placeholder followed by a body-shift back-patch. Covers v3.1.1 and the common
+        // property-less v5 publish (the vast majority of real traffic).
+        if (!v5 || packet.Properties is null)
+        {
+            var topic = packet.Topic ?? string.Empty;
+            var topicBytes = System.Text.Encoding.UTF8.GetByteCount(topic);
+            var bodyLen = 2 + topicBytes
+                + (packet.QoS != MqttQoS.AtMostOnce ? 2 : 0)
+                + (v5 ? 1 : 0);
+            writer.WriteByte(firstByte);
+            writer.WriteVarInt((uint)checked(bodyLen + (int)packet.Payload.Length));
+            writer.WriteString(topic);
+            if (packet.QoS != MqttQoS.AtMostOnce)
+            {
+                writer.WriteUInt16BigEndian(packet.PacketId);
+            }
+            if (v5)
+            {
+                writer.WriteByte(0); // empty property block (length 0)
+            }
+            if (includePayload)
+            {
+                writer.WriteBytes(packet.Payload);
+            }
+            return;
+        }
+
         var hdrOffset = writer.WriteFixedHeaderStart(firstByte);
         var headerStart = writer.WrittenCount;
 

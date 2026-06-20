@@ -46,6 +46,11 @@ public sealed class MqttClient : IAsyncDisposable
     private int _state; // MqttConnectionState
     private int _manualDisconnect;
 
+    // After sending DISCONNECT, wait up to this long for the broker to close the TCP connection
+    // (making it the active closer) before forcing the close ourselves. Keeps our ephemeral port
+    // out of TIME_WAIT so rapid connect/disconnect cycles don't exhaust the local port range.
+    private static readonly TimeSpan GracefulCloseTimeout = TimeSpan.FromSeconds(2);
+
     /// <summary>
     /// Raised after a successful connect.
     /// </summary>
@@ -852,10 +857,16 @@ public sealed class MqttClient : IAsyncDisposable
         SetState(MqttConnectionState.Disconnected);
         var reason = exception?.Message ?? "Transport closed";
         MqttLog.Disconnected(_logger, _transport?.RemoteAddress, reason);
-        Disconnected?.Invoke(this, new MqttDisconnectedEventArgs(reason, exception));
-        FaultPending(
-            new MqttConnectionException(
-                reason, exception ?? new InvalidOperationException(reason)));
+        if (!wasManual)
+        {
+            // A user-initiated DisconnectAsync now drains to the broker's EOF through this path;
+            // suppress the "unexpected disconnect" notifications it owns so the observable behavior
+            // matches a direct manual disconnect (the caller already knows it disconnected).
+            Disconnected?.Invoke(this, new MqttDisconnectedEventArgs(reason, exception));
+            FaultPending(
+                new MqttConnectionException(
+                    reason, exception ?? new InvalidOperationException(reason)));
+        }
         await CleanupAsync(reason).ConfigureAwait(false);
 
         if (!wasManual && _options.Reconnect is { } policy)
@@ -1128,6 +1139,16 @@ public sealed class MqttClient : IAsyncDisposable
                 .ConfigureAwait(false);
         }
         catch { }
+        // Let the broker close the TCP connection in response to our DISCONNECT so it is the active
+        // closer and our ephemeral port is not parked in TIME_WAIT (otherwise rapid connect/
+        // disconnect churn exhausts the local port range -> SocketException 10048). The read loop
+        // completes when it observes the broker's EOF; bounded so a broker that doesn't close
+        // promptly still disconnects.
+        if (_readLoop is { } readLoop)
+        {
+            await Task.WhenAny(readLoop, Task.Delay(GracefulCloseTimeout, cancellationToken))
+                .ConfigureAwait(false);
+        }
         await CleanupAsync("client disconnect").ConfigureAwait(false);
         SetState(MqttConnectionState.Disconnected);
     }

@@ -5,6 +5,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Mqtt.Client;
@@ -23,25 +24,32 @@ namespace Mqtt.Client;
 /// header contiguous until <see cref="Commit"/>. A non-ref struct (it holds a
 /// <see cref="Memory{T}"/>, not a <see cref="Span{T}"/>), so it satisfies the encoders'
 /// <c>where TWriter : struct</c> constraint on every target framework and stays AOT-clean.
+/// The pipe buffer is always array-backed, so the field writers index a cached <c>byte[]</c> + base
+/// offset directly rather than re-deriving <c>Memory.Span</c> on every write.
 /// </remarks>
 internal struct PipeBufferWriter : IMqttBufferWriter
 {
     private readonly PipeWriter _output;
     private Memory<byte> _memory;
+    private byte[] _array;
+    private int _baseOffset;
     private int _written;
 
     public PipeBufferWriter(PipeWriter output, int sizeHint)
     {
         _output = output;
-        _memory = output.GetMemory(Math.Max(16, sizeHint));
+        _memory = default;
+        _array = null!;
+        _baseOffset = 0;
         _written = 0;
+        Bind(output.GetMemory(Math.Max(16, sizeHint)));
     }
 
     public readonly int WrittenCount => _written;
 
     public readonly ReadOnlyMemory<byte> WrittenMemory => _memory.Slice(0, _written);
 
-    public readonly ReadOnlySpan<byte> WrittenSpan => _memory.Span.Slice(0, _written);
+    public readonly ReadOnlySpan<byte> WrittenSpan => _array.AsSpan(_baseOffset, _written);
 
     /// <summary>
     /// Advances the underlying <see cref="PipeWriter"/> by the number of bytes written and resets
@@ -63,7 +71,7 @@ internal struct PipeBufferWriter : IMqttBufferWriter
     public Span<byte> GetSpan(int sizeHint = 0)
     {
         EnsureCapacity(sizeHint <= 0 ? 1 : sizeHint);
-        return _memory.Span.Slice(_written);
+        return _array.AsSpan(_baseOffset + _written);
     }
 
     public Memory<byte> GetMemory(int sizeHint = 0)
@@ -85,14 +93,14 @@ internal struct PipeBufferWriter : IMqttBufferWriter
     public void WriteByte(byte value)
     {
         EnsureCapacity(1);
-        _memory.Span[_written++] = value;
+        _array[_baseOffset + _written++] = value;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void WriteUInt16BigEndian(ushort value)
     {
         EnsureCapacity(2);
-        BinaryPrimitives.WriteUInt16BigEndian(_memory.Span.Slice(_written, 2), value);
+        BinaryPrimitives.WriteUInt16BigEndian(_array.AsSpan(_baseOffset + _written, 2), value);
         _written += 2;
     }
 
@@ -100,14 +108,14 @@ internal struct PipeBufferWriter : IMqttBufferWriter
     public void WriteUInt32BigEndian(uint value)
     {
         EnsureCapacity(4);
-        BinaryPrimitives.WriteUInt32BigEndian(_memory.Span.Slice(_written, 4), value);
+        BinaryPrimitives.WriteUInt32BigEndian(_array.AsSpan(_baseOffset + _written, 4), value);
         _written += 4;
     }
 
     public void WriteBytes(ReadOnlySpan<byte> value)
     {
         EnsureCapacity(value.Length);
-        value.CopyTo(_memory.Span.Slice(_written));
+        value.CopyTo(_array.AsSpan(_baseOffset + _written));
         _written += value.Length;
     }
 
@@ -133,7 +141,7 @@ internal struct PipeBufferWriter : IMqttBufferWriter
         }
         var maxBytes = Encoding.UTF8.GetMaxByteCount(value.Length);
         EnsureCapacity(2 + maxBytes);
-        var span = _memory.Span;
+        var span = _array.AsSpan(_baseOffset);
         var actual = Encoding.UTF8.GetBytes(value.AsSpan(), span.Slice(_written + 2));
         BinaryPrimitives.WriteUInt16BigEndian(span.Slice(_written, 2), checked((ushort)actual));
         _written += 2 + actual;
@@ -158,7 +166,7 @@ internal struct PipeBufferWriter : IMqttBufferWriter
             throw new MqttProtocolException("Variable byte integer exceeds 268,435,455.");
         }
         EnsureCapacity(4);
-        var span = _memory.Span;
+        var span = _array.AsSpan(_baseOffset);
         do
         {
             var b = (byte)(value & 0x7F);
@@ -221,13 +229,13 @@ internal struct PipeBufferWriter : IMqttBufferWriter
             // Span.CopyTo is memmove-safe, so the overlapping right shift is correct.
             var extra = count - 1;
             EnsureCapacity(extra);
-            var body = _memory.Span;
+            var body = _array.AsSpan(_baseOffset);
             var bodyStart = fieldOffset + 1;
             var bodyLen = _written - bodyStart;
             body.Slice(bodyStart, bodyLen).CopyTo(body.Slice(bodyStart + extra, bodyLen));
             _written += extra;
         }
-        var span = _memory.Span;
+        var span = _array.AsSpan(_baseOffset);
         for (var i = 0; i < count; i++)
         {
             span[fieldOffset + i] = encoded[i];
@@ -248,8 +256,23 @@ internal struct PipeBufferWriter : IMqttBufferWriter
         // one and copy the partial header into it so back-patching stays possible. The previous
         // buffer is abandoned un-advanced (contributes nothing on flush). Rare: only headers that
         // outgrow the pipe's segment hit this path.
-        var newMemory = _output.GetMemory(required);
-        _memory.Span.Slice(0, _written).CopyTo(newMemory.Span);
-        _memory = newMemory;
+        var oldArray = _array;
+        var oldBase = _baseOffset;
+        var written = _written;
+        Bind(_output.GetMemory(required));
+        oldArray.AsSpan(oldBase, written).CopyTo(_array.AsSpan(_baseOffset));
+    }
+
+    private void Bind(Memory<byte> memory)
+    {
+        _memory = memory;
+        if (!MemoryMarshal.TryGetArray((ReadOnlyMemory<byte>)memory, out var seg)
+            || seg.Array is null)
+        {
+            throw new InvalidOperationException(
+                "PipeWriter buffer must be array-backed for direct packet encoding.");
+        }
+        _array = seg.Array;
+        _baseOffset = seg.Offset;
     }
 }
