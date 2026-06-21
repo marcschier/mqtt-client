@@ -77,20 +77,36 @@ internal static class MqttPacketDecoder
             return false;
         }
 
-        var reader = new MqttSequenceReader(buffer);
-        firstByte = reader.ReadByte();
+        uint remainingLength;
+        int lenBytes;
+        if (buffer.IsSingleSegment)
+        {
+            // Read the fixed header (first byte + remaining-length varint) straight from the span,
+            // skipping the MqttSequenceReader the general path would otherwise construct.
+            var headSpan = buffer.FirstSpan;
+            firstByte = headSpan[0];
+            if (!TryReadVarIntSpan(headSpan, 1, out remainingLength, out lenBytes))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            var reader = new MqttSequenceReader(buffer);
+            firstByte = reader.ReadByte();
+            remainingLength = TryReadVarInt(ref reader, out lenBytes, out var lenSuccess);
+            if (!lenSuccess) return false;
+        }
 
-        var remainingLength = TryReadVarInt(ref reader, out var lenBytes, out var lenSuccess);
-        if (!lenSuccess) return false;
         if (remainingLength > (uint)maxPacketSize)
         {
             throw new MqttProtocolException(
                 $"Incoming packet remaining length ({remainingLength}) exceeds " +
                 $"MaxIncomingPacketSize ({maxPacketSize}).");
         }
-        if (reader.Remaining < remainingLength) return false;
 
         var fixedHeaderBytes = 1 + lenBytes;
+        if (buffer.Length < fixedHeaderBytes + remainingLength) return false;
         var type = (MqttPacketType)(firstByte >> 4);
 
         // Fast path: a PUBLISH that lives in a single contiguous buffer (the overwhelmingly common
@@ -157,6 +173,37 @@ internal static class MqttPacketDecoder
             {
                 success = true;
                 return value;
+            }
+            multiplier *= 128;
+            if (multiplier > 128 * 128 * 128)
+            {
+                throw new MqttProtocolException("Malformed variable byte integer.");
+            }
+        }
+    }
+
+    private static bool TryReadVarIntSpan(
+        ReadOnlySpan<byte> span,
+        int start,
+        out uint value,
+        out int byteCount)
+    {
+        value = 0;
+        byteCount = 0;
+        var multiplier = 1u;
+        var i = start;
+        while (true)
+        {
+            if (i >= span.Length)
+            {
+                return false;
+            }
+            var b = span[i++];
+            byteCount++;
+            value += (uint)(b & 0x7F) * multiplier;
+            if ((b & 0x80) == 0)
+            {
+                return true;
             }
             multiplier *= 128;
             if (multiplier > 128 * 128 * 128)
