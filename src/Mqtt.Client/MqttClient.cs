@@ -457,25 +457,14 @@ public sealed class MqttClient : IAsyncDisposable
 
     private static void WritePayloadSegments(PipeWriter output, in ReadOnlySequence<byte> payload)
     {
-        // Write each segment in slices that fit the pipe's current segment without forcing a copy
-        // through an intermediate writer; PipeWriter pools segments internally.
+        // Copy each segment into the pipe via the framework's chunked writer, which fills the
+        // current pooled segment before requesting a new one. Requesting a fixed large sizeHint
+        // (e.g. GetMemory(payloadLen)) instead forces a fresh segment whenever it doesn't fit the
+        // current segment's remaining space, adding a per-publish allocation around buffer-size
+        // boundaries.
         foreach (var segment in payload)
         {
-            var remaining = segment;
-            while (!remaining.IsEmpty)
-            {
-                var dst = output.GetMemory(Math.Min(remaining.Length, 16 * 1024));
-                var n = Math.Min(dst.Length, remaining.Length);
-                if (n == 0)
-                {
-                    // Defensive: PipeWriter contract guarantees GetMemory returns >= sizeHint, so
-                    // this should never happen; throw rather than spin forever.
-                    throw new MqttConnectionException("PipeWriter returned zero-length buffer.");
-                }
-                remaining.Span.Slice(0, n).CopyTo(dst.Span);
-                output.Advance(n);
-                remaining = remaining.Slice(n);
-            }
+            output.Write(segment.Span);
         }
     }
 
