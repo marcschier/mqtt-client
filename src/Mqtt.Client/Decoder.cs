@@ -2,7 +2,9 @@
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Text;
 namespace Mqtt.Client;
 
 /// <summary>
@@ -89,10 +91,22 @@ internal static class MqttPacketDecoder
         if (reader.Remaining < remainingLength) return false;
 
         var fixedHeaderBytes = 1 + lenBytes;
+        var type = (MqttPacketType)(firstByte >> 4);
+
+        // Fast path: a PUBLISH that lives in a single contiguous buffer (the overwhelmingly common
+        // case) is decoded straight from the segment span, skipping the second MqttSequenceReader
+        // and the ReadOnlySequence.Slice that the general path constructs for the body.
+        if (type == MqttPacketType.Publish && buffer.IsSingleSegment)
+        {
+            packet = DecodePublishSingleSegment(
+                firstByte, buffer, fixedHeaderBytes, (int)remainingLength, version, poolPayload);
+            consumed = buffer.GetPosition(fixedHeaderBytes + remainingLength);
+            return true;
+        }
+
         var payload = buffer.Slice(fixedHeaderBytes, remainingLength);
         var payloadReader = new MqttSequenceReader(payload);
 
-        var type = (MqttPacketType)(firstByte >> 4);
         packet = type switch
         {
             MqttPacketType.ConnAck => DecodeConnAck(ref payloadReader, version),
@@ -291,6 +305,125 @@ internal static class MqttPacketDecoder
             PayloadMemory = payload,
             Properties = props,
         };
+    }
+
+    private static PublishPacket DecodePublishSingleSegment(
+        byte firstByte,
+        in ReadOnlySequence<byte> buffer,
+        int bodyOffset,
+        int bodyLen,
+        MqttProtocolVersion version,
+        bool poolPayload)
+    {
+        var body = buffer.FirstSpan.Slice(bodyOffset, bodyLen);
+        var qos = (MqttQoS)((firstByte >> 1) & 0x03);
+        var pos = 0;
+
+        var topicLen = ReadUInt16Span(body, ref pos);
+        EnsureSpan(body, pos, topicLen);
+        var topic = topicLen == 0
+            ? string.Empty
+            : Encoding.UTF8.GetString(body.Slice(pos, topicLen));
+        pos += topicLen;
+
+        ushort packetId = 0;
+        if (qos != MqttQoS.AtMostOnce)
+        {
+            packetId = ReadUInt16Span(body, ref pos);
+        }
+
+        MqttPublishProperties? props = null;
+        if (version == MqttProtocolVersion.V500)
+        {
+            var propLen = (int)ReadVarIntSpan(body, ref pos);
+            if (propLen > 0)
+            {
+                EnsureSpan(body, pos, propLen);
+                // Properties are comparatively rare; reuse the single-sourced sequence-based reader
+                // over a sub-sequence bounded to the property block.
+                var propReader = new MqttSequenceReader(buffer.Slice(bodyOffset + pos, propLen));
+                props = ReadPublishProperties(ref propReader, propLen, poolPayload);
+                pos += propLen;
+            }
+        }
+
+        var payloadLen = bodyLen - pos;
+        var retain = (firstByte & 0x01) != 0;
+        var dup = (firstByte & 0x08) != 0;
+        if (poolPayload)
+        {
+            // Zero-copy: leave the payload as a slice of the input buffer (the read loop copies it
+            // into a pooled buffer before advancing the pipe reader).
+            return new PublishPacket
+            {
+                Topic = topic,
+                PacketId = packetId,
+                QoS = qos,
+                Retain = retain,
+                Duplicate = dup,
+                Payload = buffer.Slice(bodyOffset + pos, payloadLen),
+                Properties = props,
+            };
+        }
+#if NETSTANDARD2_1
+        var payload = new byte[payloadLen];
+#else
+        var payload = GC.AllocateUninitializedArray<byte>(payloadLen);
+#endif
+        body.Slice(pos, payloadLen).CopyTo(payload);
+        return new PublishPacket
+        {
+            Topic = topic,
+            PacketId = packetId,
+            QoS = qos,
+            Retain = retain,
+            Duplicate = dup,
+            PayloadMemory = payload,
+            Properties = props,
+        };
+    }
+
+    private static ushort ReadUInt16Span(ReadOnlySpan<byte> span, ref int pos)
+    {
+        if ((uint)(pos + 2) > (uint)span.Length)
+        {
+            throw new MqttProtocolException("Unexpected end of packet.");
+        }
+        var value = BinaryPrimitives.ReadUInt16BigEndian(span.Slice(pos));
+        pos += 2;
+        return value;
+    }
+
+    private static uint ReadVarIntSpan(ReadOnlySpan<byte> span, ref int pos)
+    {
+        uint value = 0;
+        var multiplier = 1u;
+        while (true)
+        {
+            if ((uint)pos >= (uint)span.Length)
+            {
+                throw new MqttProtocolException("Unexpected end of packet.");
+            }
+            var b = span[pos++];
+            value += (uint)(b & 0x7F) * multiplier;
+            if ((b & 0x80) == 0)
+            {
+                return value;
+            }
+            multiplier *= 128;
+            if (multiplier > 128 * 128 * 128)
+            {
+                throw new MqttProtocolException("Malformed variable byte integer.");
+            }
+        }
+    }
+
+    private static void EnsureSpan(ReadOnlySpan<byte> span, int pos, int length)
+    {
+        if (length < 0 || (uint)(pos + length) > (uint)span.Length)
+        {
+            throw new MqttProtocolException("Unexpected end of packet.");
+        }
     }
 
     private static MqttPublishProperties ReadPublishProperties(
