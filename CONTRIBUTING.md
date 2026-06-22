@@ -24,8 +24,8 @@ dotnet build tests/Mqtt.Client.UnitTests -c Release
 # Integration tests (uses in-process MQTTnet broker, net10 only)
 ./tests/Mqtt.Client.IntegrationTests/bin/Release/net10.0/Mqtt.Client.IntegrationTests
 
-# AOT smoke (publishes with PublishAot=true; CI gate against trim warnings)
-dotnet publish tests/Mqtt.Client.AotTests -c Release
+# NativeAOT gate (publishes the unit suite with PublishAot=true and runs the native binary)
+dotnet publish tests/Mqtt.Client.UnitTests -c Release -f net10.0
 ```
 
 ## Coverage

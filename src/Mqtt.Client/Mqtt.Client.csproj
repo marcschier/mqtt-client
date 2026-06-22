@@ -57,7 +57,6 @@
     <InternalsVisibleTo Include="Mqtt.Client.UnitTests" />
     <InternalsVisibleTo Include="Mqtt.Client.IntegrationTests" />
     <InternalsVisibleTo Include="Mqtt.Client.Benchmarks" />
-    <InternalsVisibleTo Include="Mqtt.Client.AotTests" />
     <InternalsVisibleTo Include="Mqtt.Client.FuzzTests" />
   </ItemGroup>
 

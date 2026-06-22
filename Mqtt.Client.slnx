@@ -3,7 +3,7 @@
     <Project Path="src/Mqtt.Client/Mqtt.Client.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Mqtt.Client.AotTests/Mqtt.Client.AotTests.csproj" />
+    <Project Path="tests/Mqtt.Client.ApiTests/Mqtt.Client.ApiTests.csproj" />
     <Project Path="tests/Mqtt.Client.Benchmarks/Mqtt.Client.Benchmarks.csproj" />
     <Project Path="tests/Mqtt.Client.FuzzTests/Mqtt.Client.FuzzTests.csproj" />
     <Project Path="tests/Mqtt.Client.IntegrationTests/Mqtt.Client.IntegrationTests.csproj" />

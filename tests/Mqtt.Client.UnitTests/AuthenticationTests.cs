@@ -231,10 +231,15 @@ public class AuthenticationTests
         public string Method => "PLAIN";
         public TaskCompletionSource<MqttAuthenticationResult> Gate { get; }
             = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Entered { get; }
+            = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public async ValueTask<MqttAuthenticationResult> ContinueAsync(
             ReadOnlyMemory<byte>? challenge,
             CancellationToken cancellationToken)
-            => await Gate.Task.ConfigureAwait(false);
+        {
+            Entered.TrySetResult();
+            return await Gate.Task.ConfigureAwait(false);
+        }
     }
 
     [Test]
@@ -249,18 +254,22 @@ public class AuthenticationTests
         await broker.SendConnAckAsync(MqttReasonCode.Success, ct: ct);
         await connectTask;
 
+        using var firstCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var slow = new GatedHandler();
-        var first = client.ReauthenticateAsync(slow, ct);
-        // Yield so the first call has registered _pendingAuth before the second attempt.
-        await Task.Delay(50, ct);
+        var first = client.ReauthenticateAsync(slow, firstCts.Token);
+        // Wait until the first call has entered the handler — by then it has already registered
+        // _pendingAuth — so the concurrent attempt below is guaranteed to observe it.
+        await slow.Entered.Task;
 
         var fastHandler = new StepHandler("PLAIN", (i, c) => MqttAuthenticationResult.Final());
         await Assert.That(async () => await client.ReauthenticateAsync(fastHandler, ct))
             .ThrowsExactly<InvalidOperationException>();
 
-        // Cleanup the first call.
+        // Cleanup: release the gate so the first call sends its AUTH, then cancel it so its pending
+        // inbound-AUTH wait completes immediately rather than blocking until the test timeout fires.
         slow.Gate.SetResult(MqttAuthenticationResult.Final());
         try { await broker.ReadDecodedPacketAsync(ct); } catch { }
+        firstCts.Cancel();
         try { await first; } catch { }
     }
 }

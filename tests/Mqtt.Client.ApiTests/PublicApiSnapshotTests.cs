@@ -4,11 +4,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text;
 
-namespace Mqtt.Client.UnitTests;
+namespace Mqtt.Client.ApiTests;
 
 /// <summary>
 /// Public API snapshot guard. Any change to the public surface of <c>Mqtt.Client</c> must be
-/// reflected in <c>tests/Mqtt.Client.UnitTests/PublicApi.expected.txt</c>. This is the
+/// reflected in <c>tests/Mqtt.Client.ApiTests/PublicApi.expected.txt</c>. This is the
 /// minimum guardrail to keep semver-major changes intentional once v1.0 ships.
 /// </summary>
 public class PublicApiSnapshotTests

@@ -8,20 +8,18 @@
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <NoWarn>$(NoWarn);CA1707;CA2007</NoWarn>
-    <!-- AOT-publish the unit suite (net10 only) so the full surface is exercised under NativeAOT
-         in CI; scoped to net10 so normal net8/9/10 build+run and the library's netstandard2.1
-         TFM are unaffected (PublishAot affects 'dotnet publish' only). -->
-    <PublishAot Condition="'$(TargetFramework)' == 'net10.0'">true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="TUnit" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-    <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mqtt.Client\Mqtt.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="PublicApi.expected.txt" CopyToOutputDirectory="Always" />
   </ItemGroup>
 
 </Project>

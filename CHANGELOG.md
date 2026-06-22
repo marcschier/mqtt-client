@@ -59,6 +59,11 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
   operation. Publish-ack latency timing uses `Stopwatch.GetTimestamp()` (no `Stopwatch` allocation).
 - Outbound MQTT 5 authentication data is held as `ReadOnlyMemory<byte>` and written directly (no
   `byte[]` copy); `FileSessionStore` writes through a pooled buffer.
+- **Testing/CI:** the full unit-test suite now runs under **NativeAOT** in CI — the
+  `net8.0`/`net9.0`/`net10.0` TUnit suite is additionally published with `PublishAot` on `net10.0`
+  and the native binary is executed as a trim/AOT gate — replacing the standalone `AotTests` smoke
+  project. The reflection-based public-API snapshot test moved to a dedicated
+  `Mqtt.Client.ApiTests` project so it is excluded from the AOT-published suite.
 
 ### Notes
 - The receive hot path now allocates **no `byte[]`**: inline handlers are fully zero-copy, and the

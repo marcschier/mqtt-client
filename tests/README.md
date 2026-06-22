@@ -29,6 +29,16 @@ dotnet test tests/Mqtt.Client.UnitTests
 ./tests/Mqtt.Client.UnitTests/bin/Debug/net10.0/Mqtt.Client.UnitTests.exe --no-ansi --no-progress
 ```
 
+In CI the unit suite is **also published with NativeAOT** (`net10.0`) and the native
+binary is run as a trim/AOT gate: any new trim or AOT warning fails the build, and the
+tests must pass when no JIT is available. `PublishAot` is scoped to `net10.0` in the
+csproj, so normal `net8.0`/`net9.0`/`net10.0` build+run is unaffected.
+
+```bash
+dotnet publish tests/Mqtt.Client.UnitTests -c Release -f net10.0
+./tests/Mqtt.Client.UnitTests/bin/Release/net10.0/<rid>/publish/Mqtt.Client.UnitTests --no-ansi --no-progress
+```
+
 ## `Mqtt.Client.IntegrationTests/` — TUnit, net10.0
 
 Spins up an in-process `MQTTnet.Server` on a random ephemeral port and exercises
@@ -54,15 +64,17 @@ dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- --filter '*' --r
 `--report` regenerates `docs/benchmarks.md` and the README summary table via
 `Reporting/SummaryGenerator.cs`. See [`docs/benchmarks.md`](../docs/benchmarks.md).
 
-## `Mqtt.Client.AotTests/` — net10.0, PublishAot
+## `Mqtt.Client.ApiTests/` — TUnit, multi-TFM
 
-Single-binary smoke test that publishes with `PublishAot=true` and exercises the
-full library surface (build client, encode publish, roundtrip via decoder, run the
-trie). Used as a CI gate; any new trim or AOT warning fails the build.
+Public-API snapshot guard. Reflects over the exported types and members of
+`Mqtt.Client` and compares them against `PublicApi.expected.txt`, failing on any
+unintended change to the public surface (the minimum guardrail for intentional
+semver-major changes). It lives in its own project because it relies on reflection and
+is therefore **excluded from the NativeAOT-published unit suite**. After an intentional
+API change, delete `PublicApi.expected.txt` and re-run to regenerate the baseline.
 
 ```bash
-dotnet publish tests/Mqtt.Client.AotTests -c Release
-./tests/Mqtt.Client.AotTests/bin/Release/net10.0/<rid>/publish/Mqtt.Client.AotTests.exe
+./tests/Mqtt.Client.ApiTests/bin/Release/net10.0/Mqtt.Client.ApiTests.exe --no-ansi --no-progress
 ```
 
 ## `Mqtt.Client.FuzzTests/` — SharpFuzz + libFuzzer (Linux)
