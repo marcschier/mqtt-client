@@ -44,12 +44,18 @@ public static class SummaryGenerator
             $"_Generated {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC._");
         docs.AppendLine();
         docs.AppendLine(
-            "[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested " +
-            ".NET MQTT library.");
+            "[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested .NET " +
+            "MQTT library. These benchmarks are not a verdict on MQTTnet — they exist to " +
+            "make tradeoffs visible for callers choosing between the two clients. See the " +
+            "README's \"When to pick MQTTnet instead\" section for guidance.");
+        docs.AppendLine();
         docs.AppendLine(
-            "These benchmarks are not a verdict on MQTTnet — they exist to make tradeoffs visible");
-        docs.AppendLine("for callers choosing between the two clients. See the README's");
-        docs.AppendLine("\"When to pick MQTTnet instead\" section for guidance.");
+            "Each section below opens with a one-line note on what that benchmark measures. " +
+            "They fall into two groups: **codec micro-benchmarks** (in-memory encode/decode " +
+            "— no broker, no network) and **end-to-end benchmarks** (a real in-process " +
+            "MQTTnet broker over a TCP loopback, exercising the full client stack per " +
+            "operation). In every table the MQTTnet row is the baseline (Ratio = 1.00), and " +
+            "`PayloadSize` is the MQTT payload length in bytes.");
         docs.AppendLine();
         docs.AppendLine("Run with:");
         docs.AppendLine("```");
@@ -64,10 +70,15 @@ public static class SummaryGenerator
         foreach (var md in Directory.EnumerateFiles(resultsDir, "*-report-github.md")
             .OrderBy(f => f))
         {
-            docs.AppendLine(
-                CultureInfo.InvariantCulture,
-                $"## {Path.GetFileNameWithoutExtension(md)}");
+            var name = Path.GetFileNameWithoutExtension(md);
+            docs.AppendLine(CultureInfo.InvariantCulture, $"## {name}");
             docs.AppendLine();
+            var description = DescribeBenchmark(name);
+            if (description.Length > 0)
+            {
+                docs.AppendLine(description);
+                docs.AppendLine();
+            }
             docs.AppendLine(File.ReadAllText(md).Trim());
             docs.AppendLine();
         }
@@ -100,6 +111,75 @@ public static class SummaryGenerator
         }
         File.WriteAllText(readmePath, readme);
         Console.WriteLine($"[SummaryGenerator] Updated README summary at {readmePath}");
+    }
+
+    private static string DescribeBenchmark(string reportName)
+    {
+        if (reportName.Contains("EncodePublish", StringComparison.Ordinal))
+        {
+            return "**Codec micro-benchmark.** Serialises a single MQTT 5 PUBLISH packet " +
+                "(QoS 0, topic `bench/encode`) to its wire bytes, once per `PayloadSize`. Both " +
+                "clients reuse one array-backed buffer across iterations (no per-operation " +
+                "`ArrayPool` churn) and write the fixed header separately from the payload " +
+                "(payload bytes are never copied into the header buffer), so it isolates the " +
+                "raw encode-logic cost on equal footing. No broker or socket is involved.";
+        }
+        if (reportName.Contains("DecodePublish", StringComparison.Ordinal))
+        {
+            return "**Codec micro-benchmark.** The inverse of the encode test: parses the " +
+                "bytes of one pre-encoded MQTT 5 PUBLISH back into a packet object, once per " +
+                "`PayloadSize`. The same wire bytes (produced once by our encoder — the " +
+                "on-wire format is identical) feed both decoders, so it measures pure parse " +
+                "cost: the var-int remaining-length, the topic, and the payload " +
+                "slice/allocation. No broker or socket is involved.";
+        }
+        if (reportName.Contains("EncodeSubscribe", StringComparison.Ordinal))
+        {
+            return "**Codec micro-benchmark.** Serialises one MQTT 5 SUBSCRIBE packet " +
+                "carrying two topic filters (`sensors/+/temp` at QoS 1 and `commands/#` at " +
+                "QoS 0) to its wire bytes. There is no payload-size parameter — it is a small, " +
+                "fixed packet that exercises topic-filter and per-filter QoS/options encoding " +
+                "rather than bulk payload throughput.";
+        }
+        if (reportName.Contains("ConnectLatency", StringComparison.Ordinal))
+        {
+            return "**End-to-end.** Measures one full connect + disconnect cycle — TCP " +
+                "handshake, CONNECT/CONNACK, then DISCONNECT — creating a brand-new client per " +
+                "invocation so the complete handshake cost is captured. It runs with a small, " +
+                "fixed invocation count so neither client exhausts the OS ephemeral-port range " +
+                "(which would surface as `SocketException 10048`); the figure is handshake " +
+                "latency, not throughput. There is no payload-size parameter.";
+        }
+        if (reportName.Contains("PublishQoS0", StringComparison.Ordinal))
+        {
+            return "**End-to-end.** Times a single `PublishAsync` at QoS 0 (at-most-once — " +
+                "fire-and-forget, the broker sends no acknowledgement) per invocation, for each " +
+                "`PayloadSize`. This is the leanest publish path: serialise the PUBLISH and " +
+                "write it to the socket, with no return round-trip to await.";
+        }
+        if (reportName.Contains("PublishQoS1", StringComparison.Ordinal))
+        {
+            return "**End-to-end.** Times a single `PublishAsync` at QoS 1 (at-least-once) per " +
+                "invocation, for each `PayloadSize`. The call completes only once the broker's " +
+                "PUBACK arrives, so each measurement includes one network round-trip plus the " +
+                "packet-id allocation and ack-correlation work.";
+        }
+        if (reportName.Contains("PublishQoS2", StringComparison.Ordinal))
+        {
+            return "**End-to-end.** Times a single `PublishAsync` at QoS 2 (exactly-once) per " +
+                "invocation, for each `PayloadSize`. This drives the full four-packet handshake " +
+                "— PUBLISH → PUBREC → PUBREL → PUBCOMP, i.e. two round-trips — making it the " +
+                "most expensive delivery guarantee to benchmark.";
+        }
+        if (reportName.Contains("SubscribeReceive", StringComparison.Ordinal))
+        {
+            return "**End-to-end.** Measures receive throughput: a separate publisher " +
+                "connection publishes one QoS 0 message and the subscribed client-under-test " +
+                "waits to read it from its channel, for each `PayloadSize`. The application " +
+                "messages are pre-built during setup, so only publish → broker fan-out → " +
+                "client receive/dispatch is timed.";
+        }
+        return string.Empty;
     }
 
     private static string? FindResultsDir()

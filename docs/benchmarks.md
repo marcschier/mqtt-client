@@ -2,10 +2,9 @@
 
 _Generated 2026-06-21 19:04 UTC._
 
-[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested .NET MQTT library.
-These benchmarks are not a verdict on MQTTnet — they exist to make tradeoffs visible
-for callers choosing between the two clients. See the README's
-"When to pick MQTTnet instead" section for guidance.
+[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested .NET MQTT library. These benchmarks are not a verdict on MQTTnet — they exist to make tradeoffs visible for callers choosing between the two clients. See the README's "When to pick MQTTnet instead" section for guidance.
+
+Each section below opens with a one-line note on what that benchmark measures. They fall into two groups: **codec micro-benchmarks** (in-memory encode/decode — no broker, no network) and **end-to-end benchmarks** (a real in-process MQTTnet broker over a TCP loopback, exercising the full client stack per operation). In every table the MQTTnet row is the baseline (Ratio = 1.00), and `PayloadSize` is the MQTT payload length in bytes.
 
 Run with:
 ```
@@ -14,6 +13,8 @@ dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- --filter '*' --f
 ```
 
 ## Mqtt.Client.Benchmarks.ConnectLatencyBenchmark-report-github
+
+**End-to-end.** Measures one full connect + disconnect cycle — TCP handshake, CONNECT/CONNACK, then DISCONNECT — creating a brand-new client per invocation so the complete handshake cost is captured. It runs with a small, fixed invocation count so neither client exhausts the OS ephemeral-port range (which would surface as `SocketException 10048`); the figure is handshake latency, not throughput. There is no payload-size parameter.
 
 ```
 
@@ -33,6 +34,8 @@ WarmupCount=3
 | Mqtt.Client | 3.936 ms | 0.4784 ms | 0.2847 ms |  0.94 |    0.09 |  43.57 KB |        1.12 |
 
 ## Mqtt.Client.Benchmarks.DecodePublishBenchmark-report-github
+
+**Codec micro-benchmark.** The inverse of the encode test: parses the bytes of one pre-encoded MQTT 5 PUBLISH back into a packet object, once per `PayloadSize`. The same wire bytes (produced once by our encoder — the on-wire format is identical) feed both decoders, so it measures pure parse cost: the var-int remaining-length, the topic, and the payload slice/allocation. No broker or socket is involved.
 
 ```
 
@@ -66,6 +69,8 @@ Intel Xeon W-2235 CPU 3.80GHz, 1 CPU, 12 logical and 6 physical cores
 
 ## Mqtt.Client.Benchmarks.EncodePublishBenchmark-report-github
 
+**Codec micro-benchmark.** Serialises a single MQTT 5 PUBLISH packet (QoS 0, topic `bench/encode`) to its wire bytes, once per `PayloadSize`. Both clients reuse one array-backed buffer across iterations (no per-operation `ArrayPool` churn) and write the fixed header separately from the payload (payload bytes are never copied into the header buffer), so it isolates the raw encode-logic cost on equal footing. No broker or socket is involved.
+
 ```
 
 BenchmarkDotNet v0.14.0, Windows 11 (10.0.26200.8655)
@@ -98,6 +103,8 @@ Intel Xeon W-2235 CPU 3.80GHz, 1 CPU, 12 logical and 6 physical cores
 
 ## Mqtt.Client.Benchmarks.EncodeSubscribeBenchmark-report-github
 
+**Codec micro-benchmark.** Serialises one MQTT 5 SUBSCRIBE packet carrying two topic filters (`sensors/+/temp` at QoS 1 and `commands/#` at QoS 0) to its wire bytes. There is no payload-size parameter — it is a small, fixed packet that exercises topic-filter and per-filter QoS/options encoding rather than bulk payload throughput.
+
 ```
 
 BenchmarkDotNet v0.14.0, Windows 11 (10.0.26200.8655)
@@ -114,6 +121,8 @@ Intel Xeon W-2235 CPU 3.80GHz, 1 CPU, 12 logical and 6 physical cores
 | Mqtt.Client | 47.00 ns | 0.449 ns | 0.398 ns |  0.83 |         - |          NA |
 
 ## Mqtt.Client.Benchmarks.PublishQoS0Benchmark-report-github
+
+**End-to-end.** Times a single `PublishAsync` at QoS 0 (at-most-once — fire-and-forget, the broker sends no acknowledgement) per invocation, for each `PayloadSize`. This is the leanest publish path: serialise the PUBLISH and write it to the socket, with no return round-trip to await.
 
 ```
 
@@ -150,6 +159,8 @@ Intel Xeon W-2235 CPU 3.80GHz, 1 CPU, 12 logical and 6 physical cores
 
 ## Mqtt.Client.Benchmarks.PublishQoS1Benchmark-report-github
 
+**End-to-end.** Times a single `PublishAsync` at QoS 1 (at-least-once) per invocation, for each `PayloadSize`. The call completes only once the broker's PUBACK arrives, so each measurement includes one network round-trip plus the packet-id allocation and ack-correlation work.
+
 ```
 
 BenchmarkDotNet v0.14.0, Windows 11 (10.0.26200.8655)
@@ -185,6 +196,8 @@ Intel Xeon W-2235 CPU 3.80GHz, 1 CPU, 12 logical and 6 physical cores
 
 ## Mqtt.Client.Benchmarks.PublishQoS2Benchmark-report-github
 
+**End-to-end.** Times a single `PublishAsync` at QoS 2 (exactly-once) per invocation, for each `PayloadSize`. This drives the full four-packet handshake — PUBLISH → PUBREC → PUBREL → PUBCOMP, i.e. two round-trips — making it the most expensive delivery guarantee to benchmark.
+
 ```
 
 BenchmarkDotNet v0.14.0, Windows 11 (10.0.26200.8655)
@@ -219,6 +232,8 @@ Intel Xeon W-2235 CPU 3.80GHz, 1 CPU, 12 logical and 6 physical cores
 | Mqtt.Client | 1048576     | 3,802.7 μs | 87.90 μs | 246.49 μs | 3,790.2 μs |  1.28 |    0.12 | 62.5000 | 62.5000 | 62.5000 |  2074.2 KB |        1.00 |
 
 ## Mqtt.Client.Benchmarks.SubscribeReceiveBenchmark-report-github
+
+**End-to-end.** Measures receive throughput: a separate publisher connection publishes one QoS 0 message and the subscribed client-under-test waits to read it from its channel, for each `PayloadSize`. The application messages are pre-built during setup, so only publish → broker fan-out → client receive/dispatch is timed.
 
 ```
 
