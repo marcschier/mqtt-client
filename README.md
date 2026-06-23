@@ -76,6 +76,7 @@ var retaining = MqttClient.CreateBuilder()
 - [Advanced](docs/advanced.md) — custom transport, persistence, AOT, metrics
 - [Troubleshooting](docs/troubleshooting.md)
 - [Spec conformance](docs/conformance.md)
+- [Benchmarks](docs/benchmarks.md) — Mqtt.Client vs MQTTnet, full results matrix
 
 ## 🔍 When to pick [MQTTnet](https://github.com/dotnet/MQTTnet) instead
 
@@ -95,20 +96,3 @@ are MIT-licensed and the protocol wire formats are identical.
 
 Found something? Please file privately via GitHub Security Advisories — see
 [SECURITY.md](SECURITY.md).
-
-## Benchmarks (latest run)
-
-<!-- benchmarks:start -->
-_Headline rows from the latest BenchmarkDotNet run (PayloadMemory = 256 B). See `docs/benchmarks.md` for the full matrix._
-
-| Scenario | Client | Mean | Allocated | Ratio vs MQTTnet |
-| --- | --- | ---: | ---: | ---: |
-| PublishQoS0 | MqttClient_Publish | 5.60 µs | 1,441 B | 0.13 |
-| PublishQoS0 | Mqttnet_Publish | 43.58 µs | 2,056 B | 1.00 |
-| PublishQoS1 | MqttClient_Publish | 117.21 µs | 2,944 B | 0.77 |
-| PublishQoS1 | Mqttnet_Publish | 152.22 µs | 4,274 B | 1.00 |
-| PublishQoS2 | MqttClient_Publish | 249.42 µs | 4,496 B | 0.87 |
-| PublishQoS2 | Mqttnet_Publish | 286.65 µs | 7,251 B | 1.00 |
-| SubscribeReceive | MqttClient_Receive | 161.16 µs | 4,051 B | 1.15 |
-| SubscribeReceive | Mqttnet_Receive | 139.68 µs | 5,573 B | 1.00 |
-<!-- benchmarks:end -->
