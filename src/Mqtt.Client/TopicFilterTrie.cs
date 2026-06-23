@@ -2,12 +2,15 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Mqtt.Client;
 
 /// <summary>
 /// Topic-filter trie supporting MQTT wildcards <c>+</c> (single level) and <c>#</c> (multi-level).
-/// All matching is allocation-free (uses spans, no string splits at match time).
+/// Matching uses spans and, on .NET 9+, an alternate-key dictionary lookup so no per-segment key
+/// strings are allocated; on older TFMs the segment key is materialized for the lookup only.
 /// </summary>
 internal sealed class TopicFilterTrie<T> where T : class
 {
@@ -101,7 +104,7 @@ internal sealed class TopicFilterTrie<T> where T : class
 
         if (node.Children is null) return;
 
-        if (node.Children.TryGetValue(segment.ToString(), out var literal))
+        if (TryGetChild(node.Children, segment, out var literal))
         {
             MatchRecursive(literal, rest, isFirstSegment: false, action);
         }
@@ -116,6 +119,21 @@ internal sealed class TopicFilterTrie<T> where T : class
                 foreach (var v in hash.Values) action(v);
             }
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool TryGetChild(
+        Dictionary<string, Node> children,
+        ReadOnlySpan<char> key,
+        [MaybeNullWhen(false)] out Node child)
+    {
+#if NET9_0_OR_GREATER
+        // Alternate-key lookup: hashes/compares the span directly against the Ordinal-keyed
+        // dictionary, so no per-segment key string is allocated on the match hot path.
+        return children.GetAlternateLookup<ReadOnlySpan<char>>().TryGetValue(key, out child);
+#else
+        return children.TryGetValue(key.ToString(), out child);
+#endif
     }
 
     private sealed class Node
