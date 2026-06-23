@@ -51,6 +51,14 @@ public static class SummaryGenerator
             "operation). In every table the MQTTnet row is the baseline (Ratio = 1.00), and " +
             "`PayloadSize` is the MQTT payload length in bytes.");
         docs.AppendLine();
+        docs.AppendLine(
+            "Read each `Ratio` next to its `Error`/`StdDev` columns. The end-to-end benchmarks " +
+            "carry real run-to-run variance (loopback scheduling, GC, and other processes on the " +
+            "machine), so a single cell that is within ~10–15% of 1.00 — or that is not " +
+            "corroborated by the neighbouring payload sizes and the other QoS levels — is noise, " +
+            "not a regression. The codec micro-benchmarks and the allocation columns are the " +
+            "more stable signal.");
+        docs.AppendLine();
         docs.AppendLine("Run with:");
         docs.AppendLine("```");
         docs.AppendLine(
