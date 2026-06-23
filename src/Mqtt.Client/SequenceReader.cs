@@ -51,6 +51,17 @@ internal ref struct MqttSequenceReader
 
     public SequencePosition Position => _single ? _sequence.GetPosition(_pos) : _reader.Position;
 
+    // Guards a length-prefixed read against the unread remainder so a malformed/oversized length
+    // throws MqttProtocolException (the decoder's contract) instead of letting
+    // ReadOnlySequence.Slice raise ArgumentOutOfRangeException.
+    private void EnsureRemaining(int length)
+    {
+        if (length < 0 || length > Remaining)
+        {
+            throw new MqttProtocolException("Unexpected end of packet.");
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public byte ReadByte()
     {
@@ -153,6 +164,7 @@ internal ref struct MqttSequenceReader
 
     private string ReadStringPayloadSegmented(int length)
     {
+        EnsureRemaining(length);
         var slice = UnreadSequence.Slice(0, length);
         _reader.Advance(length);
         var rented = ArrayPool<byte>.Shared.Rent(length);
@@ -184,6 +196,7 @@ internal ref struct MqttSequenceReader
             _pos += length;
             return arr;
         }
+        EnsureRemaining(length);
         var slice = UnreadSequence.Slice(0, length);
         _reader.Advance(length);
         var copy = new byte[length];
@@ -202,6 +215,7 @@ internal ref struct MqttSequenceReader
         {
             return ReadOnlyMemory<byte>.Empty;
         }
+        EnsureRemaining(length);
         var slice = UnreadSequence.Slice(0, length);
         Advance(length);
         if (slice.IsSingleSegment)
@@ -215,6 +229,7 @@ internal ref struct MqttSequenceReader
 
     public ReadOnlySequence<byte> ReadSequence(int length)
     {
+        EnsureRemaining(length);
         var slice = UnreadSequence.Slice(0, length);
         Advance(length);
         return slice;

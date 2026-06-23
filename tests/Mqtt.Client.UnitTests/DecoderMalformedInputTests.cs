@@ -79,4 +79,45 @@ public class DecoderMalformedInputTests
         }
         finally { w.Dispose(); }
     }
+
+    [Test]
+    [Arguments(3)]
+    [Arguments(5)]
+    [Arguments(16)]
+    [Arguments(31)]
+    public async Task Decoder_throws_protocol_exception_on_multisegment_oversized_topic(int split)
+    {
+        // PUBLISH (QoS 1), remaining length 30; the body declares a 65535-byte topic that overruns
+        // the packet. Split across two segments so decoding takes the SequenceReader path, which
+        // must surface MqttProtocolException — not ArgumentOutOfRangeException from Slice.
+        var packet = new byte[32];
+        packet[0] = 0x32;       // PUBLISH, QoS 1
+        packet[1] = 0x1E;       // remaining length = 30
+        packet[2] = 0xFF;       // topic length high byte
+        packet[3] = 0xFF;       // topic length low byte (65535, far past the packet)
+        var seq = Segmented(packet, split);
+        await Assert.That(() =>
+        {
+            MqttPacketDecoder.TryDecode(seq, MqttProtocolVersion.V500, out _, out _, out _);
+        }).Throws<MqttProtocolException>();
+    }
+
+    private static ReadOnlySequence<byte> Segmented(byte[] data, int split)
+    {
+        var first = new Seg(data.AsMemory(0, split));
+        var last = first.Append(data.AsMemory(split));
+        return new ReadOnlySequence<byte>(first, 0, last, last.Memory.Length);
+    }
+
+    private sealed class Seg : ReadOnlySequenceSegment<byte>
+    {
+        public Seg(ReadOnlyMemory<byte> memory) => Memory = memory;
+
+        public Seg Append(ReadOnlyMemory<byte> memory)
+        {
+            var next = new Seg(memory) { RunningIndex = RunningIndex + Memory.Length };
+            Next = next;
+            return next;
+        }
+    }
 }
