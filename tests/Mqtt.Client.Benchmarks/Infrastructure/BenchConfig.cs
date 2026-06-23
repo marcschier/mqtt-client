@@ -7,6 +7,7 @@ using BenchmarkDotNet.Exporters.Csv;
 using BenchmarkDotNet.Exporters.Json;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Loggers;
+using Perfolizer.Mathematics.OutlierDetection;
 
 namespace Mqtt.Client.Benchmarks;
 
@@ -16,7 +17,18 @@ public sealed class BenchConfig : ManualConfig
 
     public BenchConfig(bool full)
     {
-        AddJob(full ? Job.Default : Job.ShortRun);
+        // The full job is tuned for a noisy, occasionally-contended host: a short warmup plus a
+        // bounded iteration band lets BDN's adaptive engine settle without unbounded runtime, and
+        // RemoveUpper drops the slow spikes caused by other processes stealing the core. Keeping
+        // LaunchCount at the default (1) keeps a full idle-window run tractable. ShortRun stays
+        // minimal for quick local checks.
+        AddJob(full
+            ? Job.Default
+                .WithWarmupCount(5)
+                .WithMinIterationCount(15)
+                .WithMaxIterationCount(30)
+                .WithOutlierMode(OutlierMode.RemoveUpper)
+            : Job.ShortRun);
         AddDiagnoser(MemoryDiagnoser.Default);
         AddExporter(MarkdownExporter.GitHub);
         AddExporter(CsvExporter.Default);
