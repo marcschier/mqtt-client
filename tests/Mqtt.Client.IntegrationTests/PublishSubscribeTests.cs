@@ -112,4 +112,38 @@ public class PublishSubscribeTests
         var received = await sub.Reader.ReadAsync();
         await Assert.That(received.Topic).IsEqualTo("itest/qos2");
     }
+
+    [Test]
+    [Timeout(15_000)]
+    public async Task LargePayload_RoundTrip_MultiSegment(CancellationToken ct)
+    {
+        await using var broker = await InProcessBroker.StartAsync();
+        var client = MqttClient.CreateBuilder()
+            .ConnectTo($"mqtt://localhost:{broker.Port}")
+            .WithClientId($"test-{Guid.NewGuid():N}")
+            .WithProtocol(MqttProtocolVersion.V500)
+            .Configure(o => o.MaxIncomingPacketSize = 1024 * 1024)
+            .Build();
+        await using var _ = client;
+        await client.ConnectAsync();
+
+        var sub = await client.SubscribeAsync(
+            "itest/large",
+            new MqttSubscriptionOptions { QoS = MqttQoS.AtLeastOnce });
+        await using var __ = sub;
+
+        // Far larger than the 8 KB outbound pipe segment, spanning enough segments to take the
+        // scatter-gather socket send path (the payload must arrive byte-for-byte intact).
+        var payload = new byte[600_000];
+        for (var i = 0; i < payload.Length; i++)
+        {
+            payload[i] = (byte)((i * 31) + 7);
+        }
+        var result = await client.PublishAsync("itest/large", payload, MqttQoS.AtLeastOnce);
+        await Assert.That(result.IsSuccess).IsTrue();
+
+        var received = await sub.Reader.ReadAsync();
+        await Assert.That(received.PayloadMemory.Length).IsEqualTo(payload.Length);
+        await Assert.That(received.PayloadMemory.Span.SequenceEqual(payload)).IsTrue();
+    }
 }

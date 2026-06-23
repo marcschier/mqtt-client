@@ -13,6 +13,8 @@
     <PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
     <PackageVersion Include="System.Diagnostics.DiagnosticSource" Version="9.0.0" />
+    <PackageVersion Include="Pipelines.Sockets.Unofficial" Version="2.2.16" />
+    <PackageVersion Include="WebSocketPipe" Version="0.9.0" />
   </ItemGroup>
 
   <ItemGroup Label="Versioning">

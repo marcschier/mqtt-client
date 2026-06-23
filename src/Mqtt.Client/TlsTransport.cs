@@ -1,6 +1,5 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-using System;
 using System.IO.Pipelines;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -8,36 +7,42 @@ using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
+using Pipelines.Sockets.Unofficial;
 
 namespace Mqtt.Client;
 
 /// <summary>
-/// Connects over TCP+TLS (MQTTS / WebSocket-secure variant left for a future transport).
+/// Connects over TCP+TLS (MQTTS). The encrypted <see cref="SslStream"/> is adapted to a duplex pipe
+/// via Pipelines.Sockets.Unofficial's <see cref="StreamConnection"/> (a raw socket-backed zero-copy
+/// pipe isn't possible once TLS owns the byte stream).
 /// </summary>
 internal sealed class TlsTransport : IMqttTransport
 {
     private readonly SslStream _ssl;
     private readonly Socket _socket;
-    private readonly StreamPipeReader _reader;
-    private readonly StreamPipeWriter _writer;
+    private readonly IDuplexPipe _pipe;
 
     public TlsTransport(Socket socket, SslStream sslStream)
     {
         _socket = socket;
         _ssl = sslStream;
-        _reader = new StreamPipeReader(sslStream);
-        _writer = new StreamPipeWriter(sslStream);
+        var pipeOptions = new PipeOptions(
+            pauseWriterThreshold: 1024 * 1024,
+            resumeWriterThreshold: 512 * 1024,
+            minimumSegmentSize: 8 * 1024,
+            useSynchronizationContext: false);
+        _pipe = StreamConnection.GetDuplex(sslStream, pipeOptions);
         RemoteAddress = socket.RemoteEndPoint?.ToString();
     }
 
-    public PipeReader Input => _reader.Pipe;
-    public PipeWriter Output => _writer.Pipe;
+    public PipeReader Input => _pipe.Input;
+    public PipeWriter Output => _pipe.Output;
     public string? RemoteAddress { get; }
 
     public async ValueTask DisposeAsync()
     {
-        try { await _writer.CompleteAsync().ConfigureAwait(false); } catch { }
-        try { await _reader.CompleteAsync().ConfigureAwait(false); } catch { }
+        try { _pipe.Output.Complete(); } catch { }
+        try { _pipe.Input.Complete(); } catch { }
         await _ssl.DisposeAsync().ConfigureAwait(false);
         _socket.Dispose();
     }

@@ -24,7 +24,9 @@ public sealed class MqttClient : IAsyncDisposable
     private readonly IMqttTransportFactory _transportFactory;
     private readonly ILogger _logger;
     private readonly MqttMetrics _metrics;
-    private readonly IPersistentSessionStore _persistence;
+    // Holds an injected store, or null. The default in-memory store is created on demand (no hot
+    // path consumes it today), so a fresh client doesn't pay for one it may never use.
+    private readonly IPersistentSessionStore? _persistence;
 
     private readonly Channel<OutboundEnvelope> _outbound;
     private readonly TopicFilterTrie<MqttSubscription> _trie = new();
@@ -94,7 +96,7 @@ public sealed class MqttClient : IAsyncDisposable
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<MqttClient>();
         _metrics = new MqttMetrics();
-        _persistence = persistence ?? new InMemorySessionStore();
+        _persistence = persistence;
         _transportFactory = transportFactory ?? CreateTransportFactory(options);
         _outbound = Channel.CreateBounded<OutboundEnvelope>(new BoundedChannelOptions(1024)
         {
@@ -1135,8 +1137,17 @@ public sealed class MqttClient : IAsyncDisposable
         // promptly still disconnects.
         if (_readLoop is { } readLoop)
         {
+#if NETSTANDARD2_1
             await Task.WhenAny(readLoop, Task.Delay(GracefulCloseTimeout, cancellationToken))
                 .ConfigureAwait(false);
+#else
+            // Bounded wait for the broker's close without allocating a Task.Delay timer-task plus a
+            // Task.WhenAny promise: a linked CTS with CancelAfter trips the wait on timeout/cancel.
+            using var graceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            graceCts.CancelAfter(GracefulCloseTimeout);
+            try { await readLoop.WaitAsync(graceCts.Token).ConfigureAwait(false); }
+            catch { /* best-effort graceful close; proceed to cleanup regardless */ }
+#endif
         }
         await CleanupAsync("client disconnect").ConfigureAwait(false);
         SetState(MqttConnectionState.Disconnected);

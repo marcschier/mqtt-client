@@ -12,16 +12,30 @@ namespace Mqtt.Client;
 internal sealed class PacketIdAllocator
 {
     private const int Bits = 65535; // valid ids 1..65535
-    private readonly int[] _bitmap = new int[(Bits + 31) / 32];
+    // Lazily allocated (8 KB) so QoS-0-only or short-lived clients never pay for it. Created with a
+    // lock-free CAS on first Allocate; Release no-ops until then.
+    private int[]? _bitmap;
     private int _cursor;
+
+    private int[] Bitmap()
+    {
+        var map = Volatile.Read(ref _bitmap);
+        if (map is not null)
+        {
+            return map;
+        }
+        var created = new int[(Bits + 31) / 32];
+        return Interlocked.CompareExchange(ref _bitmap, created, null) ?? created;
+    }
 
     public ushort Allocate()
     {
+        var bitmap = Bitmap();
         var start = _cursor;
         for (var i = 0; i < Bits; i++)
         {
             var idx = (start + i) % Bits;
-            ref var word = ref _bitmap[idx / 32];
+            ref var word = ref bitmap[idx / 32];
             var mask = 1 << (idx % 32);
             while (true)
             {
@@ -41,8 +55,10 @@ internal sealed class PacketIdAllocator
     public void Release(ushort packetId)
     {
         if (packetId == 0) return;
+        var bitmap = Volatile.Read(ref _bitmap);
+        if (bitmap is null) return;
         var idx = packetId - 1;
-        ref var word = ref _bitmap[idx / 32];
+        ref var word = ref bitmap[idx / 32];
         var mask = 1 << (idx % 32);
         while (true)
         {

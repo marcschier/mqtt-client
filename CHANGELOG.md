@@ -22,6 +22,8 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
   receive buffer, valid only inside the handler). Back-pressure flows to the broker while it runs.
 
 ### Changed
+- **Transport — socket-backed duplex pipes (zero-copy I/O).** The TCP, TLS, and WebSocket transports now bridge to `System.IO.Pipelines` via [Pipelines.Sockets.Unofficial](https://github.com/mgravell/Pipelines.Sockets.Unofficial) (`SocketConnection` for raw TCP, `StreamConnection` for the TLS `SslStream`) and [WebSocketPipe](https://github.com/devlooped/WebSocketPipe) (WebSockets) — both MIT-licensed and verified NativeAOT/trim-clean. `SocketConnection` drives the socket with a pooled `SocketAsyncEventArgs` scatter-gather **directly over the pipe buffers** (no `NetworkStream`, no per-write allocation), replacing the hand-rolled stream pumps. The SOCKS5 proxy flow is preserved — the connector's already-connected socket is handed to `SocketConnection.Create`.
+- **MQTTnet parity — large-payload send, connect memory, and decode overhead.** Outbound TCP writes now go out as a single scatter-gather `Socket.SendAsync(IList<ArraySegment<byte>>)` per flush instead of one awaited `NetworkStream.WriteAsync` per 8 KB pipe segment (128 awaits/syscalls → 1 for a 1 MiB payload), removing the large-payload publish regression; inbound reads go straight through `Socket.ReceiveAsync`, bypassing `NetworkStream` (TLS/WebSocket keep the stream path). The 8 KB packet-id bitmap is now allocated lazily and `DisconnectAsync` drops a `Task.Delay`/`Task.WhenAny` pair, taking connect-cycle allocation below MQTTnet (≈ 1.12× → 0.88×). PUBLISH decode drops redundant `ReadOnlySequence<byte>` accesses (duplicate `IsSingleSegment`/`FirstSpan`) and inlines its span helpers, shaving the fixed per-decode overhead. AOT-clean; covered by a new multi-segment large-payload round-trip integration test.
 - **Encode/decode performance — now faster than MQTTnet across the codec micro-benchmarks.** PUBLISH
   encoding writes the remaining-length varint at its exact width up front for the common
   property-less case (no 1-byte placeholder + body-shift back-patch), `PipeBufferWriter` indexes a
@@ -70,10 +72,7 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
   channel path copies into pooled buffers. Remaining copies are confined to data that escapes to the
   caller with indefinite lifetime (inbound auth data, persisted-message reads, one-time password
   encoding) and are documented in source.
-- No new third-party dependency: the pooling/`IValueTaskSource` techniques (inspired by
-  [.NEXT](https://github.com/dotnet/dotNext)) are implemented on BCL primitives
-  (`ManualResetValueTaskSourceCore<T>`, `ArrayPool<T>`, `ReadOnlySequence<T>`) that are available on
-  every target framework (incl. `netstandard2.1`) and NativeAOT-clean.
+- The library now takes two small **MIT-licensed** transport dependencies — `Pipelines.Sockets.Unofficial` and `WebSocketPipe` (both built on `System.IO.Pipelines`, NativeAOT/trim-clean, `netstandard2.1`-compatible). The internal pooling/`IValueTaskSource` techniques (inspired by [.NEXT](https://github.com/dotnet/dotNext)) remain BCL-only (`ManualResetValueTaskSourceCore<T>`, `ArrayPool<T>`, `ReadOnlySequence<T>`).
 
 ## [0.9.3] — 2026-06-17
 

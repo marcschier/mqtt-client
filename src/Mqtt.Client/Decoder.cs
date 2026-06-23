@@ -4,6 +4,7 @@ using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 namespace Mqtt.Client;
 
@@ -79,13 +80,15 @@ internal static class MqttPacketDecoder
 
         uint remainingLength;
         int lenBytes;
-        if (buffer.IsSingleSegment)
+        var single = buffer.IsSingleSegment;
+        // For a single-segment sequence FirstSpan is the whole buffer; capture it once and reuse it
+        // for the fixed-header read and the PUBLISH fast path (FirstSpan/IsSingleSegment each decode
+        // a SequencePosition, so we avoid repeating those accesses).
+        var segment = single ? buffer.FirstSpan : default;
+        if (single)
         {
-            // Read the fixed header (first byte + remaining-length varint) straight from the span,
-            // skipping the MqttSequenceReader the general path would otherwise construct.
-            var headSpan = buffer.FirstSpan;
-            firstByte = headSpan[0];
-            if (!TryReadVarIntSpan(headSpan, 1, out remainingLength, out lenBytes))
+            firstByte = segment[0];
+            if (!TryReadVarIntSpan(segment, 1, out remainingLength, out lenBytes))
             {
                 return false;
             }
@@ -112,10 +115,11 @@ internal static class MqttPacketDecoder
         // Fast path: a PUBLISH that lives in a single contiguous buffer (the overwhelmingly common
         // case) is decoded straight from the segment span, skipping the second MqttSequenceReader
         // and the ReadOnlySequence.Slice that the general path constructs for the body.
-        if (type == MqttPacketType.Publish && buffer.IsSingleSegment)
+        if (type == MqttPacketType.Publish && single)
         {
             packet = DecodePublishSingleSegment(
-                firstByte, buffer, fixedHeaderBytes, (int)remainingLength, version, poolPayload);
+                firstByte, segment, buffer, fixedHeaderBytes, (int)remainingLength, version,
+                poolPayload);
             consumed = buffer.GetPosition(fixedHeaderBytes + remainingLength);
             return true;
         }
@@ -356,13 +360,14 @@ internal static class MqttPacketDecoder
 
     private static PublishPacket DecodePublishSingleSegment(
         byte firstByte,
+        ReadOnlySpan<byte> segment,
         in ReadOnlySequence<byte> buffer,
         int bodyOffset,
         int bodyLen,
         MqttProtocolVersion version,
         bool poolPayload)
     {
-        var body = buffer.FirstSpan.Slice(bodyOffset, bodyLen);
+        var body = segment.Slice(bodyOffset, bodyLen);
         var qos = (MqttQoS)((firstByte >> 1) & 0x03);
         var pos = 0;
 
@@ -430,6 +435,7 @@ internal static class MqttPacketDecoder
         };
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ushort ReadUInt16Span(ReadOnlySpan<byte> span, ref int pos)
     {
         if ((uint)(pos + 2) > (uint)span.Length)
@@ -441,7 +447,23 @@ internal static class MqttPacketDecoder
         return value;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint ReadVarIntSpan(ReadOnlySpan<byte> span, ref int pos)
+    {
+        // Hot path: a single-byte value (0..127) — covers property-length 0 and small lengths.
+        if ((uint)pos < (uint)span.Length)
+        {
+            var b0 = span[pos];
+            if ((b0 & 0x80) == 0)
+            {
+                pos++;
+                return b0;
+            }
+        }
+        return ReadVarIntSpanSlow(span, ref pos);
+    }
+
+    private static uint ReadVarIntSpanSlow(ReadOnlySpan<byte> span, ref int pos)
     {
         uint value = 0;
         var multiplier = 1u;
@@ -465,6 +487,7 @@ internal static class MqttPacketDecoder
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void EnsureSpan(ReadOnlySpan<byte> span, int pos, int length)
     {
         if (length < 0 || (uint)(pos + length) > (uint)span.Length)

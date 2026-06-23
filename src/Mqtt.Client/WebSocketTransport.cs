@@ -5,82 +5,41 @@ using System.IO.Pipelines;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Devlooped.Net;
 
 namespace Mqtt.Client;
 
+/// <summary>
+/// Connects over WebSockets (ws/wss). Adapts the <see cref="ClientWebSocket"/> to a duplex pipe via
+/// devlooped/WebSocketPipe, which frames outgoing writes as binary messages (as MQTT-over-WebSocket
+/// requires) and reassembles incoming frames into the input pipe.
+/// </summary>
 internal sealed class WebSocketTransport : IMqttTransport
 {
-    private readonly ClientWebSocket _socket;
-    private readonly WebSocketStream _stream;
-    private readonly StreamPipeReader _reader;
-    private readonly StreamPipeWriter _writer;
+    private readonly IWebSocketPipe _pipe;
+    private readonly Task _runTask;
 
     public WebSocketTransport(ClientWebSocket socket, Uri uri)
     {
-        _socket = socket;
-        _stream = new WebSocketStream(socket);
-        _reader = new StreamPipeReader(_stream);
-        _writer = new StreamPipeWriter(_stream);
+        _pipe = WebSocketPipe.Create(socket, closeWhenCompleted: true);
+        _runTask = _pipe.RunAsync();
         RemoteAddress = uri.ToString();
     }
 
-    public PipeReader Input => _reader.Pipe;
-    public PipeWriter Output => _writer.Pipe;
+    public PipeReader Input => _pipe.Input;
+    public PipeWriter Output => _pipe.Output;
     public string? RemoteAddress { get; }
 
     public async ValueTask DisposeAsync()
     {
-        try { await _writer.CompleteAsync().ConfigureAwait(false); } catch { }
-        try { await _reader.CompleteAsync().ConfigureAwait(false); } catch { }
-        try { await _socket.CloseAsync(
-            WebSocketCloseStatus.NormalClosure,
-            "client",
-            CancellationToken.None)
-            .ConfigureAwait(false); } catch { }
-        _socket.Dispose();
-        await _stream.DisposeAsync().ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Adapts a <see cref="ClientWebSocket"/> to a Stream so the existing pipe pump can drive it.
-    /// </summary>
-    private sealed class WebSocketStream : System.IO.Stream
-    {
-        private readonly ClientWebSocket _ws;
-        public WebSocketStream(ClientWebSocket ws) { _ws = ws; }
-        public override bool CanRead => true;
-        public override bool CanWrite => true;
-        public override bool CanSeek => false;
-        public override long Length => throw new NotSupportedException();
-        public override long Position { get => throw new NotSupportedException(); set
-            => throw new NotSupportedException(); }
-        public override void Flush() { }
-        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-        public override int Read(byte[] buffer, int offset, int count)
-            => throw new NotSupportedException("Use async APIs.");
-        public override long Seek(long offset, System.IO.SeekOrigin origin)
-            => throw new NotSupportedException();
-        public override void SetLength(long value) => throw new NotSupportedException();
-        public override void Write(byte[] buffer, int offset, int count)
-            => throw new NotSupportedException("Use async APIs.");
-
-        public override async ValueTask<int> ReadAsync(
-            Memory<byte> buffer,
-            CancellationToken cancellationToken = default)
+        try
         {
-            var result = await _ws.ReceiveAsync(buffer, cancellationToken).ConfigureAwait(false);
-            if (result.MessageType == WebSocketMessageType.Close) return 0;
-            return result.Count;
+            await _pipe.CompleteAsync(WebSocketCloseStatus.NormalClosure, "client")
+                .ConfigureAwait(false);
         }
-
-        public override async ValueTask WriteAsync(
-            ReadOnlyMemory<byte> buffer,
-            CancellationToken cancellationToken = default)
-            => await _ws.SendAsync(
-                buffer,
-                WebSocketMessageType.Binary,
-                endOfMessage: true,
-                cancellationToken).ConfigureAwait(false);
+        catch { }
+        try { await _runTask.ConfigureAwait(false); } catch { }
+        _pipe.Dispose();
     }
 }
 
