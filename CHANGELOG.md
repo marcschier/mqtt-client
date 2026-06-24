@@ -6,6 +6,8 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-06-24
+
 ### Added
 - **Inbound QoS 2 exactly-once delivery.** The client now tracks received QoS 2 packet identifiers between an inbound PUBLISH and its PUBREL: a message is delivered exactly once, a redelivered PUBLISH is re-acked with PUBREC without re-dispatching, and the state is released on PUBREL → PUBCOMP.
 - **Session persistence + redelivery on reconnect (opt-in via `WithPersistence`).** `IPersistentSessionStore` / `FileSessionStore` are now wired into the client: outbound QoS 1/2 publishes are saved on send and removed on their terminal ack; on a Session-Present reconnect they are resent with DUP = 1 (packet-identifier reservations restored) and the original `PublishAsync` awaiter completes on the post-reconnect ack; a clean-session reconnect discards them. A new companion interface `IPersistentInboundQoS2Store` (implemented by both built-in stores) persists inbound QoS 2 receipt state so exactly-once de-duplication also survives a reconnect.
@@ -148,7 +150,8 @@ stable 1.0 baseline, and the library follows [SemVer](https://semver.org/) from 
 - Secure defaults: TLS 1.2/1.3, CRL on, `MaxIncomingPacketSize` capped at 1 MiB.
 - `Nerdbank.GitVersioning` for `version.json`-driven versioning; pack with SourceLink + symbols.
 
-[Unreleased]: https://github.com/marcschier/mqtt-client/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/marcschier/mqtt-client/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/marcschier/mqtt-client/releases/tag/v1.0.1
 [1.0.0]: https://github.com/marcschier/mqtt-client/releases/tag/v1.0.0
 [0.9.3]: https://github.com/marcschier/mqtt-client/releases/tag/v0.9.3
 [0.9.2]: https://github.com/marcschier/mqtt-client/releases/tag/v0.9.2
