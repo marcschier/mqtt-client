@@ -67,4 +67,10 @@ internal static partial class MqttLog
         Level = LogLevel.Trace,
         Message = "MQTT received packet type={PacketType} bytes={Bytes}")]
     public static partial void ReceivedPacket(ILogger logger, string packetType, int bytes);
+
+    [LoggerMessage(
+        EventId = 9,
+        Level = LogLevel.Warning,
+        Message = "MQTT adapted outbound publish to broker limit: {Limit} {Detail}")]
+    public static partial void BrokerLimitAdapted(ILogger logger, string limit, string detail);
 }

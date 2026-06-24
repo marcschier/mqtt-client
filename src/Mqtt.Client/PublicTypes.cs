@@ -38,6 +38,41 @@ public sealed class MqttPublishProperties
             SubscriptionIdentifiers = SubscriptionIdentifiers,
             UserProperties = UserProperties,
         };
+
+    /// <summary>Returns a copy with <see cref="TopicAlias"/> cleared (others preserved).</summary>
+    internal MqttPublishProperties WithoutTopicAlias()
+        => new()
+        {
+            PayloadFormatIndicator = PayloadFormatIndicator,
+            MessageExpiryInterval = MessageExpiryInterval,
+            TopicAlias = null,
+            ResponseTopic = ResponseTopic,
+            CorrelationData = CorrelationData,
+            ContentType = ContentType,
+            SubscriptionIdentifiers = SubscriptionIdentifiers,
+            UserProperties = UserProperties,
+        };
+}
+
+/// <summary>
+/// Options for <see cref="MqttClient.RequestAsync"/> (MQTT 5 request/response).
+/// </summary>
+public sealed class MqttRequestOptions
+{
+    /// <summary>
+    /// Topic the responder should reply on (set as the request's Response Topic). When null, the
+    /// client uses a generated per-client response topic established on the first request.
+    /// </summary>
+    public string? ResponseTopic { get; set; }
+
+    /// <summary>QoS for the request publish. Defaults to <see cref="MqttQoS.AtLeastOnce"/>.</summary>
+    public MqttQoS QoS { get; set; } = MqttQoS.AtLeastOnce;
+
+    /// <summary>
+    /// Maximum time to await the response before a <see cref="TimeoutException"/>. When null, the
+    /// client's <see cref="MqttClientOptions.OperationTimeout"/> is used.
+    /// </summary>
+    public TimeSpan? Timeout { get; set; }
 }
 
 /// <summary>

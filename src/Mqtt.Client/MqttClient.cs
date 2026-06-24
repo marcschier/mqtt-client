@@ -27,6 +27,9 @@ public sealed class MqttClient : IAsyncDisposable
     // Holds an injected store, or null. The default in-memory store is created on demand (no hot
     // path consumes it today), so a fresh client doesn't pay for one it may never use.
     private readonly IPersistentSessionStore? _persistence;
+    // Optional inbound QoS 2 receipt persistence (a store that also implements the companion
+    // interface), so exactly-once de-dup survives a Session-Present reconnect.
+    private readonly IPersistentInboundQoS2Store? _qos2Store;
 
     private readonly Channel<OutboundEnvelope> _outbound;
     private readonly TopicFilterTrie<MqttSubscription> _trie = new();
@@ -39,6 +42,21 @@ public sealed class MqttClient : IAsyncDisposable
     private int _nextSubId;
 
     private TaskCompletionSource<AuthPacket>? _pendingAuth;
+
+    // Broker-advertised limits captured from CONNACK on each (re)connect. Defaults are the MQTT 5
+    // spec defaults applied when the broker omits the property: Receive Maximum 65535, Maximum QoS
+    // 2, retain available, no packet-size limit, no inbound topic alias.
+    private int _serverReceiveMaximum = ushort.MaxValue;
+    private uint? _serverMaximumPacketSize;
+    private MqttQoS _serverMaximumQoS = MqttQoS.ExactlyOnce;
+    private bool _serverRetainAvailable = true;
+    private ushort _serverTopicAliasMaximum;
+
+    // Bounds outbound in-flight QoS>0 publishes to the broker's advertised Receive Maximum.
+    // Recreated from _serverReceiveMaximum on each connect; null means unbounded (broker allows the
+    // 65535 maximum, so no practical limit). A publish acquires a slot before sending and releases
+    // it when its terminal ack (PUBACK / PUBCOMP) completes the awaited operation.
+    private SemaphoreSlim? _inflightQuota;
 
     private IMqttTransport? _transport;
     private Task? _readLoop;
@@ -99,6 +117,7 @@ public sealed class MqttClient : IAsyncDisposable
         _logger = (loggerFactory ?? NullLoggerFactory.Instance).CreateLogger<MqttClient>();
         _metrics = new MqttMetrics();
         _persistence = persistence;
+        _qos2Store = persistence as IPersistentInboundQoS2Store;
         _transportFactory = transportFactory ?? CreateTransportFactory(options);
         _outbound = Channel.CreateBounded<OutboundEnvelope>(new BoundedChannelOptions(1024)
         {
@@ -259,6 +278,18 @@ public sealed class MqttClient : IAsyncDisposable
                 await CleanupAsync("CONNACK failure").ConfigureAwait(false);
                 return connack;
             }
+            CaptureServerLimits(connack);
+            // Reset per-connection inbound QoS 2 receipt state before the read loop starts (runs
+            // single-threaded here). On a Session-Present reconnect, restore the recorded ids from
+            // the persistent store so a redelivered inbound PUBLISH is still de-duplicated.
+            _inboundQoS2.Clear();
+            if (_qos2Store is not null && connack.SessionPresent)
+            {
+                foreach (var id in await _qos2Store.ListReceivedQoS2Async().ConfigureAwait(false))
+                {
+                    _inboundQoS2.Add(id);
+                }
+            }
             SetState(MqttConnectionState.Connected);
             _readLoop = Task.Run(() => ReadLoopAsync(_loopCts!.Token));
             _writeLoop = Task.Run(() => WriteLoopAsync(_loopCts!.Token));
@@ -270,6 +301,20 @@ public sealed class MqttClient : IAsyncDisposable
                 _logger,
                 _transport?.RemoteAddress ?? string.Empty,
                 connack.SessionPresent);
+            if (_persistence is not null)
+            {
+                if (connack.SessionPresent)
+                {
+                    // Broker kept the session: resend in-flight publishes with DUP set.
+                    await RedeliverPersistedAsync().ConfigureAwait(false);
+                }
+                else
+                {
+                    // Clean session: prior in-flight publishes are gone — abandon and clear.
+                    DiscardPersistedPublishes();
+                    await _persistence.ClearAsync().ConfigureAwait(false);
+                }
+            }
             Connected?.Invoke(this, connack);
             return connack;
         }
@@ -308,6 +353,85 @@ public sealed class MqttClient : IAsyncDisposable
     // static options) and consumed by BuildConnectPacket. Re-resolved on every (re)connect.
     private string? _resolvedUsername;
     private byte[]? _resolvedPassword;
+
+    // Capture the broker's effective limits from CONNACK. Called on every successful (re)connect
+    // before the client is marked Connected, so the publish path always sees current values.
+    private void CaptureServerLimits(MqttConnectResult connack)
+    {
+        _serverReceiveMaximum = connack.ReceiveMaximum ?? ushort.MaxValue;
+        _serverMaximumPacketSize = connack.MaximumPacketSize;
+        _serverMaximumQoS = connack.MaximumQoS;
+        _serverRetainAvailable = connack.RetainAvailable;
+        _serverTopicAliasMaximum = connack.TopicAliasMaximum ?? 0;
+        // Size the outbound in-flight quota to the broker's Receive Maximum. The 65535 maximum
+        // imposes no practical bound, so leave it null to keep the publish hot path allocation-free.
+        // Created once and reused across reconnects: a publish parked across a reconnect (with
+        // persistence) keeps its slot on the same semaphore, so swapping/disposing it here would
+        // make its later Release throw. A differing Receive Maximum on a later reconnect is ignored.
+        if (_inflightQuota is null && _serverReceiveMaximum < ushort.MaxValue)
+        {
+            _inflightQuota = new SemaphoreSlim(_serverReceiveMaximum, _serverReceiveMaximum);
+        }
+    }
+
+    // Enforces the broker's advertised CONNACK limits on an outbound PUBLISH. In Reject mode a
+    // violation throws at the call site; in Adapt mode the QoS is downgraded and an unavailable
+    // retain flag or over-limit topic alias is dropped. Maximum Packet Size always throws — an
+    // oversized packet cannot be adapted.
+    private (MqttQoS qos, bool retain, MqttPublishProperties? props) ApplyBrokerLimits(
+        string topic, MqttQoS qos, bool retain, long payloadLength, MqttPublishProperties? props)
+    {
+        var adapt = _options.BrokerLimitBehavior == MqttBrokerLimitBehavior.Adapt;
+
+        if (qos > _serverMaximumQoS)
+        {
+            if (!adapt)
+            {
+                throw new MqttProtocolException(
+                    $"QoS {(int)qos} exceeds the broker's Maximum QoS ({(int)_serverMaximumQoS}).");
+            }
+            MqttLog.BrokerLimitAdapted(
+                _logger, "MaximumQoS", $"{(int)qos}->{(int)_serverMaximumQoS}");
+            qos = _serverMaximumQoS;
+        }
+
+        if (retain && !_serverRetainAvailable)
+        {
+            if (!adapt)
+            {
+                throw new MqttProtocolException(
+                    "Broker does not support retained messages (Retain Available = 0).");
+            }
+            MqttLog.BrokerLimitAdapted(_logger, "RetainAvailable", "retain dropped");
+            retain = false;
+        }
+
+        if (props?.TopicAlias is { } alias && alias > _serverTopicAliasMaximum)
+        {
+            if (!adapt)
+            {
+                throw new MqttProtocolException(
+                    $"Topic alias {alias} exceeds the broker's Topic Alias Maximum " +
+                    $"({_serverTopicAliasMaximum}).");
+            }
+            MqttLog.BrokerLimitAdapted(_logger, "TopicAliasMaximum", "alias dropped");
+            props = props.WithoutTopicAlias();
+        }
+
+        if (_serverMaximumPacketSize is { } max)
+        {
+            var size = MqttOutboundValidation.ComputePublishPacketSize(
+                topic, payloadLength, qos, props, _options.ProtocolVersion);
+            if (size > max)
+            {
+                throw new MqttProtocolException(
+                    $"Encoded PUBLISH size {size} exceeds the broker's Maximum Packet Size " +
+                    $"({max}).");
+            }
+        }
+
+        return (qos, retain, props);
+    }
 
     private async Task<MqttConnectResult> ReadConnAckOrAuthAsync(
         IMqttAuthenticationHandler? handler,
@@ -594,16 +718,18 @@ public sealed class MqttClient : IAsyncDisposable
             case PubAckPacket ack when type == MqttPacketType.PubAck:
                 CompletePending(ack.PacketId, ack);
                 _packetIds.Release(ack.PacketId);
+                OnPublishCompleted(ack.PacketId);
                 break;
             case PubAckPacket rec when type == MqttPacketType.PubRec:
                 EnqueuePubRel(rec.PacketId, MqttReasonCode.Success);
                 break;
             case PubAckPacket rel when type == MqttPacketType.PubRel:
-                EnqueuePubComp(rel.PacketId, MqttReasonCode.Success);
-                break;
+                // Exactly-once release: forget the recorded identifier and answer with PUBCOMP.
+                return HandlePubRelAsync(rel.PacketId);
             case PubAckPacket comp when type == MqttPacketType.PubComp:
                 CompletePending(comp.PacketId, comp);
                 _packetIds.Release(comp.PacketId);
+                OnPublishCompleted(comp.PacketId);
                 break;
             case SubAckPacket sub:
                 CompletePending(sub.PacketId, sub);
@@ -641,6 +767,18 @@ public sealed class MqttClient : IAsyncDisposable
     private void EnqueuePubComp(ushort packetId, MqttReasonCode rc)
         => _ = EnqueueAsync(OutboundEnvelope.ForAck(OutboundKind.PubComp, packetId, rc));
 
+    // Inbound QoS 2 release: forget the recorded identifier (and its persisted receipt), then
+    // answer PUBCOMP. Runs on the read loop.
+    private async ValueTask HandlePubRelAsync(ushort packetId)
+    {
+        _inboundQoS2.Remove(packetId);
+        if (_qos2Store is not null)
+        {
+            await _qos2Store.RemoveReceivedQoS2Async(packetId).ConfigureAwait(false);
+        }
+        EnqueuePubComp(packetId, MqttReasonCode.Success);
+    }
+
     private void CompletePending(ushort packetId, object value)
     {
         if (_pendingAcks.TryRemove(packetId, out var waiter)) waiter.TrySetResult(value);
@@ -650,13 +788,95 @@ public sealed class MqttClient : IAsyncDisposable
     {
         foreach (var kv in _pendingAcks)
         {
-            kv.Value.TrySetException(ex);
+            // When persistence is enabled, an in-flight QoS>0 publish is kept parked across the
+            // disconnect: it is redelivered on a Session-Present reconnect and the original awaiter
+            // completes on the post-reconnect ack. Fault only the rest (subscribe/unsubscribe).
+            if (_persistence is not null && _persistedPublishIds.ContainsKey(kv.Key))
+            {
+                continue;
+            }
+            if (_pendingAcks.TryRemove(kv.Key, out var waiter))
+            {
+                waiter.TrySetException(ex);
+            }
         }
-        _pendingAcks.Clear();
     }
+
+    // In-flight QoS>0 publish identifiers currently saved in the persistent store. Used to keep the
+    // matching awaiters parked across a disconnect (see FaultPending) and to resend on reconnect.
+    private readonly ConcurrentDictionary<ushort, bool> _persistedPublishIds = new();
+
+    private void OnPublishCompleted(ushort packetId)
+    {
+        // Remove a terminally-acked publish from the persistent store (best-effort; the store is
+        // idempotent — a missed removal is resent once more on the next reconnect and re-acked).
+        if (_persistence is null) return;
+        if (_persistedPublishIds.TryRemove(packetId, out _))
+        {
+            _ = _persistence.RemovePendingPublishAsync(packetId);
+        }
+    }
+
+    // Resend QoS>0 publishes that were in flight when the previous connection dropped, after a
+    // Session-Present reconnect: reserve their packet ids, mark DUP, and enqueue in id order.
+    private async Task RedeliverPersistedAsync()
+    {
+        var pending = await _persistence!.ListPendingPublishesAsync().ConfigureAwait(false);
+        if (pending.Count == 0) return;
+        var list = new List<(ushort PacketId, MqttMessage Message)>(pending);
+        list.Sort((a, b) => a.PacketId.CompareTo(b.PacketId));
+        foreach (var (id, message) in list)
+        {
+            _packetIds.Reserve(id);
+            _persistedPublishIds[id] = true;
+            var packet = new PublishPacket
+            {
+                Topic = message.Topic,
+                QoS = message.QoS,
+                Retain = message.Retain,
+                PacketId = id,
+                Payload = message.Payload,
+                Properties = message.Properties,
+                Duplicate = true,
+            };
+            await EnqueueAsync(OutboundEnvelope.ForPublish(packet)).ConfigureAwait(false);
+        }
+    }
+
+    // Clean session after (re)connect: the broker kept no record of prior in-flight publishes, so
+    // abandon any parked awaiters and clear the store. Claims each id individually (rather than a
+    // bulk Clear) so a publish issued concurrently after the read loop started is not disturbed.
+    private void DiscardPersistedPublishes()
+    {
+        foreach (var id in _persistedPublishIds.Keys)
+        {
+            if (!_persistedPublishIds.TryRemove(id, out _)) continue;
+            if (_pendingAcks.TryRemove(id, out var waiter))
+            {
+                waiter.TrySetException(new MqttConnectionException(
+                    "Session not present after reconnect; in-flight publish discarded."));
+            }
+            _packetIds.Release(id);
+        }
+    }
+
+    private static MqttMessage ToPersistedMessage(PublishPacket p) => new()
+    {
+        Topic = p.Topic,
+        // Copy the payload so the persisted message owns its bytes independent of the caller buffer.
+        Payload = new ReadOnlySequence<byte>(p.Payload.ToArray()),
+        QoS = p.QoS,
+        Retain = p.Retain,
+        Properties = p.Properties,
+    };
 
     /// <summary>Inbound MQTT 5 topic-alias table (alias → topic). Single-writer (read loop) safe.</summary>
     private readonly Dictionary<ushort, string> _inboundAliases = new();
+
+    // Inbound QoS 2 receipt state: packet identifiers received in a PUBLISH but not yet released by
+    // a PUBREL. Used to deliver an exactly-once message a single time and de-duplicate a redelivered
+    // PUBLISH. Single-writer (read loop) safe, like _inboundAliases.
+    private readonly HashSet<ushort> _inboundQoS2 = new();
 
     // Reused across read-loop iterations (single-threaded) to collect matching subscriptions
     // without allocating a list per inbound message.
@@ -706,7 +926,19 @@ public sealed class MqttClient : IAsyncDisposable
         }
         else if (pub.QoS == MqttQoS.ExactlyOnce)
         {
-            // Simplified: ack with PUBREC; full QoS2 state machine is not yet implemented.
+            // Exactly-once. A redelivered identifier (already recorded, not yet released by PUBREL)
+            // is re-acked with PUBREC but not dispatched a second time.
+            if (!_inboundQoS2.Add(pub.PacketId))
+            {
+                EnqueuePubRec(pub.PacketId);
+                return;
+            }
+            // First receipt: persist the identifier before PUBREC (so the de-dup survives a crash),
+            // then answer PUBREC and deliver once.
+            if (_qos2Store is not null)
+            {
+                await _qos2Store.SaveReceivedQoS2Async(pub.PacketId).ConfigureAwait(false);
+            }
             EnqueuePubRec(pub.PacketId);
         }
 
@@ -966,11 +1198,13 @@ public sealed class MqttClient : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         EnsureConnected();
-        MqttLog.Publishing(_logger, topic, qos, (int)payload.Length);
-        _metrics.Publishes.Add(1);
         // The write loop encodes the header directly into the pipe; validate up front so malformed
         // input still throws synchronously at this call site.
         MqttOutboundValidation.ValidatePublish(topic, payload.Length, properties);
+        (qos, retain, properties) =
+            ApplyBrokerLimits(topic, qos, retain, payload.Length, properties);
+        MqttLog.Publishing(_logger, topic, qos, (int)payload.Length);
+        _metrics.Publishes.Add(1);
 
         ushort packetId = qos == MqttQoS.AtMostOnce ? (ushort)0 : _packetIds.Allocate();
         var packet = new PublishPacket
@@ -990,15 +1224,71 @@ public sealed class MqttClient : IAsyncDisposable
             return new MqttPublishResult(MqttReasonCode.Success);
         }
 
+        // Receive Maximum flow control: bound in-flight QoS>0 publishes to the broker's quota.
+        var quota = _inflightQuota;
+        if (quota is not null)
+        {
+            try
+            {
+                if (_options.ReceiveMaximumBehavior == MqttReceiveMaximumBehavior.Backpressure)
+                {
+                    await quota.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                else if (!quota.Wait(0))
+                {
+                    throw new MqttProtocolException(
+                        "In-flight QoS>0 publishes have reached the broker's Receive Maximum.");
+                }
+            }
+            catch
+            {
+                _packetIds.Release(packetId);
+                throw;
+            }
+        }
+
         var waiter = AckCompletionSource.Rent(cancellationToken);
-        _pendingAcks[packetId] = waiter;
         var startTs = Stopwatch.GetTimestamp();
-        await EnqueueAsync(OutboundEnvelope.ForPublish(packet), cancellationToken)
-            .ConfigureAwait(false);
-        var ack = (PubAckPacket?)await waiter.ValueTask.ConfigureAwait(false);
-        var elapsedMs = (Stopwatch.GetTimestamp() - startTs) * 1000.0 / Stopwatch.Frequency;
-        _metrics.PublishAckLatency.Record(elapsedMs);
-        return new MqttPublishResult(ack?.ReasonCode ?? MqttReasonCode.Success, ack?.ReasonString);
+        try
+        {
+            // Persist the in-flight publish before it goes on the wire so it can be redelivered
+            // after a Session-Present reconnect. Mark the id in _persistedPublishIds BEFORE
+            // registering the waiter, so a concurrent disconnect's FaultPending consistently keeps
+            // it parked (await-continuity) rather than faulting it mid-persist.
+            if (_persistence is not null)
+            {
+                _persistedPublishIds[packetId] = true;
+                await _persistence.SavePendingPublishAsync(packetId, ToPersistedMessage(packet))
+                    .ConfigureAwait(false);
+            }
+            _pendingAcks[packetId] = waiter;
+            await EnqueueAsync(OutboundEnvelope.ForPublish(packet), cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch
+        {
+            // Setup failed before the publish reached a parked-and-acked state (e.g. the store
+            // write or the enqueue threw): fully unwind so no quota slot or packet id leaks.
+            _pendingAcks.TryRemove(packetId, out _);
+            _persistedPublishIds.TryRemove(packetId, out _);
+            _packetIds.Release(packetId);
+            quota?.Release();
+            throw;
+        }
+        // From here the in-flight machinery (ack dispatch / FaultPending / discard) owns the packet
+        // id; this method only releases the Receive-Maximum quota slot it acquired.
+        try
+        {
+            var ack = (PubAckPacket?)await waiter.ValueTask.ConfigureAwait(false);
+            var elapsedMs = (Stopwatch.GetTimestamp() - startTs) * 1000.0 / Stopwatch.Frequency;
+            _metrics.PublishAckLatency.Record(elapsedMs);
+            return new MqttPublishResult(
+                ack?.ReasonCode ?? MqttReasonCode.Success, ack?.ReasonString);
+        }
+        finally
+        {
+            quota?.Release();
+        }
     }
 
     /// <summary>
@@ -1009,6 +1299,7 @@ public sealed class MqttClient : IAsyncDisposable
     {
         EnsureConnected();
         MqttOutboundValidation.ValidatePublish(topic, payload.Length, null);
+        (_, retain, _) = ApplyBrokerLimits(topic, MqttQoS.AtMostOnce, retain, payload.Length, null);
         // For TryPublish we materialise the payload to a pooled byte[] so the envelope can
         // outlive the calling stack frame; the caller's span is not retained.
         var pooled = ArrayPool<byte>.Shared.Rent(payload.Length);
@@ -1030,6 +1321,124 @@ public sealed class MqttClient : IAsyncDisposable
         envelope.Dispose();
         return false;
     }
+
+    // ---- MQTT 5 request/response helper ----
+
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<MqttMessage>>
+        _pendingRequests = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _responseSubGate = new(1, 1);
+    private MqttSubscription? _responseSub;
+    private string? _responseTopic;
+
+    /// <summary>
+    /// Sends an MQTT 5 request and awaits the correlated response. Publishes the payload to
+    /// <paramref name="requestTopic"/> with a Response Topic and a unique Correlation Data, then
+    /// completes when a message carrying the same Correlation Data arrives on the response topic.
+    /// The client lazily subscribes to a shared response topic (override via
+    /// <see cref="MqttRequestOptions.ResponseTopic"/>) on the first request.
+    /// </summary>
+    public async ValueTask<MqttMessage> RequestAsync(
+        string requestTopic,
+        ReadOnlyMemory<byte> payload,
+        MqttRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        options ??= new MqttRequestOptions();
+        var responseTopic = await EnsureResponseSubscriptionAsync(options, cancellationToken)
+            .ConfigureAwait(false);
+
+        var correlation = Guid.NewGuid().ToByteArray();
+        var key = Convert.ToBase64String(correlation);
+        var tcs = new TaskCompletionSource<MqttMessage>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingRequests[key] = tcs;
+        try
+        {
+            var props = new MqttPublishProperties
+            {
+                ResponseTopic = responseTopic,
+                CorrelationData = correlation,
+            };
+            await PublishAsync(
+                requestTopic, payload, options.QoS, retain: false, props, cancellationToken)
+                .ConfigureAwait(false);
+
+            var timeout = options.Timeout ?? _options.OperationTimeout;
+            using var timeoutCts =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var delay = Task.Delay(timeout, timeoutCts.Token);
+            var completed = await Task.WhenAny(tcs.Task, delay).ConfigureAwait(false);
+            if (completed != tcs.Task)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new TimeoutException($"No response on '{responseTopic}' within {timeout}.");
+            }
+            timeoutCts.Cancel();   // stop the timer
+            return await tcs.Task.ConfigureAwait(false);
+        }
+        finally
+        {
+            _pendingRequests.TryRemove(key, out _);
+        }
+    }
+
+    private async ValueTask<string> EnsureResponseSubscriptionAsync(
+        MqttRequestOptions options, CancellationToken ct)
+    {
+        await _responseSubGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            if (_responseSub is not null)
+            {
+                return _responseTopic!;
+            }
+            var topic = options.ResponseTopic ?? $"mqtt-client/{Guid.NewGuid():N}/response";
+            _responseSub = await SubscribeAsync(
+                topic, OnResponseMessageAsync, cancellationToken: ct).ConfigureAwait(false);
+            _responseTopic = topic;
+            return topic;
+        }
+        finally
+        {
+            _responseSubGate.Release();
+        }
+    }
+
+    private ValueTask OnResponseMessageAsync(MqttMessage message)
+    {
+        if (message.Properties?.CorrelationData is { } cd)
+        {
+            var key = Convert.ToBase64String(cd.ToArray());
+            if (_pendingRequests.TryRemove(key, out var tcs))
+            {
+                // The inline payload/correlation are valid only inside this handler — hand the
+                // awaiting caller a fully owned copy.
+                tcs.TrySetResult(CopyResponse(message));
+            }
+        }
+        return default;
+    }
+
+    private static MqttMessage CopyResponse(MqttMessage m) => new()
+    {
+        Topic = m.Topic,
+        PayloadMemory = m.PayloadMemory.ToArray(),
+        QoS = m.QoS,
+        Retain = m.Retain,
+        Duplicate = m.Duplicate,
+        Properties = m.Properties is { } p
+            ? new MqttPublishProperties
+            {
+                PayloadFormatIndicator = p.PayloadFormatIndicator,
+                MessageExpiryInterval = p.MessageExpiryInterval,
+                ResponseTopic = p.ResponseTopic,
+                CorrelationData = p.CorrelationData?.ToArray(),
+                ContentType = p.ContentType,
+                SubscriptionIdentifiers = p.SubscriptionIdentifiers,
+                UserProperties = p.UserProperties,
+            }
+            : null,
+    };
 
     /// <summary>
     /// Subscribes and returns a channel-backed <see cref="MqttSubscription"/> whose
@@ -1375,6 +1784,13 @@ public sealed class MqttClient : IAsyncDisposable
         await CleanupAsync("dispose").ConfigureAwait(false);
         _loopCts?.Dispose();
         _reconnectGate.Dispose();
+        _inflightQuota?.Dispose();
+        _responseSubGate.Dispose();
+        foreach (var kv in _pendingRequests)
+        {
+            kv.Value.TrySetException(new ObjectDisposedException(nameof(MqttClient)));
+        }
+        _pendingRequests.Clear();
         _metrics.Dispose();
         // The client owns the lifetime of the credentials provider it was given (most providers are
         // stateless and not disposable; a watching provider — e.g. the Kubernetes token provider —

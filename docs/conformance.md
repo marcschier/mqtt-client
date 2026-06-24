@@ -17,7 +17,7 @@ Maps OASIS MQTT 3.1.1 and 5.0 normative chapters to the implementation in `Mqtt.
 | 3.2 | CONNACK (incl. v3.1.1 return-code mapping to reason codes) | ✅ `MqttPacketDecoder.DecodeConnAck` + unit test `ConnAck_v311_maps_return_codes` |
 | 3.3 | PUBLISH (QoS 0/1) | ✅ end-to-end integration tests |
 | 3.3 | PUBLISH (QoS 2) — outbound | ✅ PUBREC → PUBREL → await PUBCOMP; the publish completes only on PUBCOMP (`MqttClient.DispatchInboundAsync`). End-to-end tested (`PublishSubscribeTests` QoS2) |
-| 3.3 | PUBLISH (QoS 2) — inbound | 🟡 Simplified: the client answers PUBREC and responds to PUBREL with PUBCOMP, but delivers the message immediately with **no exactly-once dedup** of a redelivered PUBLISH (`MqttClient.cs` inbound handler). Tracked as `conf-qos2-inbound` |
+| 3.3 | PUBLISH (QoS 2) — inbound | ✅ Exactly-once receiver: replies PUBREC, delivers the message once, de-duplicates a redelivered PUBLISH (re-acks PUBREC without re-dispatching), and answers PUBREL with PUBCOMP (`MqttClient._inboundQoS2`). Tested in `InboundQoS2Tests` |
 | 3.4 | PUBACK | ✅ |
 | 3.5 / 3.6 / 3.7 | PUBREC / PUBREL / PUBCOMP packets | ✅ codec + dispatcher (`EnqueuePubRel` / `EnqueuePubComp`) |
 | 3.8 | SUBSCRIBE | ✅ |
@@ -27,8 +27,8 @@ Maps OASIS MQTT 3.1.1 and 5.0 normative chapters to the implementation in `Mqtt.
 | 3.12 | PINGREQ | ✅ keep-alive loop drives it |
 | 3.13 | PINGRESP | ✅ |
 | 3.14 | DISCONNECT | ✅ |
-| 4.3.3 | QoS 2 exactly-once delivery guarantee | 🟡 Outbound only; inbound dedup is missing (see PUBLISH QoS 2 inbound above) |
-| 4.4 | Message redelivery after reconnect (DUP) | ❌ In-flight QoS 1/2 publishes are faulted on disconnect and not resent; tracked as `conf-persistence` |
+| 4.3.3 | QoS 2 exactly-once delivery guarantee | ✅ Outbound (PUBREC → PUBREL → await PUBCOMP) and inbound (PUBREC, single delivery + redelivery dedup → PUBCOMP); `InboundQoS2Tests`, `PublishSubscribeTests` |
+| 4.4 | Message redelivery after reconnect (DUP) | ✅ when persistence is configured (`WithPersistence`): in-flight QoS 1/2 publishes are saved, resent with DUP = 1 and their packet ids on a Session-Present reconnect, and the original awaiter completes on the post-reconnect ack; `PersistenceRedeliveryTests` |
 | 4.6 | Last-will (incl. v5 will properties / will delay) | ✅ encoder + builder API; broker performs delivery |
 | 4.7 | Topic names / wildcards / `$` topics | ✅ `TopicFilterTrie` + property-based fuzz harness (`TopicTrieHarness`) |
 | 4.7.3 | Retained messages | 🟡 client passes the `retain` flag end-to-end; broker honours storage |
@@ -50,9 +50,10 @@ Maps OASIS MQTT 3.1.1 and 5.0 normative chapters to the implementation in `Mqtt.
 | 4.7.2 (inbound) | Topic alias inbound expansion | ✅ `MqttClient._inboundAliases` register/resolve; tested `Inbound_topic_alias_registers_and_resolves` |
 | 4.8.2 | Shared subscriptions (`$share/<group>/<filter>`) | 🟡 client strips the `$share/<group>/` prefix and subscribes to the underlying filter (`StripSharedSubscriptionPrefix`, unit-tested); end-to-end broker fan-out is not integration-tested |
 | 4.10 | Subscription identifier | ✅ assigned per v5 subscription; inbound dispatch via the `_subsById` fast-path; tested (`Subscription_identifier_*`) |
-| 3.2.2.x | Honour CONNACK limits (Maximum QoS, Retain Available, Maximum Packet Size, Topic Alias Maximum) | ❌ advertised values are read but not enforced on outbound; tracked as `conf-broker-limits` |
-| 4.9 | Receive Maximum flow control | ❌ advertised in CONNECT and read from CONNACK, but outbound in-flight QoS>0 is not bounded to it; tracked as `conf-receive-max` |
-| 4.4 | Session state persistence + redelivery | ❌ `IPersistentSessionStore` / `FileSessionStore` exist but are not yet wired into the client; tracked as `conf-persistence` |
+| 4.10 (helper) | Request/response (Response Topic + Correlation Data) | ✅ `MqttClient.RequestAsync` publishes with a Response Topic + unique Correlation Data and completes on the correlated reply over a lazily-established response subscription; `MqttRequestOptions` (topic/QoS/timeout); `RequestResponseTests` |
+| 3.2.2.x | Honour CONNACK limits (Maximum QoS, Retain Available, Maximum Packet Size, Topic Alias Maximum) | ✅ enforced on the publish path per `MqttClientOptions.BrokerLimitBehavior` (`Reject` throws / `Adapt` downgrades QoS + drops retain/alias; oversized packets always throw); `BrokerLimitsTests` |
+| 4.9 | Receive Maximum flow control | ✅ outbound in-flight QoS&gt;0 bounded to the broker's advertised Receive Maximum via `MqttClientOptions.ReceiveMaximumBehavior` (`Backpressure` default / `Reject`); `BrokerLimitsTests` |
+| 4.4 | Session state persistence + redelivery | ✅ `IPersistentSessionStore` / `FileSessionStore` are wired into the client (opt-in via `WithPersistence`): outbound QoS 1/2 publishes are saved on send, removed on their terminal ack, and redelivered with DUP on a Session-Present reconnect; inbound QoS 2 receipt ids are persisted (companion `IPersistentInboundQoS2Store`) so de-dup survives reconnect; clean-session reconnect discards both. `PersistenceRedeliveryTests` |
 
 ## Client features beyond the wire spec
 
@@ -64,10 +65,8 @@ These are not MQTT normative requirements but affect how credentials and reconne
 
 ## Remaining work
 
-Conformance gaps, highest-impact first. Each is its own change (code + tests + a flip of the rows above to ✅).
+All previously-tracked conformance gaps (inbound QoS 2 exactly-once, session persistence + redelivery, Receive Maximum flow control, honouring CONNACK limits, and the request/response helper) are now implemented and tested. The only items below ✅ are:
 
-1. **`conf-qos2-inbound` — inbound QoS 2 exactly-once.** Track received packet identifiers between an inbound PUBLISH and its PUBREL, deliver the message exactly once, dedup a redelivered PUBLISH (re-ack PUBREC without re-dispatching), and release the state on PUBREL → PUBCOMP.
-2. **`conf-persistence` — session persistence + redelivery on reconnect.** Wire `IPersistentSessionStore`: save pending QoS 1/2 publishes on send, remove them on their terminal ack, and on a reconnect with Session Present reload the pending set, resend with DUP = 1, and restore the packet-identifier reservations. (Largest item; may be phased — outbound redelivery first, then inbound QoS 2 receipt state.)
-3. **`conf-receive-max` — Receive Maximum flow control.** Bound outbound in-flight QoS>0 publishes with a quota sized to the broker's advertised Receive Maximum: acquire before sending, release on the terminal ack (PUBACK / PUBCOMP).
-4. **`conf-broker-limits` — honour CONNACK limits.** Reject or cap outbound by Maximum Packet Size, downgrade or reject publishes above Maximum QoS, reject `retain` when Retain Available is false, and cap outbound topic aliases to the broker's Topic Alias Maximum.
-5. **`conf-request-response` *(optional)* — request/response helper.** An ergonomic API over the already-supported Response Topic / Correlation Data / Request Response Information properties.
+- **Shared subscriptions (4.8.2)** — 🟡 the `$share/<group>/` prefix is stripped and the underlying filter is subscribed (unit-tested), but end-to-end broker fan-out is not integration-tested. Closing this is a test-coverage task (a broker that distributes a shared group across multiple subscribers), not a code gap.
+
+Possible future enhancements (beyond strict conformance): a configurable per-client response-topic scheme for `RequestAsync`, and persisting MQTT 5 publish properties in `FileSessionStore` (currently best-effort — properties are not serialised to disk).

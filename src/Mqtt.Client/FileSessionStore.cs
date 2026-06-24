@@ -17,7 +17,7 @@ namespace Mqtt.Client;
 /// <c>[ushort QoS][byte Retain][ushort topicLen][topic UTF-8][int payloadLen][payload bytes]</c>.
 /// Optional MQTT 5 publish properties are intentionally not persisted; restore best-effort.
 /// </summary>
-public sealed class FileSessionStore : IPersistentSessionStore
+public sealed class FileSessionStore : IPersistentSessionStore, IPersistentInboundQoS2Store
 {
     private readonly object _gate = new();
 
@@ -112,12 +112,50 @@ public sealed class FileSessionStore : IPersistentSessionStore
         return new ValueTask<IReadOnlyList<(ushort, MqttMessage)>>(list);
     }
 
+    public ValueTask SaveReceivedQoS2Async(ushort packetId)
+    {
+        var path = Path.Combine(Directory, packetId + ".q2");
+        lock (_gate)
+        {
+            if (!File.Exists(path)) File.Create(path).Dispose();
+        }
+        return default;
+    }
+
+    public ValueTask RemoveReceivedQoS2Async(ushort packetId)
+    {
+        var path = Path.Combine(Directory, packetId + ".q2");
+        lock (_gate)
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        return default;
+    }
+
+    public ValueTask<IReadOnlyList<ushort>> ListReceivedQoS2Async()
+    {
+        var list = new List<ushort>();
+        lock (_gate)
+        {
+            foreach (var file in System.IO.Directory.EnumerateFiles(Directory, "*.q2"))
+            {
+                var name = Path.GetFileNameWithoutExtension(file);
+                if (ushort.TryParse(name, out var packetId)) list.Add(packetId);
+            }
+        }
+        return new ValueTask<IReadOnlyList<ushort>>(list);
+    }
+
     public ValueTask ClearAsync()
     {
         lock (_gate)
         {
             if (!System.IO.Directory.Exists(Directory)) return default;
             foreach (var file in System.IO.Directory.EnumerateFiles(Directory, "*.bin"))
+            {
+                try { File.Delete(file); } catch (IOException) { }
+            }
+            foreach (var file in System.IO.Directory.EnumerateFiles(Directory, "*.q2"))
             {
                 try { File.Delete(file); } catch (IOException) { }
             }

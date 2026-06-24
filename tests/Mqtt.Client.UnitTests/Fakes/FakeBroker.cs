@@ -227,6 +227,8 @@ internal sealed class FakeBroker
         => SendAckLikeAsync(0x40, packetId, rc, ct);
     public Task SendPubRecAsync(ushort packetId, CancellationToken ct = default)
         => SendAckLikeAsync(0x50, packetId, MqttReasonCode.Success, ct);
+    public Task SendPubRelAsync(ushort packetId, CancellationToken ct = default)
+        => SendAckLikeAsync(0x62, packetId, MqttReasonCode.Success, ct);
     public Task SendPubCompAsync(ushort packetId, CancellationToken ct = default)
         => SendAckLikeAsync(0x70, packetId, MqttReasonCode.Success, ct);
 
@@ -428,6 +430,51 @@ internal sealed class FakeBroker
         if (value < 16384) return 2;
         if (value < 2097152) return 3;
         return 4;
+    }
+
+    /// <summary>
+    /// Sends a v5 CONNACK advertising broker limits (Receive Maximum, Maximum QoS, Retain
+    /// Available, Maximum Packet Size, Topic Alias Maximum). Only non-null values are written.
+    /// </summary>
+    public async Task SendConnAckWithLimitsAsync(
+        ushort? receiveMaximum = null,
+        MqttQoS? maximumQoS = null,
+        bool? retainAvailable = null,
+        uint? maximumPacketSize = null,
+        ushort? topicAliasMaximum = null,
+        bool sessionPresent = false,
+        CancellationToken ct = default)
+    {
+        using var props = new MqttBufferWriter(32);
+        if (receiveMaximum is { } rm) { props.WriteByte(0x21); props.WriteUInt16BigEndian(rm); }
+        if (maximumQoS is { } mq) { props.WriteByte(0x24); props.WriteByte((byte)mq); }
+        if (retainAvailable is { } ra)
+        {
+            props.WriteByte(0x25);
+            props.WriteByte((byte)(ra ? 1 : 0));
+        }
+        if (maximumPacketSize is { } mps)
+        {
+            props.WriteByte(0x27);
+            props.WriteUInt32BigEndian(mps);
+        }
+        if (topicAliasMaximum is { } tam)
+        {
+            props.WriteByte(0x22);
+            props.WriteUInt16BigEndian(tam);
+        }
+        var propsBytes = props.WrittenMemory;
+        var propsLen = propsBytes.Length;
+
+        using var w = new MqttBufferWriter(8 + propsLen);
+        w.WriteByte(0x20);
+        var remaining = 2 + VarIntSize(propsLen) + propsLen;
+        w.WriteVarInt((uint)remaining);
+        w.WriteByte((byte)(sessionPresent ? 1 : 0));
+        w.WriteByte((byte)MqttReasonCode.Success);
+        w.WriteVarInt((uint)propsLen);
+        if (propsLen > 0) w.WriteBytes(propsBytes.Span);
+        await SendBytesAsync(w.WrittenMemory, ct).ConfigureAwait(false);
     }
 
     private async Task SendAckLikeAsync(

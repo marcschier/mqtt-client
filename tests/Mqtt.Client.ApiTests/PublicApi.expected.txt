@@ -3,7 +3,10 @@ class Mqtt.Client.FileSessionStore
   System.String get_Directory()
   System.Threading.Tasks.ValueTask ClearAsync()
   System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
+  System.Threading.Tasks.ValueTask RemoveReceivedQoS2Async(UInt16)
   System.Threading.Tasks.ValueTask SavePendingPublishAsync(UInt16, Mqtt.Client.MqttMessage)
+  System.Threading.Tasks.ValueTask SaveReceivedQoS2Async(UInt16)
+  System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.UInt16]] ListReceivedQoS2Async()
   System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.UInt16,Mqtt.Client.MqttMessage]]] ListPendingPublishesAsync()
   Void .ctor(System.String)
 interface Mqtt.Client.IMqttAuthenticationHandler
@@ -18,6 +21,10 @@ interface Mqtt.Client.IMqttCredentialsChangeNotifier
   Void remove_CredentialsChanged(System.EventHandler)
 interface Mqtt.Client.IMqttCredentialsProvider
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttCredentials] GetCredentialsAsync(System.Threading.CancellationToken)
+interface Mqtt.Client.IPersistentInboundQoS2Store
+  System.Threading.Tasks.ValueTask RemoveReceivedQoS2Async(UInt16)
+  System.Threading.Tasks.ValueTask SaveReceivedQoS2Async(UInt16)
+  System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.UInt16]] ListReceivedQoS2Async()
 interface Mqtt.Client.IPersistentSessionStore
   System.Threading.Tasks.ValueTask ClearAsync()
   System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
@@ -54,6 +61,10 @@ enum Mqtt.Client.MqttAuthenticationResultKind
   Mqtt.Client.MqttAuthenticationResultKind Abort
   Mqtt.Client.MqttAuthenticationResultKind Continue
   Mqtt.Client.MqttAuthenticationResultKind Final
+enum Mqtt.Client.MqttBrokerLimitBehavior
+  Int32 value__
+  Mqtt.Client.MqttBrokerLimitBehavior Adapt
+  Mqtt.Client.MqttBrokerLimitBehavior Reject
 class Mqtt.Client.MqttClient
   Boolean TryPublish(System.String, System.ReadOnlySpan`1[System.Byte], Boolean)
   Mqtt.Client.MqttClientBuilder CreateBuilder()
@@ -67,6 +78,7 @@ class Mqtt.Client.MqttClient
   System.Threading.Tasks.Task`1[Mqtt.Client.MqttConnectResult] ConnectAsync(System.Threading.CancellationToken)
   System.Threading.Tasks.Task`1[System.Nullable`1[System.ReadOnlyMemory`1[System.Byte]]] ReauthenticateAsync(Mqtt.Client.IMqttAuthenticationHandler, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask DisposeAsync()
+  System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttMessage] RequestAsync(System.String, System.ReadOnlyMemory`1[System.Byte], Mqtt.Client.MqttRequestOptions, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttPublishResult] PublishAsync(System.String, System.Buffers.ReadOnlySequence`1[System.Byte], Mqtt.Client.MqttQoS, Boolean, Mqtt.Client.MqttPublishProperties, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttPublishResult] PublishAsync(System.String, System.ReadOnlyMemory`1[System.Byte], Mqtt.Client.MqttQoS, Boolean, Mqtt.Client.MqttPublishProperties, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttSubscription] SubscribeAsync(System.String, Mqtt.Client.MqttSubscriptionOptions, System.Threading.CancellationToken)
@@ -83,6 +95,7 @@ class Mqtt.Client.MqttClientBuilder
   Mqtt.Client.MqttClientBuilder Configure(System.Action`1[Mqtt.Client.MqttClientOptions])
   Mqtt.Client.MqttClientBuilder ConnectTo(System.String)
   Mqtt.Client.MqttClientBuilder WithAuthentication(Mqtt.Client.IMqttAuthenticationHandler)
+  Mqtt.Client.MqttClientBuilder WithBrokerLimitBehavior(Mqtt.Client.MqttBrokerLimitBehavior)
   Mqtt.Client.MqttClientBuilder WithCleanStart(Boolean)
   Mqtt.Client.MqttClientBuilder WithClientCertificate(System.Security.Cryptography.X509Certificates.X509Certificate2)
   Mqtt.Client.MqttClientBuilder WithClientId(System.String)
@@ -96,6 +109,7 @@ class Mqtt.Client.MqttClientBuilder
   Mqtt.Client.MqttClientBuilder WithLogging(Microsoft.Extensions.Logging.ILoggerFactory)
   Mqtt.Client.MqttClientBuilder WithPersistence(Mqtt.Client.IPersistentSessionStore)
   Mqtt.Client.MqttClientBuilder WithProtocol(Mqtt.Client.MqttProtocolVersion)
+  Mqtt.Client.MqttClientBuilder WithReceiveMaximumBehavior(Mqtt.Client.MqttReceiveMaximumBehavior)
   Mqtt.Client.MqttClientBuilder WithReconnect(Mqtt.Client.MqttReconnectPolicy)
   Mqtt.Client.MqttClientBuilder WithSocks5Proxy(Mqtt.Client.Socks5ProxyOptions)
   Mqtt.Client.MqttClientBuilder WithSocks5Proxy(System.String, Int32, System.String, System.String)
@@ -122,10 +136,14 @@ class Mqtt.Client.MqttClientOptions
   Mqtt.Client.IMqttAuthenticationHandler get_AuthenticationHandler()
   Mqtt.Client.IMqttCredentialsProvider CredentialsProvider
   Mqtt.Client.IMqttCredentialsProvider get_CredentialsProvider()
+  Mqtt.Client.MqttBrokerLimitBehavior BrokerLimitBehavior
+  Mqtt.Client.MqttBrokerLimitBehavior get_BrokerLimitBehavior()
   Mqtt.Client.MqttLastWill Will
   Mqtt.Client.MqttLastWill get_Will()
   Mqtt.Client.MqttProtocolVersion ProtocolVersion
   Mqtt.Client.MqttProtocolVersion get_ProtocolVersion()
+  Mqtt.Client.MqttReceiveMaximumBehavior ReceiveMaximumBehavior
+  Mqtt.Client.MqttReceiveMaximumBehavior get_ReceiveMaximumBehavior()
   Mqtt.Client.MqttReconnectPolicy Reconnect
   Mqtt.Client.MqttReconnectPolicy get_Reconnect()
   Mqtt.Client.MqttTransportType Transport
@@ -152,6 +170,7 @@ class Mqtt.Client.MqttClientOptions
   UInt16 get_TopicAliasMaximum()
   Void .ctor()
   Void set_AuthenticationHandler(Mqtt.Client.IMqttAuthenticationHandler)
+  Void set_BrokerLimitBehavior(Mqtt.Client.MqttBrokerLimitBehavior)
   Void set_CleanStart(Boolean)
   Void set_ClearPooledBuffers(Boolean)
   Void set_ClientId(System.String)
@@ -167,6 +186,7 @@ class Mqtt.Client.MqttClientOptions
   Void set_ProtocolVersion(Mqtt.Client.MqttProtocolVersion)
   Void set_Proxy(Mqtt.Client.Socks5ProxyOptions)
   Void set_ReceiveMaximum(UInt16)
+  Void set_ReceiveMaximumBehavior(Mqtt.Client.MqttReceiveMaximumBehavior)
   Void set_Reconnect(Mqtt.Client.MqttReconnectPolicy)
   Void set_RetainableInboundMessages(Boolean)
   Void set_Tls(System.Net.Security.SslClientAuthenticationOptions)
@@ -388,6 +408,10 @@ enum Mqtt.Client.MqttReasonCode
   Mqtt.Client.MqttReasonCode UnsupportedProtocolVersion
   Mqtt.Client.MqttReasonCode UseAnotherServer
   Mqtt.Client.MqttReasonCode WildcardSubscriptionsNotSupported
+enum Mqtt.Client.MqttReceiveMaximumBehavior
+  Int32 value__
+  Mqtt.Client.MqttReceiveMaximumBehavior Backpressure
+  Mqtt.Client.MqttReceiveMaximumBehavior Reject
 class Mqtt.Client.MqttReconnectPolicy
   Double BackoffFactor
   Double JitterFactor
@@ -404,6 +428,17 @@ class Mqtt.Client.MqttReconnectPolicy
   Void set_InitialDelay(System.TimeSpan)
   Void set_JitterFactor(Double)
   Void set_MaxDelay(System.TimeSpan)
+class Mqtt.Client.MqttRequestOptions
+  Mqtt.Client.MqttQoS QoS
+  Mqtt.Client.MqttQoS get_QoS()
+  System.Nullable`1[System.TimeSpan] Timeout
+  System.Nullable`1[System.TimeSpan] get_Timeout()
+  System.String ResponseTopic
+  System.String get_ResponseTopic()
+  Void .ctor()
+  Void set_QoS(Mqtt.Client.MqttQoS)
+  Void set_ResponseTopic(System.String)
+  Void set_Timeout(System.Nullable`1[System.TimeSpan])
 class Mqtt.Client.MqttSubscription
   Mqtt.Client.MqttSubscriptionOptions Options
   Mqtt.Client.MqttSubscriptionOptions get_Options()

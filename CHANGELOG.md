@@ -6,6 +6,13 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ## [Unreleased]
 
+### Added
+- **Inbound QoS 2 exactly-once delivery.** The client now tracks received QoS 2 packet identifiers between an inbound PUBLISH and its PUBREL: a message is delivered exactly once, a redelivered PUBLISH is re-acked with PUBREC without re-dispatching, and the state is released on PUBREL → PUBCOMP.
+- **Session persistence + redelivery on reconnect (opt-in via `WithPersistence`).** `IPersistentSessionStore` / `FileSessionStore` are now wired into the client: outbound QoS 1/2 publishes are saved on send and removed on their terminal ack; on a Session-Present reconnect they are resent with DUP = 1 (packet-identifier reservations restored) and the original `PublishAsync` awaiter completes on the post-reconnect ack; a clean-session reconnect discards them. A new companion interface `IPersistentInboundQoS2Store` (implemented by both built-in stores) persists inbound QoS 2 receipt state so exactly-once de-duplication also survives a reconnect.
+- **Receive Maximum flow control.** Outbound in-flight QoS > 0 publishes are bounded to the broker's advertised Receive Maximum. `MqttClientOptions.ReceiveMaximumBehavior` / `WithReceiveMaximumBehavior(...)` selects `Backpressure` (await a slot — default) or `Reject` (throw when full).
+- **Honour CONNACK limits.** Outbound publishes are checked against the broker's Maximum QoS, Retain Available, Maximum Packet Size and Topic Alias Maximum. `MqttClientOptions.BrokerLimitBehavior` / `WithBrokerLimitBehavior(...)` selects `Reject` (throw — default) or `Adapt` (downgrade QoS, drop an unavailable retain flag / over-limit alias); an oversized packet always throws.
+- **MQTT 5 request/response helper.** `MqttClient.RequestAsync(requestTopic, payload, MqttRequestOptions?, …)` publishes with a Response Topic and unique Correlation Data and completes on the correlated reply, over a lazily-established shared response subscription. `MqttRequestOptions` configures the response topic, request QoS and timeout.
+
 ## [1.0.0] — 2026-06-24
 
 First stable release. The pre-1.0 API changes consolidated under the entries below are now the

@@ -108,6 +108,25 @@ internal sealed class PacketIdAllocator
         }
     }
 
+    /// <summary>
+    /// Marks a specific identifier as in use (idempotent). Restores packet-identifier reservations
+    /// for persisted in-flight publishes after a Session-Present reconnect.
+    /// </summary>
+    public void Reserve(ushort packetId)
+    {
+        if (packetId == 0) return;
+        var bitmap = Bitmap();
+        var idx = packetId - 1;
+        ref var word = ref bitmap[idx / 32];
+        var mask = 1 << (idx % 32);
+        while (true)
+        {
+            var current = Volatile.Read(ref word);
+            var next = current | mask;
+            if (Interlocked.CompareExchange(ref word, next, current) == current) return;
+        }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int TrailingZeroCount(uint value)
     {

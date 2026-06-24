@@ -161,6 +161,26 @@ public sealed class MqttClientBuilder
     }
 
     /// <summary>
+    /// Sets how the client reacts when an outbound PUBLISH would violate a broker-advertised limit
+    /// (Maximum QoS / Retain Available). Default is <see cref="MqttBrokerLimitBehavior.Reject"/>.
+    /// </summary>
+    public MqttClientBuilder WithBrokerLimitBehavior(MqttBrokerLimitBehavior behavior)
+    {
+        _options.BrokerLimitBehavior = behavior;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets how the client reacts when in-flight QoS&gt;0 publishes reach the broker's advertised
+    /// Receive Maximum. Default is <see cref="MqttReceiveMaximumBehavior.Backpressure"/>.
+    /// </summary>
+    public MqttClientBuilder WithReceiveMaximumBehavior(MqttReceiveMaximumBehavior behavior)
+    {
+        _options.ReceiveMaximumBehavior = behavior;
+        return this;
+    }
+
+    /// <summary>
     /// Configures an MQTT 5 enhanced authentication handler. Driven on CONNECT and re-auth.
     /// </summary>
     public MqttClientBuilder WithAuthentication(IMqttAuthenticationHandler handler)

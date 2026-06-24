@@ -160,6 +160,51 @@ public sealed class MqttClientOptions
     /// </para>
     /// </summary>
     public bool RetainableInboundMessages { get; set; }
+
+    /// <summary>
+    /// How the client reacts when an outbound PUBLISH would violate a broker-advertised limit
+    /// (Maximum QoS, or Retain Available). <see cref="MqttBrokerLimitBehavior.Reject"/> (default)
+    /// throws at the call site so a violating packet is never sent; <c>Adapt</c> silently conforms
+    /// (downgrades QoS to the broker maximum, drops an unavailable retain flag). A publish above the
+    /// broker's Maximum Packet Size always throws — an oversized packet cannot be adapted.
+    /// </summary>
+    public MqttBrokerLimitBehavior BrokerLimitBehavior { get; set; }
+        = MqttBrokerLimitBehavior.Reject;
+
+    /// <summary>
+    /// How the client reacts when in-flight QoS&gt;0 publishes reach the broker's advertised
+    /// Receive Maximum. <see cref="MqttReceiveMaximumBehavior.Backpressure"/> (default) awaits a
+    /// free slot, honouring the publish <c>CancellationToken</c>; <c>Reject</c> throws immediately.
+    /// </summary>
+    public MqttReceiveMaximumBehavior ReceiveMaximumBehavior { get; set; }
+        = MqttReceiveMaximumBehavior.Backpressure;
+}
+
+/// <summary>
+/// Controls the client's response to an outbound PUBLISH that violates a broker-advertised limit.
+/// </summary>
+public enum MqttBrokerLimitBehavior
+{
+    /// <summary>Throw at the call site (default); the client never sends a violating packet.</summary>
+    Reject = 0,
+
+    /// <summary>Silently conform: downgrade QoS to the broker maximum, drop an unavailable
+    /// retain flag.</summary>
+    Adapt = 1,
+}
+
+/// <summary>
+/// Controls the client's response when in-flight QoS&gt;0 publishes reach the broker's Receive
+/// Maximum.
+/// </summary>
+public enum MqttReceiveMaximumBehavior
+{
+    /// <summary>Await a free in-flight slot, honouring the publish CancellationToken (default).
+    /// </summary>
+    Backpressure = 0,
+
+    /// <summary>Throw immediately when no in-flight slot is available.</summary>
+    Reject = 1,
 }
 
 public enum MqttTransportType
