@@ -1,15 +1,15 @@
 name: nuget
 
-# Manually publish a release's NuGet package to nuget.org using OIDC-based
-# trusted publishing (no long-lived API key). The package is NOT rebuilt here:
-# it downloads the .nupkg/.snupkg already attached to a GitHub release (built
-# and published by the `ci` workflow's pack job), so the exact bytes that were
-# validated are what get pushed. Defaults to the latest release.
+# Manually publish the latest NuGet package from the GitHub Packages feed
+# (nuget.pkg.github.com) to nuget.org using OIDC-based trusted publishing (no
+# long-lived API key). The package is NOT rebuilt: it pulls the latest version
+# of Mqtt.Client already published to GitHub Packages (by the github-packages
+# workflow) and pushes those exact bytes to nuget.org.
 on:
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: 'Release tag to publish (blank = latest release)'
+      version:
+        description: 'Package version to publish (blank = latest on GitHub Packages)'
         required: false
         type: string
 
@@ -20,27 +20,36 @@ jobs:
     environment: release
     permissions:
       id-token: write   # Required: OIDC token for NuGet trusted publishing
-      contents: read    # Read release assets
+      packages: read    # Read the package from the GitHub Packages feed
 
     steps:
-      - name: Download package from GitHub release
+      - name: Download latest package from GitHub Packages
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.release_tag }}
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          ID="Mqtt.Client"
+          IDL="$(echo "$ID" | tr '[:upper:]' '[:lower:]')"
+          AUTH="Authorization: Bearer ${GH_TOKEN}"
+          INDEX="https://nuget.pkg.github.com/${OWNER}/index.json"
+          BASE="$(curl -sfSL -H "$AUTH" "$INDEX" \
+            | jq -r '.resources[] | select(."@type"|startswith("PackageBaseAddress")) | ."@id"' \
+            | head -n1)"
+          BASE="${BASE%/}"
+          echo "PackageBaseAddress: $BASE"
+          if [ -n "$INPUT_VERSION" ]; then
+            VER="$INPUT_VERSION"
+          else
+            VER="$(curl -sfSL -H "$AUTH" "$BASE/$IDL/index.json" \
+              | jq -r '.versions[]' | sort -V | tail -n1)"
+          fi
+          echo "Publishing $ID $VER from GitHub Packages to nuget.org"
           mkdir -p artifacts
-          if [ -z "$TAG" ]; then
-            TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
-          fi
-          echo "Publishing packages from release: $TAG"
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --pattern '*.nupkg' --pattern '*.snupkg' --dir artifacts
-          echo "Downloaded:"
+          curl -sfSL -H "$AUTH" -o "artifacts/$IDL.$VER.nupkg" \
+            "$BASE/$IDL/$VER/$IDL.$VER.nupkg"
           ls -l artifacts
-          if [ -z "$(ls artifacts/*.nupkg 2>/dev/null)" ]; then
-            echo "::error::No .nupkg found on release $TAG"
-            exit 1
-          fi
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

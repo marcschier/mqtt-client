@@ -1,0 +1,77 @@
+name: github-packages
+
+# Publishes a release's NuGet package to GitHub Packages (the
+# nuget.pkg.github.com feed shown in the repo's Packages tab). It does not
+# rebuild: it downloads the .nupkg already attached to a GitHub release (built
+# by the `ci` pack job) and pushes it with the built-in GITHUB_TOKEN.
+#
+# - Runs automatically after the `ci` workflow succeeds for a version tag.
+# - Can be dispatched manually for a specific tag (blank = latest release),
+#   e.g. to backfill an existing release into GitHub Packages.
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (blank = latest release)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    name: publish-github-packages
+    runs-on: ubuntu-latest
+    # Manual dispatch always runs; the auto path runs only when CI succeeded
+    # for a version tag (head_branch is the tag name for tag-triggered runs).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    permissions:
+      contents: read    # Read release assets
+      packages: write   # Push to GitHub Packages
+
+    steps:
+      - name: Resolve release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          elif [ -n "$RUN_TAG" ]; then
+            TAG="$RUN_TAG"
+          else
+            TAG=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Publishing release $TAG to GitHub Packages"
+
+      - name: Download package from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts
+          gh release download "${{ steps.tag.outputs.tag }}" --repo "$GITHUB_REPOSITORY" \
+            --pattern '*.nupkg' --dir artifacts
+          ls -l artifacts
+          if [ -z "$(ls artifacts/*.nupkg 2>/dev/null)" ]; then
+            echo "::error::No .nupkg found on release ${{ steps.tag.outputs.tag }}"
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Push to GitHub Packages
+        run: >-
+          dotnet nuget push "artifacts/*.nupkg"
+          --source https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+          --api-key ${{ secrets.GITHUB_TOKEN }}
+          --skip-duplicate
