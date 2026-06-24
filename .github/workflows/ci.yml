@@ -80,7 +80,7 @@ jobs:
       - name: Run AOT unit tests
         shell: bash
         run: |
-          bin=$(find tests/Mqtt.Client.UnitTests/bin/Release/net10.0 -path '*/publish/*' -type f -name 'Mqtt.Client.UnitTests*' ! -name '*.pdb' ! -name '*.dll' ! -name '*.json' | head -n1)
+          bin=$(find tests/Mqtt.Client.UnitTests/bin/Release/net10.0 -path '*/publish/*' -type f -name 'Mqtt.Client.UnitTests*' ! -name '*.pdb' ! -name '*.dll' ! -name '*.json' ! -name '*.dbg' | head -n1)
           echo "Running $bin"
           "$bin" --no-ansi --no-progress
 
