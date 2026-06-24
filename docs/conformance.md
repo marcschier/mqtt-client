@@ -1,4 +1,4 @@
-# MQTT spec conformance — Mqtt.Client (0.9.x)
+# MQTT spec conformance — Mqtt.Client (1.0.0)
 
 Maps OASIS MQTT 3.1.1 and 5.0 normative chapters to the implementation in `Mqtt.Client`. Citations point at the implementing code and the test that exercises it.
 

@@ -6,6 +6,11 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-06-24
+
+First stable release. The pre-1.0 API changes consolidated under the entries below are now the
+stable 1.0 baseline, and the library follows [SemVer](https://semver.org/) from here on.
+
 ### Added
 - **SOCKS5 proxy support** (RFC 1928) for the TCP and TLS transports, with optional RFC 1929
   username/password authentication. Configure via `MqttClientBuilder.WithSocks5Proxy(...)` or
@@ -136,7 +141,8 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 - Secure defaults: TLS 1.2/1.3, CRL on, `MaxIncomingPacketSize` capped at 1 MiB.
 - `Nerdbank.GitVersioning` for `version.json`-driven versioning; pack with SourceLink + symbols.
 
-[Unreleased]: https://github.com/marcschier/mqtt-client/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/marcschier/mqtt-client/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/marcschier/mqtt-client/releases/tag/v1.0.0
 [0.9.3]: https://github.com/marcschier/mqtt-client/releases/tag/v0.9.3
 [0.9.2]: https://github.com/marcschier/mqtt-client/releases/tag/v0.9.2
 [0.9.1]: https://github.com/marcschier/mqtt-client/releases/tag/v0.9.1
