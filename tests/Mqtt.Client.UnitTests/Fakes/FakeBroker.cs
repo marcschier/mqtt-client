@@ -69,6 +69,80 @@ internal sealed class FakeBroker
         }
     }
 
+    /// <summary>
+    /// Reads the next CONNECT and decodes its client id, username and password from the payload.
+    /// </summary>
+    public async Task<ConnectInfo> ReadConnectAsync(CancellationToken ct = default)
+    {
+        var reader = _transport.FromClient;
+        while (true)
+        {
+            var result = await reader.ReadAsync(ct).ConfigureAwait(false);
+            var buffer = result.Buffer;
+            if (TryParseConnect(buffer, out var info, out var consumed))
+            {
+                reader.AdvanceTo(consumed);
+                return info;
+            }
+            reader.AdvanceTo(buffer.Start, buffer.End);
+            if (result.IsCompleted)
+            {
+                throw new InvalidOperationException("Pipe closed before a CONNECT arrived.");
+            }
+        }
+    }
+
+    private static bool TryParseConnect(
+        in ReadOnlySequence<byte> buffer,
+        out ConnectInfo info,
+        out SequencePosition consumed)
+    {
+        info = default;
+        consumed = buffer.Start;
+        if (buffer.Length < 2) return false;
+
+        var r = new MqttSequenceReader(buffer);
+        var firstByte = r.ReadByte();
+        if ((firstByte >> 4) != 1)
+        {
+            throw new InvalidOperationException(
+                $"Expected CONNECT, got packet type {firstByte >> 4}.");
+        }
+        var remaining = r.ReadVarInt(out var lenBytes);
+        if (r.Remaining < remaining) return false;
+
+        _ = r.ReadString();                  // protocol name ("MQTT")
+        var level = r.ReadByte();            // 5 (v5) or 4 (v3.1.1)
+        var flags = r.ReadByte();
+        _ = r.ReadUInt16BigEndian();         // keep-alive
+        var v5 = level == 5;
+        if (v5)
+        {
+            var propLen = (int)r.ReadVarInt(out _);
+            if (propLen > 0) r.Advance(propLen);  // skip CONNECT properties
+        }
+
+        var clientId = r.ReadString();
+        if ((flags & 0x04) != 0)             // will flag
+        {
+            if (v5)
+            {
+                var willPropLen = (int)r.ReadVarInt(out _);
+                if (willPropLen > 0) r.Advance(willPropLen);
+            }
+            _ = r.ReadString();              // will topic
+            _ = r.ReadBinaryData();          // will payload
+        }
+        var username = (flags & 0x80) != 0 ? r.ReadString() : null;
+        var password = (flags & 0x40) != 0 ? r.ReadBinaryData() : null;
+
+        consumed = buffer.GetPosition(1 + lenBytes + remaining);
+        info = new ConnectInfo(clientId, username, password);
+        return true;
+    }
+
+    public readonly record struct ConnectInfo(string ClientId, string? Username, byte[]? Password);
+
     private static bool TryParseClientPacket(
         in ReadOnlySequence<byte> buffer,
         out ClientPacket packet,

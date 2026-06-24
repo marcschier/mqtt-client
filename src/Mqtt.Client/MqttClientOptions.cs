@@ -59,12 +59,12 @@ public sealed class MqttClientOptions
     public ushort KeepAliveSeconds { get; set; } = 60;
 
     /// <summary>
-    /// Username for password auth.
+    /// Username for password auth. Ignored when <see cref="CredentialsProvider"/> is set.
     /// </summary>
     public string? Username { get; set; }
 
     /// <summary>
-    /// Password for password auth.
+    /// Password for password auth. Ignored when <see cref="CredentialsProvider"/> is set.
     /// </summary>
     public byte[]? Password { get; set; }
 
@@ -127,6 +127,14 @@ public sealed class MqttClientOptions
     /// the SASL-style multi-round-trip auth exchange with the broker.
     /// </summary>
     public IMqttAuthenticationHandler? AuthenticationHandler { get; set; }
+
+    /// <summary>
+    /// Optional async provider for the username/password presented in CONNECT. When set, it is
+    /// consulted on every connect (initial and each reconnect), so freshly-loaded credentials — a
+    /// rotated SAS token, a refreshed JWT/OAuth bearer used as the password — are presented each
+    /// time. While set, it overrides the static <see cref="Username"/> / <see cref="Password"/>.
+    /// </summary>
+    public IMqttCredentialsProvider? CredentialsProvider { get; set; }
 
     /// <summary>
     /// Maximum number of inbound AUTH 0x18 roundtrips per handshake before the client aborts the

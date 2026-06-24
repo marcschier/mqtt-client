@@ -4,6 +4,8 @@ using System;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 namespace Mqtt.Client;
 
@@ -165,6 +167,31 @@ public sealed class MqttClientBuilder
     {
         _options.AuthenticationHandler = handler
             ?? throw new ArgumentNullException(nameof(handler));
+        return this;
+    }
+
+    /// <summary>
+    /// Configures an async credentials provider consulted on every connect (initial and each
+    /// reconnect), so freshly-loaded username/password — e.g. a rotated SAS token or refreshed JWT
+    /// used as the password — are presented each time. Overrides any static
+    /// <see cref="WithCredentials(string, string)"/> values.
+    /// </summary>
+    public MqttClientBuilder WithCredentialsProvider(IMqttCredentialsProvider provider)
+    {
+        _options.CredentialsProvider = provider
+            ?? throw new ArgumentNullException(nameof(provider));
+        return this;
+    }
+
+    /// <summary>
+    /// Convenience overload of <see cref="WithCredentialsProvider(IMqttCredentialsProvider)"/> that
+    /// adapts a delegate.
+    /// </summary>
+    public MqttClientBuilder WithCredentialsProvider(
+        Func<CancellationToken, ValueTask<MqttCredentials>> load)
+    {
+        if (load is null) throw new ArgumentNullException(nameof(load));
+        _options.CredentialsProvider = new DelegateCredentialsProvider(load);
         return this;
     }
 

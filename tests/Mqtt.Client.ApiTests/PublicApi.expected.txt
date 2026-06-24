@@ -12,6 +12,8 @@ interface Mqtt.Client.IMqttAuthenticationHandler
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttAuthenticationResult] ContinueAsync(System.Nullable`1[System.ReadOnlyMemory`1[System.Byte]], System.Threading.CancellationToken)
 interface Mqtt.Client.IMqttClientFactory
   Mqtt.Client.MqttClient Create(System.String)
+interface Mqtt.Client.IMqttCredentialsProvider
+  System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttCredentials] GetCredentialsAsync(System.Threading.CancellationToken)
 interface Mqtt.Client.IPersistentSessionStore
   System.Threading.Tasks.ValueTask ClearAsync()
   System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
@@ -73,6 +75,8 @@ class Mqtt.Client.MqttClientBuilder
   Mqtt.Client.MqttClientBuilder WithClientId(System.String)
   Mqtt.Client.MqttClientBuilder WithCredentials(System.String, Byte[])
   Mqtt.Client.MqttClientBuilder WithCredentials(System.String, System.String)
+  Mqtt.Client.MqttClientBuilder WithCredentialsProvider(Mqtt.Client.IMqttCredentialsProvider)
+  Mqtt.Client.MqttClientBuilder WithCredentialsProvider(System.Func`2[System.Threading.CancellationToken,System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttCredentials]])
   Mqtt.Client.MqttClientBuilder WithKeepAlive(UInt16)
   Mqtt.Client.MqttClientBuilder WithLastWill(Mqtt.Client.MqttLastWill)
   Mqtt.Client.MqttClientBuilder WithLogging(Microsoft.Extensions.Logging.ILoggerFactory)
@@ -102,6 +106,8 @@ class Mqtt.Client.MqttClientOptions
   Int32 get_Port()
   Mqtt.Client.IMqttAuthenticationHandler AuthenticationHandler
   Mqtt.Client.IMqttAuthenticationHandler get_AuthenticationHandler()
+  Mqtt.Client.IMqttCredentialsProvider CredentialsProvider
+  Mqtt.Client.IMqttCredentialsProvider get_CredentialsProvider()
   Mqtt.Client.MqttLastWill Will
   Mqtt.Client.MqttLastWill get_Will()
   Mqtt.Client.MqttProtocolVersion ProtocolVersion
@@ -135,6 +141,7 @@ class Mqtt.Client.MqttClientOptions
   Void set_CleanStart(Boolean)
   Void set_ClearPooledBuffers(Boolean)
   Void set_ClientId(System.String)
+  Void set_CredentialsProvider(Mqtt.Client.IMqttCredentialsProvider)
   Void set_DefaultSubscriptionCapacity(Int32)
   Void set_Host(System.String)
   Void set_KeepAliveSeconds(UInt16)
@@ -211,6 +218,13 @@ enum Mqtt.Client.MqttConnectionState
   Mqtt.Client.MqttConnectionState Disconnected
   Mqtt.Client.MqttConnectionState Disposed
   Mqtt.Client.MqttConnectionState Reconnecting
+struct Mqtt.Client.MqttCredentials
+  Byte[] Password
+  Byte[] get_Password()
+  Mqtt.Client.MqttCredentials From(System.String, System.String)
+  System.String Username
+  System.String get_Username()
+  Void .ctor(System.String, Byte[])
 class Mqtt.Client.MqttDisconnectedEventArgs
   System.Exception Exception
   System.Exception get_Exception()

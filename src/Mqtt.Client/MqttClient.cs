@@ -224,6 +224,19 @@ public sealed class MqttClient : IAsyncDisposable
                 _initialAuthData = first.Data;
             }
 
+            // Resolve the username/password to present in CONNECT. A configured provider is
+            // consulted on every connect (initial and each reconnect via ReconnectLoopAsync), so
+            // freshly-loaded credentials are used each time; otherwise the static options apply.
+            _resolvedUsername = _options.Username;
+            _resolvedPassword = _options.Password;
+            if (_options.CredentialsProvider is { } credentialsProvider)
+            {
+                var credentials = await credentialsProvider
+                    .GetCredentialsAsync(cancellationToken).ConfigureAwait(false);
+                _resolvedUsername = credentials.Username;
+                _resolvedPassword = credentials.Password;
+            }
+
             var connectPkt = BuildConnectPacket();
             var pw = new PipeBufferWriter(_transport!.Output, 256);
             MqttPacketEncoder.EncodeConnect(connectPkt, ref pw);
@@ -265,8 +278,8 @@ public sealed class MqttClient : IAsyncDisposable
         ClientId = _options.ClientId,
         CleanStart = _options.CleanStart,
         KeepAliveSeconds = _options.KeepAliveSeconds,
-        Username = _options.Username,
-        Password = _options.Password,
+        Username = _resolvedUsername,
+        Password = _resolvedPassword,
         Will = _options.Will,
         ReceiveMaximum = _options.ProtocolVersion == MqttProtocolVersion.V500
             ? _options.ReceiveMaximum
@@ -282,6 +295,11 @@ public sealed class MqttClient : IAsyncDisposable
     // Initial auth values captured by ConnectAsync from the handler before encoding CONNECT.
     private string? _initialAuthMethod;
     private ReadOnlyMemory<byte> _initialAuthData;
+
+    // Username/password resolved by ConnectAsync (from CredentialsProvider when set, else the
+    // static options) and consumed by BuildConnectPacket. Re-resolved on every (re)connect.
+    private string? _resolvedUsername;
+    private byte[]? _resolvedPassword;
 
     private async Task<MqttConnectResult> ReadConnAckOrAuthAsync(
         IMqttAuthenticationHandler? handler,
