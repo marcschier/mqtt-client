@@ -195,6 +195,30 @@ public sealed class MqttClientBuilder
         return this;
     }
 
+    /// <summary>
+    /// Authenticates with a Kubernetes service-account token (SAT) read from a mounted file and
+    /// reconnects automatically when the token is rotated. The token is presented as the MQTT
+    /// password (with an optional fixed <paramref name="username"/>). The provider is disposed with
+    /// the client.
+    /// </summary>
+    /// <param name="tokenPath">
+    /// Token file path; defaults to
+    /// <see cref="KubernetesServiceAccountTokenCredentialsProvider.DefaultTokenPath"/>.
+    /// </param>
+    /// <param name="username">Optional fixed MQTT username.</param>
+    /// <param name="pollInterval">
+    /// How often to re-check the token file for rotation; defaults to 5 minutes.
+    /// </param>
+    public MqttClientBuilder WithKubernetesServiceAccountToken(
+        string? tokenPath = null,
+        string? username = null,
+        TimeSpan? pollInterval = null)
+    {
+        _options.CredentialsProvider = new KubernetesServiceAccountTokenCredentialsProvider(
+            tokenPath, username, pollInterval);
+        return this;
+    }
+
     public MqttClientBuilder Configure(Action<MqttClientOptions> configure)
     {
         configure?.Invoke(_options);

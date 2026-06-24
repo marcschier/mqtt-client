@@ -80,3 +80,19 @@ internal sealed class DelegateCredentialsProvider : IMqttCredentialsProvider
     public ValueTask<MqttCredentials> GetCredentialsAsync(CancellationToken cancellationToken)
         => _load(cancellationToken);
 }
+
+/// <summary>
+/// Optional companion to <see cref="IMqttCredentialsProvider"/> for providers whose credentials can
+/// change out of band (for example a rotated Kubernetes service-account token on disk). When the
+/// configured provider implements this interface, the client subscribes to
+/// <see cref="CredentialsChanged"/> and, while connected, reconnects (via
+/// <see cref="MqttClient.ReconnectAsync"/>) so the freshly-loaded credentials are presented.
+/// </summary>
+public interface IMqttCredentialsChangeNotifier
+{
+    /// <summary>
+    /// Raised when the credentials this provider would return have changed. May be raised from a
+    /// background thread; handlers should be cheap and non-blocking.
+    /// </summary>
+    event EventHandler? CredentialsChanged;
+}

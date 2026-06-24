@@ -1,7 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 using System.Text;
-using System.Threading.Channels;
 
 namespace Mqtt.Client.UnitTests;
 
@@ -20,21 +19,8 @@ public class CredentialsProviderTests
         }
     }
 
-    // Vends a fresh transport per connect so each reconnect attempt gets its own pipes.
-    private sealed class MultiConnectFactory : IMqttTransportFactory
-    {
-        private readonly Channel<FakePipeTransport> _created =
-            Channel.CreateUnbounded<FakePipeTransport>();
-
-        public ChannelReader<FakePipeTransport> Created => _created.Reader;
-
-        public ValueTask<IMqttTransport> ConnectAsync(CancellationToken cancellationToken)
-        {
-            var transport = new FakePipeTransport();
-            _created.Writer.TryWrite(transport);
-            return new ValueTask<IMqttTransport>(transport);
-        }
-    }
+    // Vends a fresh transport per connect so each reconnect attempt gets its own pipes:
+    // see Fakes/MultiConnectFakeFactory.cs.
 
     [Test]
     [Timeout(5_000)]
@@ -65,7 +51,7 @@ public class CredentialsProviderTests
     [Timeout(10_000)]
     public async Task Provider_is_reinvoked_on_reconnect_with_new_credentials(CancellationToken ct)
     {
-        var factory = new MultiConnectFactory();
+        var factory = new MultiConnectFakeFactory();
         var provider = new SequenceProvider();
         var client = new MqttClient(new MqttClientOptions
         {

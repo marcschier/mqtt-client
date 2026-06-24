@@ -47,6 +47,8 @@ public sealed class MqttClient : IAsyncDisposable
     private CancellationTokenSource? _loopCts;
     private int _state; // MqttConnectionState
     private int _manualDisconnect;
+    // Serializes ReconnectAsync so overlapping credential-change signals don't stack reconnects.
+    private readonly SemaphoreSlim _reconnectGate = new(1, 1);
 
     // After sending DISCONNECT, wait up to this long for the broker to close the TCP connection
     // (making it the active closer) before forcing the close ourselves. Keeps our ephemeral port
@@ -104,6 +106,12 @@ public sealed class MqttClient : IAsyncDisposable
             SingleReader = true,
             SingleWriter = false,
         });
+        // Reconnect to present freshly-loaded credentials when an observable provider signals a
+        // change (e.g. a rotated Kubernetes service-account token).
+        if (_options.CredentialsProvider is IMqttCredentialsChangeNotifier notifier)
+        {
+            notifier.CredentialsChanged += OnCredentialsChanged;
+        }
     }
 
     public MqttConnectionState State => (MqttConnectionState)Volatile.Read(ref _state);
@@ -1136,6 +1144,74 @@ public sealed class MqttClient : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Forces a reconnect that re-reads credentials via the configured
+    /// <see cref="MqttClientOptions.CredentialsProvider"/> — used to present rotated credentials
+    /// (e.g. a refreshed Kubernetes service-account token). Gracefully disconnects the current
+    /// session and re-establishes it. The MQTT session is dropped; with
+    /// <see cref="MqttClientOptions.CleanStart"/> = <c>false</c> the broker restores subscriptions.
+    /// <para>
+    /// Must be called while <see cref="State"/> is <see cref="MqttConnectionState.Connected"/>
+    /// (throws otherwise); concurrent calls are serialized. If the reconnect's connect attempt
+    /// fails, the configured auto-reconnect policy (if any) takes over and the original exception is
+    /// rethrown.
+    /// </para>
+    /// </summary>
+    public async Task ReconnectAsync(CancellationToken cancellationToken = default)
+    {
+        await _reconnectGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var state = State;
+            if (state != MqttConnectionState.Connected)
+            {
+                throw new InvalidOperationException(
+                    $"ReconnectAsync requires a Connected client; current state is {state}.");
+            }
+            // Graceful manual teardown (stops the loops and suppresses their own reconnect), then a
+            // fresh connect that re-reads credentials.
+            await DisconnectAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await ConnectAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // The failed connect leaves the state at Connecting; reset it and let the configured
+                // auto-reconnect policy re-establish (mirrors an unexpected drop) instead of sticking.
+                SetState(MqttConnectionState.Disconnected);
+                Volatile.Write(ref _manualDisconnect, 0);
+                if (_options.Reconnect is { } policy)
+                {
+                    _ = ReconnectLoopAsync(policy);
+                }
+                throw;
+            }
+        }
+        finally
+        {
+            _reconnectGate.Release();
+        }
+    }
+
+    private void OnCredentialsChanged(object? sender, EventArgs e)
+        => _ = ReconnectOnCredentialsChangedAsync();
+
+    private async Task ReconnectOnCredentialsChangedAsync()
+    {
+        // A reconnect is only needed for a live session; a not-yet-connected client reads the new
+        // credentials on its next connect anyway. Failures self-heal via the auto-reconnect loop.
+        if (State != MqttConnectionState.Connected) return;
+        try
+        {
+            await ReconnectAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            MqttLog.ConnectionLoopFailed(_logger, ex, "credential-change reconnect");
+        }
+    }
+
     public async Task DisconnectAsync(CancellationToken cancellationToken = default)
     {
         Volatile.Write(ref _manualDisconnect, 1);
@@ -1291,10 +1367,27 @@ public sealed class MqttClient : IAsyncDisposable
     {
         SetState(MqttConnectionState.Disposed);
         Volatile.Write(ref _manualDisconnect, 1);
+        if (_options.CredentialsProvider is IMqttCredentialsChangeNotifier notifier)
+        {
+            notifier.CredentialsChanged -= OnCredentialsChanged;
+        }
         _outbound.Writer.TryComplete();
         await CleanupAsync("dispose").ConfigureAwait(false);
         _loopCts?.Dispose();
+        _reconnectGate.Dispose();
         _metrics.Dispose();
+        // The client owns the lifetime of the credentials provider it was given (most providers are
+        // stateless and not disposable; a watching provider — e.g. the Kubernetes token provider —
+        // releases its file watcher here).
+        switch (_options.CredentialsProvider)
+        {
+            case IAsyncDisposable asyncDisposable:
+                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                break;
+            case IDisposable disposable:
+                disposable.Dispose();
+                break;
+        }
     }
 
     /// <summary>

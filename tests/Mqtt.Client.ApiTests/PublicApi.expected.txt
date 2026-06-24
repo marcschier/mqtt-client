@@ -12,6 +12,10 @@ interface Mqtt.Client.IMqttAuthenticationHandler
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttAuthenticationResult] ContinueAsync(System.Nullable`1[System.ReadOnlyMemory`1[System.Byte]], System.Threading.CancellationToken)
 interface Mqtt.Client.IMqttClientFactory
   Mqtt.Client.MqttClient Create(System.String)
+interface Mqtt.Client.IMqttCredentialsChangeNotifier
+  System.EventHandler CredentialsChanged
+  Void add_CredentialsChanged(System.EventHandler)
+  Void remove_CredentialsChanged(System.EventHandler)
 interface Mqtt.Client.IMqttCredentialsProvider
   System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttCredentials] GetCredentialsAsync(System.Threading.CancellationToken)
 interface Mqtt.Client.IPersistentSessionStore
@@ -19,6 +23,14 @@ interface Mqtt.Client.IPersistentSessionStore
   System.Threading.Tasks.ValueTask RemovePendingPublishAsync(UInt16)
   System.Threading.Tasks.ValueTask SavePendingPublishAsync(UInt16, Mqtt.Client.MqttMessage)
   System.Threading.Tasks.ValueTask`1[System.Collections.Generic.IReadOnlyList`1[System.ValueTuple`2[System.UInt16,Mqtt.Client.MqttMessage]]] ListPendingPublishesAsync()
+class Mqtt.Client.KubernetesServiceAccountTokenCredentialsProvider
+  System.EventHandler CredentialsChanged
+  System.String DefaultTokenPath
+  System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttCredentials] GetCredentialsAsync(System.Threading.CancellationToken)
+  Void .ctor(System.String, System.String, System.Nullable`1[System.TimeSpan])
+  Void Dispose()
+  Void add_CredentialsChanged(System.EventHandler)
+  Void remove_CredentialsChanged(System.EventHandler)
 class Mqtt.Client.MqttAuthenticationException
   Mqtt.Client.MqttReasonCode ReasonCode
   Mqtt.Client.MqttReasonCode get_ReasonCode()
@@ -51,6 +63,7 @@ class Mqtt.Client.MqttClient
   System.EventHandler`1[Mqtt.Client.MqttConnectionState] StateChanged
   System.EventHandler`1[Mqtt.Client.MqttDisconnectedEventArgs] Disconnected
   System.Threading.Tasks.Task DisconnectAsync(System.Threading.CancellationToken)
+  System.Threading.Tasks.Task ReconnectAsync(System.Threading.CancellationToken)
   System.Threading.Tasks.Task`1[Mqtt.Client.MqttConnectResult] ConnectAsync(System.Threading.CancellationToken)
   System.Threading.Tasks.Task`1[System.Nullable`1[System.ReadOnlyMemory`1[System.Byte]]] ReauthenticateAsync(Mqtt.Client.IMqttAuthenticationHandler, System.Threading.CancellationToken)
   System.Threading.Tasks.ValueTask DisposeAsync()
@@ -78,6 +91,7 @@ class Mqtt.Client.MqttClientBuilder
   Mqtt.Client.MqttClientBuilder WithCredentialsProvider(Mqtt.Client.IMqttCredentialsProvider)
   Mqtt.Client.MqttClientBuilder WithCredentialsProvider(System.Func`2[System.Threading.CancellationToken,System.Threading.Tasks.ValueTask`1[Mqtt.Client.MqttCredentials]])
   Mqtt.Client.MqttClientBuilder WithKeepAlive(UInt16)
+  Mqtt.Client.MqttClientBuilder WithKubernetesServiceAccountToken(System.String, System.String, System.Nullable`1[System.TimeSpan])
   Mqtt.Client.MqttClientBuilder WithLastWill(Mqtt.Client.MqttLastWill)
   Mqtt.Client.MqttClientBuilder WithLogging(Microsoft.Extensions.Logging.ILoggerFactory)
   Mqtt.Client.MqttClientBuilder WithPersistence(Mqtt.Client.IPersistentSessionStore)
