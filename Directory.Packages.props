@@ -43,6 +43,7 @@
 
   <ItemGroup Label="Integration tests">
     <PackageVersion Include="MQTTnet" Version="5.0.1.1416" />
+    <PackageVersion Include="MQTTnet.AspNetCore" Version="5.0.1.1416" />
     <PackageVersion Include="MQTTnet.Server" Version="5.0.1.1416" />
   </ItemGroup>
 

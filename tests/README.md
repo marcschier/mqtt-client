@@ -1,6 +1,6 @@
 # Tests
 
-Six projects backing the `Mqtt.Client` library. Run with `dotnet test` (where
+Seven projects backing the `Mqtt.Client` library. Run with `dotnet test` (where
 applicable) or by invoking the test runner exe directly. A coverage script that
 runs the unit + integration suites and merges results lives at
 [`scripts/coverage.ps1`](../scripts/coverage.ps1).
@@ -126,6 +126,25 @@ bash tests/Mqtt.Client.FuzzTests/scripts/run-fuzz.sh codec-roundtrip 60
 
 The CI workflow `.github/workflows/fuzz.yml` is `workflow_dispatch`-only;
 `harness` and `max_total_time` are inputs.
+
+## `Mqtt.Client.ChaosTests/` — soak / chaos harness (net10.0 console)
+
+A standalone soak app: standard publisher/subscriber workers run through an
+in-process TCP chaos proxy in front of a real MQTTnet broker, while a seeded
+fault scheduler injects network faults (drop, black-hole, latency, throttle,
+corruption, refusal) and broker faults (restart, force-disconnect, reject).
+Validators assert continuous recovery, no hangs (a publish **and** receive
+liveness watchdog), and no memory/handle/thread leak (forced-GC sampling).
+Supports `tcp`, `tls`, and `ws` transports. See [`docs/chaos.md`](../docs/chaos.md).
+
+```bash
+# 1-hour default; short reproducible local run shown here.
+dotnet run --project tests/Mqtt.Client.ChaosTests -c Release -- \
+  --duration 00:02:00 --transport tcp --seed 12345 --report ./chaos-report
+```
+
+The CI workflow `.github/workflows/chaos.yml` runs the full soak nightly (and on
+demand), plus a short per-transport smoke on pull requests.
 
 ## Coverage
 

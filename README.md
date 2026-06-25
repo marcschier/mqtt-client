@@ -76,6 +76,7 @@ var retaining = MqttClient.CreateBuilder()
 - [Advanced](docs/advanced.md) — custom transport, persistence, AOT, metrics
 - [Troubleshooting](docs/troubleshooting.md)
 - [Spec conformance](docs/conformance.md)
+- [Chaos / soak testing](docs/chaos.md) — continuous-recovery, no-leak, no-hang ruggedization gate
 - [Benchmarks](docs/benchmarks.md) — Mqtt.Client vs MQTTnet, full results matrix
 - [Interop benchmarks](docs/interop-benchmarks.md) — cross-implementation throughput vs Mosquitto C
 

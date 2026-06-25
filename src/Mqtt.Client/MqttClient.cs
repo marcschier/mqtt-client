@@ -41,6 +41,10 @@ public sealed class MqttClient : IAsyncDisposable
     private readonly ConcurrentDictionary<uint, MqttSubscription> _subsById = new();
     private int _nextSubId;
 
+    // All live (non-disposed) subscriptions, regardless of protocol version. Powers the
+    // subscription-count gauge and the resubscribe-on-reconnect path (the trie is not enumerable).
+    private readonly ConcurrentDictionary<MqttSubscription, byte> _subscriptions = new();
+
     private TaskCompletionSource<AuthPacket>? _pendingAuth;
 
     // Broker-advertised limits captured from CONNACK on each (re)connect. Defaults are the MQTT 5
@@ -65,6 +69,10 @@ public sealed class MqttClient : IAsyncDisposable
     private CancellationTokenSource? _loopCts;
     private int _state; // MqttConnectionState
     private int _manualDisconnect;
+    // Stopwatch timestamp of the last unexpected disconnect (0 = none); measures recovery duration.
+    private long _disconnectedTimestamp;
+    // Stopwatch timestamp of the last inbound activity; drives keep-alive read-idle detection.
+    private long _lastInboundTimestamp;
     // Serializes ReconnectAsync so overlapping credential-change signals don't stack reconnects.
     private readonly SemaphoreSlim _reconnectGate = new(1, 1);
 
@@ -125,6 +133,16 @@ public sealed class MqttClient : IAsyncDisposable
             SingleReader = true,
             SingleWriter = false,
         });
+        _metrics.BindGauges(
+            connectionState: () => Volatile.Read(ref _state),
+            pendingAcks: () => _pendingAcks.Count,
+            inflightPublishes: () =>
+            {
+                var q = _inflightQuota;
+                return q is null ? 0 : Math.Max(0, _serverReceiveMaximum - q.CurrentCount);
+            },
+            outboundQueueDepth: () => _outbound.Reader.CanCount ? _outbound.Reader.Count : 0,
+            subscriptions: () => _subscriptions.Count);
         // Reconnect to present freshly-loaded credentials when an observable provider signals a
         // change (e.g. a rotated Kubernetes service-account token).
         if (_options.CredentialsProvider is IMqttCredentialsChangeNotifier notifier)
@@ -229,6 +247,8 @@ public sealed class MqttClient : IAsyncDisposable
             _options.ClientId);
         try
         {
+            _metrics.ConnectAttempts.Add(1);
+            var connectStart = Stopwatch.GetTimestamp();
             _transport = await _transportFactory.ConnectAsync(cancellationToken)
                 .ConfigureAwait(false);
             _loopCts = new CancellationTokenSource();
@@ -279,6 +299,8 @@ public sealed class MqttClient : IAsyncDisposable
                 return connack;
             }
             CaptureServerLimits(connack);
+            _metrics.ConnectDuration.Record(
+                (Stopwatch.GetTimestamp() - connectStart) * 1000.0 / Stopwatch.Frequency);
             // Reset per-connection inbound QoS 2 receipt state before the read loop starts (runs
             // single-threaded here). On a Session-Present reconnect, restore the recorded ids from
             // the persistent store so a redelivered inbound PUBLISH is still de-duplicated.
@@ -291,6 +313,7 @@ public sealed class MqttClient : IAsyncDisposable
                 }
             }
             SetState(MqttConnectionState.Connected);
+            _lastInboundTimestamp = Stopwatch.GetTimestamp();
             _readLoop = Task.Run(() => ReadLoopAsync(_loopCts!.Token));
             _writeLoop = Task.Run(() => WriteLoopAsync(_loopCts!.Token));
             if (_options.KeepAliveSeconds > 0)
@@ -316,10 +339,19 @@ public sealed class MqttClient : IAsyncDisposable
                 }
             }
             Connected?.Invoke(this, connack);
+            // Broker dropped our session (restart / clean session): the broker has forgotten our
+            // subscriptions, so re-send them. The loops are running, so SUBSCRIBE can flow. Skipped
+            // on first connect (no subscriptions yet) and when the session survived.
+            if (!connack.SessionPresent && !_subscriptions.IsEmpty)
+            {
+                await ResendSubscriptionsAsync(cancellationToken).ConfigureAwait(false);
+            }
             return connack;
         }
-        catch
+        catch (Exception ex)
         {
+            _metrics.ConnectFailures.Add(
+                1, MqttMetrics.Reason(ClassifyReason(ex, wasManual: false)));
             await CleanupAsync("Connect failed").ConfigureAwait(false);
             throw;
         }
@@ -673,6 +705,7 @@ public sealed class MqttClient : IAsyncDisposable
             while (!ct.IsCancellationRequested)
             {
                 var result = await reader.ReadAsync(ct).ConfigureAwait(false);
+                _lastInboundTimestamp = Stopwatch.GetTimestamp();
                 var buffer = result.Buffer;
                 while (MqttPacketDecoder.TryDecode(
                     buffer,
@@ -703,6 +736,7 @@ public sealed class MqttClient : IAsyncDisposable
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
+            if (ex is MqttProtocolException) _metrics.DecodeErrors.Add(1);
             MqttLog.ConnectionLoopFailed(_logger, ex, "reader");
             await OnTransportClosedAsync(ex).ConfigureAwait(false);
         }
@@ -995,11 +1029,25 @@ public sealed class MqttClient : IAsyncDisposable
             {
                 channelMsg = sharedGcOwned ??= BuildGcOwnedMessage(topic, pub);
             }
+            else if (sub.Options.Overflow != MqttOverflowMode.Wait)
+            {
+                // Drop modes can evict a message the consumer never reads/disposes; a pooled buffer
+                // would then leak back into the ArrayPool unreturned. Hand drop-mode subscriptions a
+                // GC-owned copy so an eviction frees naturally.
+                channelMsg = BuildGcOwnedMessage(topic, pub);
+            }
             else
             {
                 channelMsg = BuildPooledMessage(topic, pub);
             }
 
+            var overflow = sub.Options.Overflow;
+            if (overflow != MqttOverflowMode.Wait
+                && sub.Reader.CanCount && sub.Reader.Count >= sub.Options.Capacity)
+            {
+                _metrics.MessagesDropped.Add(1, MqttMetrics.Reason(
+                    overflow == MqttOverflowMode.DropOldest ? "drop_oldest" : "drop_newest"));
+            }
             // Back-pressure flows naturally: when Wait mode is selected and full, this blocks the
             // read loop, which in turn applies TCP back-pressure.
             if (!sub.Writer!.TryWrite(channelMsg))
@@ -1088,12 +1136,27 @@ public sealed class MqttClient : IAsyncDisposable
     private async Task KeepAliveLoopAsync(CancellationToken ct)
     {
         var interval = TimeSpan.FromSeconds(_options.KeepAliveSeconds * 0.8);
+        // A healthy broker answers PINGREQ with PINGRESP, which (like any inbound packet) refreshes
+        // _lastInboundTimestamp. If nothing arrives for ~1.5x the keep-alive the link is dead even
+        // though TCP may not have noticed (e.g. a black-holed connection) — force a reconnect.
+        var idleLimitMs = _options.KeepAliveSeconds * 1500.0;
         while (!ct.IsCancellationRequested)
         {
             try { await Task.Delay(interval, ct).ConfigureAwait(false); } catch { break; }
+            var sinceInboundMs =
+                (Stopwatch.GetTimestamp() - Volatile.Read(ref _lastInboundTimestamp))
+                    * 1000.0 / Stopwatch.Frequency;
+            if (sinceInboundMs > idleLimitMs)
+            {
+                _metrics.KeepAliveTimeouts.Add(1);
+                _ = OnTransportClosedAsync(new MqttConnectionException(
+                    "Broker not responding (keep-alive read-idle timeout)."));
+                break;
+            }
             try
             {
                 await EnqueueAsync(OutboundEnvelope.ForPingReq(), ct).ConfigureAwait(false);
+                _metrics.KeepAlivePings.Add(1);
             }
             catch { break; }
         }
@@ -1101,10 +1164,21 @@ public sealed class MqttClient : IAsyncDisposable
 
     private async Task OnTransportClosedAsync(Exception? exception)
     {
-        if (Volatile.Read(ref _state) >= (int)MqttConnectionState.Disposed) return;
+        // Win the Connected -> Disconnected transition exactly once. Concurrent callers — the read
+        // loop (EOF/error), the keep-alive watchdog, and a broker DISCONNECT dispatch — can race
+        // here; losers return so cleanup and the reconnect loop run a single time.
+        var prev = Interlocked.CompareExchange(
+            ref _state,
+            (int)MqttConnectionState.Disconnected,
+            (int)MqttConnectionState.Connected);
+        if (prev != (int)MqttConnectionState.Connected)
+        {
+            return;
+        }
+        StateChanged?.Invoke(this, MqttConnectionState.Disconnected);
         var wasManual = Volatile.Read(ref _manualDisconnect) == 1;
-        SetState(MqttConnectionState.Disconnected);
         var reason = exception?.Message ?? "Transport closed";
+        _metrics.Disconnects.Add(1, MqttMetrics.Reason(ClassifyReason(exception, wasManual)));
         MqttLog.Disconnected(_logger, _transport?.RemoteAddress, reason);
         if (!wasManual)
         {
@@ -1120,6 +1194,7 @@ public sealed class MqttClient : IAsyncDisposable
 
         if (!wasManual && _options.Reconnect is { } policy)
         {
+            _disconnectedTimestamp = Stopwatch.GetTimestamp();
             _ = ReconnectLoopAsync(policy);
         }
     }
@@ -1146,6 +1221,12 @@ public sealed class MqttClient : IAsyncDisposable
                 if (result.IsSuccess)
                 {
                     _metrics.Reconnects.Add(1);
+                    var ts = Interlocked.Exchange(ref _disconnectedTimestamp, 0);
+                    if (ts != 0)
+                    {
+                        _metrics.RecoveryDuration.Record(
+                            (Stopwatch.GetTimestamp() - ts) * 1000.0 / Stopwatch.Frequency);
+                    }
                     return;
                 }
             }
@@ -1486,12 +1567,14 @@ public sealed class MqttClient : IAsyncDisposable
         {
             var mf = StripSharedSubscriptionPrefix(s.TopicFilter);
             lock (_subLock) { _trie.Remove(mf, s); }
+            _subscriptions.TryRemove(s, out _);
             if (s.Identifier is { } id) _subsById.TryRemove(id, out _);
             using var cts = new CancellationTokenSource(_options.OperationTimeout);
             try { await UnsubscribeOnServerAsync(s.TopicFilter, cts.Token).ConfigureAwait(
                 false); } catch { }
         }, handler);
         lock (_subLock) { _trie.Add(matchFilter, sub); }
+        _subscriptions[sub] = 0;
 
         uint? subId = null;
         if (_options.ProtocolVersion == MqttProtocolVersion.V500)
@@ -1519,6 +1602,49 @@ public sealed class MqttClient : IAsyncDisposable
             .ConfigureAwait(false);
         await waiter.ValueTask.ConfigureAwait(false);
         return sub;
+    }
+
+    /// <summary>
+    /// Re-sends SUBSCRIBE for every live subscription after a reconnect where the broker reported
+    /// the session was not present (so it has forgotten our subscriptions). Fire-and-forget: each
+    /// SUBSCRIBE uses a fresh packet id that the broker's SUBACK releases; no waiter is registered,
+    /// so a lost SUBACK can't park an awaiter — the next reconnect simply re-sends.
+    /// </summary>
+    private async Task ResendSubscriptionsAsync(CancellationToken ct)
+    {
+        foreach (var sub in _subscriptions.Keys)
+        {
+            var packetId = _packetIds.Allocate();
+            var sp = new SubscribePacket
+            {
+                PacketId = packetId,
+                Filters = new[] { new SubscribeFilter(
+                    sub.TopicFilter,
+                    sub.Options.QoS,
+                    sub.Options.NoLocal,
+                    sub.Options.RetainAsPublished) },
+                SubscriptionIdentifier = sub.Identifier,
+            };
+            await EnqueueAsync(
+                OutboundEnvelope.ForPacket(OutboundKind.Subscribe, sp), ct).ConfigureAwait(false);
+            _metrics.Resubscribes.Add(1);
+        }
+    }
+
+    /// <summary>
+    /// Classifies a disconnect/connect-failure cause into a low-cardinality metric tag value.
+    /// </summary>
+    private static string ClassifyReason(Exception? ex, bool wasManual)
+    {
+        if (wasManual) return "manual";
+        return ex switch
+        {
+            null => "transport",
+            MqttProtocolException => "protocol",
+            MqttConnectionException when ex.Message.Contains("Broker DISCONNECT") => "broker",
+            MqttConnectionException when ex.Message.Contains("keep-alive") => "keepalive",
+            _ => "transport",
+        };
     }
 
     private async ValueTask UnsubscribeOnServerAsync(string topicFilter, CancellationToken ct)

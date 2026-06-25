@@ -50,8 +50,20 @@ using var meter = new MeterListener
 ```
 
 Counters: `mqtt.client.publishes`, `mqtt.client.receives`, `mqtt.client.bytes.sent`,
-`mqtt.client.bytes.received`, `mqtt.client.reconnects`.
-Histogram: `mqtt.client.publish.ack.duration` (milliseconds).
+`mqtt.client.bytes.received`, `mqtt.client.reconnects`, `mqtt.client.connect.attempts`,
+`mqtt.client.connect.failures` (tag `reason`), `mqtt.client.disconnects` (tag `reason`:
+`manual`/`transport`/`protocol`/`keepalive`/`broker`), `mqtt.client.resubscribes`,
+`mqtt.client.keepalive.pings`, `mqtt.client.keepalive.timeouts`, `mqtt.client.messages.dropped`
+(tag `reason`), `mqtt.client.decode.errors`.
+Histograms (milliseconds): `mqtt.client.publish.ack.duration`, `mqtt.client.connect.duration`,
+`mqtt.client.recovery.duration` (unexpected disconnect → reconnect).
+Observable gauges (pull-based, no hot-path cost): `mqtt.client.connection.state`,
+`mqtt.client.pending.acks`, `mqtt.client.inflight.publishes`, `mqtt.client.outbound.queue.depth`,
+`mqtt.client.subscriptions`.
+
+The recovery/resilience metrics (recovery duration, disconnects-by-reason, resubscribes, keep-alive
+timeouts, and the pending-ack / queue-depth gauges) are what the
+[chaos / soak suite](chaos.md) asserts on to prove continuous recovery with no hangs or leaks.
 
 ### Tracing
 
