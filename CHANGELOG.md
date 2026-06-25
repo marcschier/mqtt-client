@@ -6,6 +6,9 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ## [Unreleased]
 
+### Added
+- **Cross-implementation interop tests + benchmarks against Eclipse Mosquitto (C).** A new `Mqtt.Client.InteropTests` project drives a real Mosquitto broker and the `mosquitto_pub`/`mosquitto_sub` C client tools, covering QoS 0/1/2 round-trips, our-publish→C-subscribe (retained), C-publish→our-subscribe, Last Will, MQTT 5 properties and TLS. A `--crosslang` mode in the benchmarks measures end-to-end publish→receive throughput for Mqtt.Client, MQTTnet and the native-C client side-by-side, written to `docs/interop-benchmarks.md`. Both skip when Mosquitto is not installed; a new `interop` CI job runs them on Linux, and `scripts/interop.ps1` reproduces them locally via Docker.
+
 ## [1.0.1] — 2026-06-24
 
 ### Added

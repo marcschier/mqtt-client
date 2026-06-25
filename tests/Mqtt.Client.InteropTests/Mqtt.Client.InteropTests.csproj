@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);CA1707;CA2007</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Cross-implementation interop tests against a real Eclipse Mosquitto broker (the C MQTT server)
+    and the mosquitto_pub/mosquitto_sub C client tools. Every test skips when mosquitto is not on
+    PATH, so this project is safe to build everywhere; it only runs meaningfully on a host with
+    Mosquitto installed (the `interop` CI job, or locally via WSL/Docker).
+  -->
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Mqtt.Client\Mqtt.Client.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,6 @@
 # Tests
 
-Five projects backing the `Mqtt.Client` library. Run with `dotnet test` (where
+Six projects backing the `Mqtt.Client` library. Run with `dotnet test` (where
 applicable) or by invoking the test runner exe directly. A coverage script that
 runs the unit + integration suites and merges results lives at
 [`scripts/coverage.ps1`](../scripts/coverage.ps1).
@@ -63,6 +63,34 @@ dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- --filter '*' --r
 
 `--report` regenerates `docs/benchmarks.md` and the README summary table via
 `Reporting/SummaryGenerator.cs`. See [`docs/benchmarks.md`](../docs/benchmarks.md).
+
+The `CrossLang/` folder adds a **cross-language throughput harness** (run with
+`--crosslang`) that measures end-to-end publish→receive throughput for `Mqtt.Client`,
+`MQTTnet`, and the native-C `mosquitto_pub` against a real Mosquitto broker, writing
+[`docs/interop-benchmarks.md`](../docs/interop-benchmarks.md). It skips when Mosquitto
+is not installed.
+
+## `Mqtt.Client.InteropTests/` — TUnit, net10.0 (Mosquitto required)
+
+Cross-implementation interop against a **real Eclipse Mosquitto broker** (the C MQTT
+server) and the `mosquitto_pub` / `mosquitto_sub` C client tools: round-trips at QoS
+0/1/2, our publish → C subscribe (retained), C publish → our subscribe, Last Will,
+MQTT 5 properties, and TLS. A `MosquittoBroker` helper launches `mosquitto` on
+ephemeral plain + TLS ports (self-signed cert generated in-process).
+
+Every test **skips when `mosquitto` is not on PATH**, so the project is safe to build
+and run anywhere — it only exercises real interop where Mosquitto is installed (the
+`interop` CI job on Linux, or locally via Docker/WSL):
+
+```bash
+# locally (Docker; installs Mosquitto inside the container, leaves the host untouched):
+pwsh scripts/interop.ps1            # interop tests + cross-language harness
+pwsh scripts/interop.ps1 -Mode test
+
+# on a host that already has Mosquitto + clients on PATH:
+dotnet build tests/Mqtt.Client.InteropTests -c Release
+./tests/Mqtt.Client.InteropTests/bin/Release/net10.0/Mqtt.Client.InteropTests --no-ansi --no-progress
+```
 
 ## `Mqtt.Client.ApiTests/` — TUnit, multi-TFM
 

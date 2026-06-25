@@ -77,6 +77,7 @@ var retaining = MqttClient.CreateBuilder()
 - [Troubleshooting](docs/troubleshooting.md)
 - [Spec conformance](docs/conformance.md)
 - [Benchmarks](docs/benchmarks.md) — Mqtt.Client vs MQTTnet, full results matrix
+- [Interop benchmarks](docs/interop-benchmarks.md) — cross-implementation throughput vs Mosquitto C
 
 ## 🔍 When to pick [MQTTnet](https://github.com/dotnet/MQTTnet) instead
 

@@ -1,0 +1,69 @@
+name: interop
+
+# Cross-implementation interop tests + a cross-language throughput harness against a real Eclipse
+# Mosquitto broker (the C MQTT server) and the mosquitto_pub/mosquitto_sub C client tools. Runs on
+# Linux where Mosquitto installs cleanly; locally reproducible via WSL/Docker (see scripts/interop.ps1).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/Mqtt.Client.InteropTests/**'
+      - 'tests/Mqtt.Client.Benchmarks/CrossLang/**'
+      - '.github/workflows/interop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  interop:
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Mosquitto (broker + C clients)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mosquitto mosquitto-clients
+          sudo systemctl stop mosquitto || true   # we start our own on ephemeral ports
+          echo "/usr/sbin" >> "$GITHUB_PATH"       # the mosquitto broker installs here
+
+      - name: Verify Mosquitto on PATH
+        run: |
+          which mosquitto
+          which mosquitto_pub
+          which mosquitto_sub
+          mosquitto --help | head -1
+
+      - name: Build
+        run: |
+          dotnet build tests/Mqtt.Client.InteropTests/Mqtt.Client.InteropTests.csproj -c Release
+          dotnet build tests/Mqtt.Client.Benchmarks/Mqtt.Client.Benchmarks.csproj -c Release
+
+      - name: Run interop tests
+        run: >-
+          ./tests/Mqtt.Client.InteropTests/bin/Release/net10.0/Mqtt.Client.InteropTests
+          --no-ansi --no-progress
+
+      - name: Cross-language throughput harness
+        run: >-
+          dotnet exec
+          tests/Mqtt.Client.Benchmarks/bin/Release/net10.0/Mqtt.Client.Benchmarks.dll --crosslang
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: interop-${{ github.run_id }}
+          path: docs/interop-benchmarks.md

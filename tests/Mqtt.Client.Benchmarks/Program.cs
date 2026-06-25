@@ -13,6 +13,11 @@ public static class Program
         var full = argList.Remove("--full");
         var report = argList.Remove("--report");
 
+        if (argList.Remove("--crosslang"))
+        {
+            return CrossLang.CrossLangBench.RunAsync().GetAwaiter().GetResult();
+        }
+
         IConfig config = new BenchConfig(full);
 
         var summaries = BenchmarkSwitcher
