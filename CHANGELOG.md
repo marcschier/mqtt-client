@@ -7,7 +7,7 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 ## [Unreleased]
 
 ### Added
-- **Cross-implementation interop tests + benchmarks against Eclipse Mosquitto (C).** A new `Mqtt.Client.InteropTests` project drives a real Mosquitto broker and the `mosquitto_pub`/`mosquitto_sub` C client tools, covering QoS 0/1/2 round-trips, our-publish→C-subscribe (retained), C-publish→our-subscribe, Last Will, MQTT 5 properties and TLS. A `--crosslang` mode in the benchmarks measures end-to-end publish→receive throughput for Mqtt.Client, MQTTnet and the native-C client side-by-side, written to `docs/interop-benchmarks.md`. Both skip when Mosquitto is not installed; a new `interop` CI job runs them on Linux, and `scripts/interop.ps1` reproduces them locally via Docker.
+- **Cross-implementation interop tests + benchmarks against Eclipse Mosquitto (C).** A new `Mqtt.Client.InteropTests` project drives a real Mosquitto broker and the `mosquitto_pub`/`mosquitto_sub` C client tools, covering QoS 0/1/2 round-trips, our-publish→C-subscribe (retained), C-publish→our-subscribe, Last Will, MQTT 5 properties and TLS. A `--crosslang` mode in the benchmarks measures end-to-end publish→receive throughput for Mqtt.Client, MQTTnet and two native-C datapoints side-by-side — the `mosquitto_pub` CLI tool and a purpose-built **paho.mqtt.c** publisher (synchronous `MQTTClient` v5 API, one persistent connection, QoS 1 pipelined) for a true apples-to-apples library baseline — written to `docs/interop-benchmarks.md`. All skip when their dependencies are not installed; a new `interop` CI job runs them on Linux (apt-installing `libpaho-mqtt-dev` and compiling the harness), and `scripts/interop.ps1` reproduces them locally via Docker.
 
 ## [1.0.1] — 2026-06-24
 

@@ -28,7 +28,14 @@ internal static class CrossLangBench
         _ => 200,
     };
 
-    private readonly record struct Row(int Qos, int Size, double Ours, double Net, double Mosq);
+    private readonly record struct Row(
+        int Qos, int Size, double Ours, double Net, double Mosq, double Paho);
+
+    private static string? PahoBin()
+    {
+        var p = Environment.GetEnvironmentVariable("PAHO_PUB_BENCH");
+        return !string.IsNullOrEmpty(p) && File.Exists(p) ? p : null;
+    }
 
     public static async Task<int> RunAsync()
     {
@@ -59,6 +66,10 @@ internal static class CrossLangBench
         await ours.ConnectAsync();
 
         var rows = new List<Row>();
+        var pahoBin = PahoBin();
+        Console.WriteLine(pahoBin is null
+            ? "[crosslang] PAHO_PUB_BENCH not set; Paho C column will be n/a."
+            : $"[crosslang] Paho C publisher: {pahoBin}");
         foreach (var qos in QoSLevels)
         {
             foreach (var size in Sizes)
@@ -77,11 +88,15 @@ internal static class CrossLangBench
                     t => PublishMqttnetAsync(mqttnet, t, payload, qos, n));
                 var mosqRate = await MeasureAsync(broker, n, qos,
                     t => PublishMosquittoAsync(broker.Port, t, line, qos, n));
+                var pahoRate = pahoBin is null
+                    ? double.NaN
+                    : await MeasureAsync(broker, n, qos,
+                        t => PublishPahoAsync(pahoBin, broker.Port, t, qos, n, size));
 
-                rows.Add(new Row(qos, size, oursRate, netRate, mosqRate));
+                rows.Add(new Row(qos, size, oursRate, netRate, mosqRate, pahoRate));
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
                     $"[crosslang] qos{qos} {size}B x{n}: ours={oursRate:N0} net={netRate:N0} " +
-                    $"mosq={mosqRate:N0} msg/s"));
+                    $"mosq={mosqRate:N0} paho={pahoRate:N0} msg/s"));
             }
         }
 
@@ -115,14 +130,27 @@ internal static class CrossLangBench
             : double.NaN;
     }
 
+    // Publish window for QoS > 0: the number of acknowledgements kept in flight at once. A small
+    // window pipelines the round-trips (so the comparison is sustained throughput, not per-message
+    // latency) while staying within paho's maxInflightMessages; all three publishers use it.
+    private const int PublishWindow = 100;
+
     private static async Task PublishOursAsync(
         Mqtt.Client.MqttClient client, string topic, byte[] payload, int qos, int n)
     {
         var q = (Mqtt.Client.MqttQoS)qos;
+        if (qos == 0)
+        {
+            for (var i = 0; i < n; i++) await client.PublishAsync(topic, payload, q);
+            return;
+        }
+        var batch = new List<Task>(PublishWindow);
         for (var i = 0; i < n; i++)
         {
-            await client.PublishAsync(topic, payload, q);
+            batch.Add(client.PublishAsync(topic, payload, q).AsTask());
+            if (batch.Count == PublishWindow) { await Task.WhenAll(batch); batch.Clear(); }
         }
+        if (batch.Count > 0) await Task.WhenAll(batch);
     }
 
     private static async Task PublishMqttnetAsync(
@@ -133,10 +161,18 @@ internal static class CrossLangBench
             .WithPayload(payload)
             .WithQualityOfServiceLevel((MqttnetQoS)qos)
             .Build();
+        if (qos == 0)
+        {
+            for (var i = 0; i < n; i++) await client.PublishAsync(msg);
+            return;
+        }
+        var batch = new List<Task>(PublishWindow);
         for (var i = 0; i < n; i++)
         {
-            await client.PublishAsync(msg);
+            batch.Add(client.PublishAsync(msg));
+            if (batch.Count == PublishWindow) { await Task.WhenAll(batch); batch.Clear(); }
         }
+        if (batch.Count > 0) await Task.WhenAll(batch);
     }
 
     private static async Task PublishMosquittoAsync(
@@ -169,6 +205,32 @@ internal static class CrossLangBench
             await p.StandardInput.WriteAsync(sb.ToString());
         }
         p.StandardInput.Close();
+        await p.WaitForExitAsync();
+    }
+
+    private static async Task PublishPahoAsync(
+        string bin, int port, string topic, int qos, int n, int size)
+    {
+        var psi = new ProcessStartInfo(bin)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var a in new[]
+        {
+            "127.0.0.1", port.ToString(CultureInfo.InvariantCulture), topic,
+            qos.ToString(CultureInfo.InvariantCulture), n.ToString(CultureInfo.InvariantCulture),
+            size.ToString(CultureInfo.InvariantCulture),
+        })
+        {
+            psi.ArgumentList.Add(a);
+        }
+        using var p = Process.Start(psi)!;
+        _ = p.StandardOutput.ReadToEndAsync();
+        _ = p.StandardError.ReadToEndAsync();
+        // On a non-zero exit the messages were not delivered; the subscriber then times out and the
+        // cell is recorded as n/a by MeasureAsync — no need to throw here.
         await p.WaitForExitAsync();
     }
 
@@ -205,7 +267,8 @@ internal static class CrossLangBench
             return;
         }
         var sb = new StringBuilder();
-        sb.AppendLine("# Cross-implementation throughput — Mqtt.Client vs MQTTnet vs Mosquitto C");
+        sb.AppendLine(
+            "# Cross-implementation throughput — Mqtt.Client vs MQTTnet vs C (Mosquitto, Paho)");
         sb.AppendLine();
         sb.AppendLine(
             CultureInfo.InvariantCulture, $"_Generated {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC._");
@@ -214,19 +277,30 @@ internal static class CrossLangBench
             "End-to-end **publish→receive** throughput: each publisher sends N messages through " +
             "a real [Eclipse Mosquitto](https://mosquitto.org/) broker to a constant " +
             "`mosquitto_sub -C N` subscriber; the rate is N divided by the wall-clock time for " +
-            "the subscriber to receive all N. The native-C datapoint is Mosquitto's own " +
-            "`mosquitto_pub` (libmosquitto). Higher is better.");
+            "the subscriber to receive all N. Two native-C datapoints are included — the " +
+            "`mosquitto_pub` CLI tool and a purpose-built **paho.mqtt.c** publisher. Higher is " +
+            "better.");
         sb.AppendLine();
         sb.AppendLine(
             "These numbers are **wall-clock and cross-language** — not directly comparable to " +
-            "the per-operation [BenchmarkDotNet results](benchmarks.md). The native-C datapoint " +
-            "is the `mosquitto_pub` **command-line tool** (libmosquitto): a convenience CLI that " +
-            "reads messages line-by-line from stdin and does not pipeline QoS 1, so it trails " +
-            "the persistent, tight-loop .NET publishers here. This measures that tool, **not** " +
-            "the ceiling of a C library driven directly (e.g. paho.mqtt.c with batching). Both " +
-            ".NET clients await acknowledgements for QoS 1; QoS 0 is measured end-to-end (the " +
-            "subscriber must receive all N), so fire-and-forget enqueue is not mistaken for " +
-            "delivery.");
+            "the per-operation [BenchmarkDotNet results](benchmarks.md). The **Mosquitto C " +
+            "(CLI)** column is the `mosquitto_pub` command-line tool (line-buffered stdin, no " +
+            "QoS 1 pipelining): a convenience tool, not a throughput-optimised client. The " +
+            "**Paho C (lib)** column is a purpose-built publisher on the Eclipse Paho C " +
+            "synchronous `MQTTClient` v5 API doing exactly what the .NET clients do — one " +
+            "persistent connection over the same broker — so it is the true apples-to-apples " +
+            "native baseline. For QoS 1 all three persistent publishers pipeline up to 100 " +
+            "acknowledgements in flight (sustained throughput, not per-message round-trip " +
+            "latency); QoS 0 is measured end-to-end (the subscriber must receive all N), so " +
+            "fire-and-forget enqueue is not mistaken for delivery.");
+        sb.AppendLine();
+        sb.AppendLine(
+            "**Reading the Paho C column:** its QoS 0 figure (no acknowledgements) is " +
+            "competitive, but its QoS 1 figure is held back by paho.mqtt.c exposing no " +
+            "`TCP_NODELAY` option — its acknowledgement round-trips stall on Nagle / delayed-ACK " +
+            "even when pipelined, where the .NET clients disable Nagle. So the QoS 1 number " +
+            "reflects paho's default TCP behaviour, not a native-C ceiling — a useful reminder " +
+            "that TCP tuning, not language, dominates QoS 1 throughput here.");
         sb.AppendLine();
 
         foreach (var qos in QoSLevels)
@@ -234,12 +308,13 @@ internal static class CrossLangBench
             sb.AppendLine(CultureInfo.InvariantCulture,
                 $"## QoS {qos} — throughput (msg/s, higher is better)");
             sb.AppendLine();
-            sb.AppendLine("| Payload | Mqtt.Client | MQTTnet | Mosquitto C |");
-            sb.AppendLine("| --- | ---: | ---: | ---: |");
+            sb.AppendLine("| Payload | Mqtt.Client | MQTTnet | Mosquitto C (CLI) | Paho C (lib) |");
+            sb.AppendLine("| --- | ---: | ---: | ---: | ---: |");
             foreach (var r in rows.Where(r => r.Qos == qos))
             {
                 sb.AppendLine(CultureInfo.InvariantCulture,
-                    $"| {Bytes(r.Size)} | {Rate(r.Ours)} | {Rate(r.Net)} | {Rate(r.Mosq)} |");
+                    $"| {Bytes(r.Size)} | {Rate(r.Ours)} | {Rate(r.Net)} | {Rate(r.Mosq)} | " +
+                    $"{Rate(r.Paho)} |");
             }
             sb.AppendLine();
         }

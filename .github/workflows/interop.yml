@@ -32,10 +32,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Install Mosquitto (broker + C clients)
+      - name: Install Mosquitto (broker + C clients) and Paho C
         run: |
           sudo apt-get update
-          sudo apt-get install -y mosquitto mosquitto-clients
+          sudo apt-get install -y mosquitto mosquitto-clients libpaho-mqtt-dev gcc
           sudo systemctl stop mosquitto || true   # we start our own on ephemeral ports
           echo "/usr/sbin" >> "$GITHUB_PATH"       # the mosquitto broker installs here
 
@@ -45,6 +45,12 @@ jobs:
           which mosquitto_pub
           which mosquitto_sub
           mosquitto --help | head -1
+
+      - name: Build the Paho C publisher harness
+        run: |
+          gcc -O2 -Wall -o "$RUNNER_TEMP/paho_pub_bench" \
+            tests/Mqtt.Client.Benchmarks/CrossLang/native/paho_pub_bench.c -lpaho-mqtt3c
+          echo "PAHO_PUB_BENCH=$RUNNER_TEMP/paho_pub_bench" >> "$GITHUB_ENV"
 
       - name: Build
         run: |

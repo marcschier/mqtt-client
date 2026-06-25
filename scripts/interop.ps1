@@ -34,7 +34,7 @@ $bash = @'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq mosquitto mosquitto-clients >/dev/null
+apt-get install -y -qq mosquitto mosquitto-clients libpaho-mqtt-dev gcc >/dev/null
 export PATH="/usr/sbin:$PATH"
 cd /repo
 if [ "__RUN_TEST__" = "1" ]; then
@@ -44,6 +44,10 @@ if [ "__RUN_TEST__" = "1" ]; then
     --no-ansi --no-progress
 fi
 if [ "__RUN_BENCH__" = "1" ]; then
+  echo "=== building the Paho C publisher harness ==="
+  gcc -O2 -Wall -o /tmp/paho_pub_bench \
+    tests/Mqtt.Client.Benchmarks/CrossLang/native/paho_pub_bench.c -lpaho-mqtt3c
+  export PAHO_PUB_BENCH=/tmp/paho_pub_bench
   echo "=== cross-language throughput harness ==="
   dotnet build tests/Mqtt.Client.Benchmarks/Mqtt.Client.Benchmarks.csproj -c Release -m:1
   dotnet exec tests/Mqtt.Client.Benchmarks/bin/Release/net10.0/Mqtt.Client.Benchmarks.dll --crosslang
