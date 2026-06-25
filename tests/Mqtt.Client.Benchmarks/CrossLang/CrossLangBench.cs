@@ -219,11 +219,14 @@ internal static class CrossLangBench
         sb.AppendLine();
         sb.AppendLine(
             "These numbers are **wall-clock and cross-language** — not directly comparable to " +
-            "the per-operation [BenchmarkDotNet results](benchmarks.md). A native-C client is " +
-            "expected to lead; the value here is the order-of-magnitude datapoint against a real " +
-            "broker on the same host. Both .NET clients await acknowledgements for QoS 1; QoS 0 " +
-            "is measured end-to-end (the subscriber must receive all N), so fire-and-forget " +
-            "enqueue is not mistaken for delivery.");
+            "the per-operation [BenchmarkDotNet results](benchmarks.md). The native-C datapoint " +
+            "is the `mosquitto_pub` **command-line tool** (libmosquitto): a convenience CLI that " +
+            "reads messages line-by-line from stdin and does not pipeline QoS 1, so it trails " +
+            "the persistent, tight-loop .NET publishers here. This measures that tool, **not** " +
+            "the ceiling of a C library driven directly (e.g. paho.mqtt.c with batching). Both " +
+            ".NET clients await acknowledgements for QoS 1; QoS 0 is measured end-to-end (the " +
+            "subscriber must receive all N), so fire-and-forget enqueue is not mistaken for " +
+            "delivery.");
         sb.AppendLine();
 
         foreach (var qos in QoSLevels)
