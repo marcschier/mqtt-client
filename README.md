@@ -2,6 +2,10 @@
 
 A high-performance, low-allocation MQTT 3.1.1 + 5.0 client for .NET — designed to feel like `System.Threading.Channels`.
 
+[![CI](https://github.com/marcschier/mqtt-client/actions/workflows/ci.yml/badge.svg)](https://github.com/marcschier/mqtt-client/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/Mqtt.Client.svg?logo=nuget&label=NuGet)](https://www.nuget.org/packages/Mqtt.Client)
+[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-Mqtt.Client-2dba4e?logo=github)](https://github.com/marcschier/mqtt-client/packages)
+
 ## 🚀 Highlights
 
 - **Multi-TFM**: `netstandard2.1`, `net8.0`, `net9.0`, `net10.0` (NativeAOT-clean).
