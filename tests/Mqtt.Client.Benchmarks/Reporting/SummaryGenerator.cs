@@ -30,6 +30,13 @@ public static class SummaryGenerator
         }
         var docsPath = Path.Combine(repoRoot, "docs", "benchmarks.md");
 
+        // The cross-language throughput tables are owned by the --crosslang harness (a separate
+        // process / CI job). Preserve its marked section verbatim so regenerating the
+        // BenchmarkDotNet tables here never drops it, and surface it up front.
+        var existingCrossLang = File.Exists(docsPath)
+            ? CrossLangSection.Extract(File.ReadAllText(docsPath))
+            : null;
+
         var docs = new StringBuilder();
         docs.AppendLine("# Mqtt.Client vs MQTTnet — benchmark results");
         docs.AppendLine();
@@ -43,13 +50,16 @@ public static class SummaryGenerator
             "make tradeoffs visible for callers choosing between the two clients. See the " +
             "README's \"When to pick MQTTnet instead\" section for guidance.");
         docs.AppendLine();
+        // Cross-implementation throughput leads, then the per-operation micro/end-to-end tables.
+        docs.AppendLine(existingCrossLang ?? CrossLangPlaceholder());
+        docs.AppendLine();
         docs.AppendLine(
-            "Each section below opens with a one-line note on what that benchmark measures. " +
-            "They fall into two groups: **codec micro-benchmarks** (in-memory encode/decode " +
-            "— no broker, no network) and **end-to-end benchmarks** (a real in-process " +
-            "MQTTnet broker over a TCP loopback, exercising the full client stack per " +
-            "operation). In every table the MQTTnet row is the baseline (Ratio = 1.00), and " +
-            "`PayloadSize` is the MQTT payload length in bytes.");
+            "The per-operation sections below each open with a one-line note on what that " +
+            "benchmark measures. They fall into two groups: **codec micro-benchmarks** " +
+            "(in-memory encode/decode — no broker, no network) and **end-to-end benchmarks** " +
+            "(a real in-process MQTTnet broker over a TCP loopback, exercising the full client " +
+            "stack per operation). In every table the MQTTnet row is the baseline (Ratio = " +
+            "1.00), and `PayloadSize` is the MQTT payload length in bytes.");
         docs.AppendLine();
         docs.AppendLine(
             "Read each `Ratio` next to its `Error`/`StdDev` columns. The end-to-end benchmarks " +
@@ -84,15 +94,6 @@ public static class SummaryGenerator
             docs.AppendLine(File.ReadAllText(md).Trim());
             docs.AppendLine();
         }
-
-        // The cross-language throughput tables are owned by the --crosslang harness, which runs in
-        // a separate process / CI job. Preserve its marked section so regenerating the
-        // BenchmarkDotNet tables here never drops it.
-        var existingCrossLang = File.Exists(docsPath)
-            ? CrossLangSection.Extract(File.ReadAllText(docsPath))
-            : null;
-        docs.AppendLine(existingCrossLang ?? CrossLangPlaceholder());
-        docs.AppendLine();
 
         Directory.CreateDirectory(Path.GetDirectoryName(docsPath)!);
         File.WriteAllText(docsPath, docs.ToString());
