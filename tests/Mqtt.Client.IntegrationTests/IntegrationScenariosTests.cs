@@ -1,9 +1,10 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
 // Additional integration scenarios: last-will delivery, session resumption (CleanStart=false),
-// MQTT 5 subscription identifier echo, and the WebSocket transport. mTLS is intentionally
-// omitted because it requires generating a self-signed CA, server cert, and client cert
-// at test time; it is exercised via unit + AOT coverage instead.
+// MQTT 5 subscription identifier echo, and the WebSocket transport. The first three run against
+// both broker implementations (MQTTnet and the embeddable MqttTestBroker). mTLS is intentionally
+// omitted because it requires generating a self-signed CA, server cert, and client cert at test
+// time; it is exercised via unit + AOT coverage instead.
 
 using System.Net;
 using System.Net.Sockets;
@@ -24,25 +25,31 @@ public class IntegrationScenariosTests
     }
 
     [Test]
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
     [Timeout(20_000)]
-    public async Task LastWill_delivered_on_ungraceful_disconnect(CancellationToken ct)
+    public async Task LastWill_delivered_on_ungraceful_disconnect(
+        BrokerKind kind, CancellationToken ct)
     {
-        await using var broker = await InProcessBroker.StartAsync();
+        await using var broker = await Brokers.StartAsync(kind);
 
         // Subscriber connects first and waits for the will.
         var sub = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
+            .ConnectTo($"mqtt://127.0.0.1:{broker.Port}")
             .WithClientId($"sub-{Guid.NewGuid():N}")
             .WithProtocol(MqttProtocolVersion.V500)
             .Build();
         await using var _sub = sub;
         await sub.ConnectAsync(ct);
-        var subscription = await sub.SubscribeAsync("itest/will", cancellationToken: ct);
+        var subscription = await sub.SubscribeAsync(
+            "itest/will",
+            new MqttSubscriptionOptions { QoS = MqttQoS.AtLeastOnce },
+            ct);
         await using var _0 = subscription;
 
         // Publisher sets a will then drops without DisconnectAsync — broker delivers the will.
         var pub = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
+            .ConnectTo($"mqtt://127.0.0.1:{broker.Port}")
             .WithClientId($"pub-{Guid.NewGuid():N}")
             .WithProtocol(MqttProtocolVersion.V500)
             .WithLastWill(new MqttLastWill {
@@ -62,16 +69,19 @@ public class IntegrationScenariosTests
     }
 
     [Test]
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
     [Timeout(20_000)]
-    public async Task Session_resumption_replays_pending_publishes(CancellationToken ct)
+    public async Task Session_resumption_replays_pending_publishes(
+        BrokerKind kind, CancellationToken ct)
     {
-        await using var broker = await InProcessBroker.StartAsync();
+        await using var broker = await Brokers.StartAsync(kind);
 
         var clientId = $"resume-{Guid.NewGuid():N}";
 
         // First connect, subscribe with CleanStart=false, then disconnect.
         var c1 = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
+            .ConnectTo($"mqtt://127.0.0.1:{broker.Port}")
             .WithClientId(clientId)
             .WithProtocol(MqttProtocolVersion.V500)
             .WithCleanStart(false)
@@ -85,9 +95,9 @@ public class IntegrationScenariosTests
         await c1.DisconnectAsync(ct);
         await c1.DisposeAsync();
 
-        // Reconnect with same clientId+CleanStart=false → broker should report SessionPresent=true.
+        // Reconnect with same clientId+CleanStart=false → the resume path must run without error.
         var c2 = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
+            .ConnectTo($"mqtt://127.0.0.1:{broker.Port}")
             .WithClientId(clientId)
             .WithProtocol(MqttProtocolVersion.V500)
             .WithCleanStart(false)
@@ -96,17 +106,19 @@ public class IntegrationScenariosTests
         var connack = await c2.ConnectAsync(ct);
         await Assert.That(connack.IsSuccess).IsTrue();
         // Session-present flag depends on broker; just assert the connect succeeded so the resume
-        // path runs without error.
+        // path runs without error against either broker.
     }
 
     [Test]
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
     [Timeout(20_000)]
-    public async Task Subscription_identifier_dispatches_inbound_via_id_fastpath(
-        CancellationToken ct)
+    public async Task Subscription_identifier_dispatches_inbound(
+        BrokerKind kind, CancellationToken ct)
     {
-        await using var broker = await InProcessBroker.StartAsync();
+        await using var broker = await Brokers.StartAsync(kind);
         var client = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
+            .ConnectTo($"mqtt://127.0.0.1:{broker.Port}")
             .WithClientId($"subid-{Guid.NewGuid():N}")
             .WithProtocol(MqttProtocolVersion.V500)
             .Build();
@@ -130,7 +142,6 @@ public class IntegrationScenariosTests
     [Timeout(20_000)]
     public async Task WebSocket_transport_roundtrip(CancellationToken ct)
     {
-        var wsPort = GetEphemeralPort();
         var options = new MqttServerOptionsBuilder()
             .WithoutDefaultEndpoint()
             .Build();

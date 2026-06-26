@@ -68,6 +68,10 @@ public sealed class MqttTestBroker : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         options ??= new MqttTestBrokerOptions();
         var listener = new TcpListener(IPAddress.Loopback, options.Port);
+        // Allow the same port to be re-bound promptly (e.g. a test restarting the broker on a
+        // fixed port) without tripping over connections lingering in TIME_WAIT.
+        listener.Server.SetSocketOption(
+            SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var broker = new MqttTestBroker(listener, options, port);

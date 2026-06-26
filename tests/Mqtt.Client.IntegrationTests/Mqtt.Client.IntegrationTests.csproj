@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mqtt.Client\Mqtt.Client.csproj" />
+    <ProjectReference Include="..\..\src\Mqtt.Client.Testing\Mqtt.Client.Testing.csproj" />
   </ItemGroup>
 
 </Project>
