@@ -10,8 +10,6 @@
 
   <ItemGroup>
     <PackageReference Include="TUnit" />
-    <PackageReference Include="MQTTnet" />
-    <PackageReference Include="MQTTnet.Server" />
   </ItemGroup>
 
   <ItemGroup>

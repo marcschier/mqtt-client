@@ -53,6 +53,15 @@ jobs:
             done
           done
 
+      - name: Test (Mqtt.Client.Testing broker)
+        shell: bash
+        run: |
+          ext="${{ runner.os == 'Windows' && '.exe' || '' }}"
+          proj=Mqtt.Client.Testing.Tests
+          dotnet build "tests/$proj/$proj.csproj" -c Release --no-restore
+          echo "=== Running $proj on net10.0 ==="
+          "./tests/$proj/bin/Release/net10.0/$proj$ext" --no-ansi --no-progress
+
   aot:
     name: native-aot (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -100,6 +109,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet pack src/Mqtt.Client/Mqtt.Client.csproj -c Release -o ./nupkg
+      - run: dotnet pack src/Mqtt.Client.Testing/Mqtt.Client.Testing.csproj -c Release -o ./nupkg
       - uses: actions/upload-artifact@v7
         with:
           name: nupkg

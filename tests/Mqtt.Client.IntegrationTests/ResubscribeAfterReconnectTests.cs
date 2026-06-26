@@ -3,41 +3,21 @@
 // Ruggedization regression test: when a reconnect reports session-present=false (e.g. the broker
 // restarted and forgot our session), the client must automatically re-establish its subscriptions.
 // Without auto-resubscribe the subscriber goes silently deaf after the restart and this test hangs.
-
-using System.Net;
-using System.Net.Sockets;
-using MQTTnet;
-using MQTTnet.Server;
+// Runs against both broker implementations (MQTTnet and the embeddable MqttTestBroker).
 
 namespace Mqtt.Client.IntegrationTests;
 
 public class ResubscribeAfterReconnectTests
 {
-    private static int GetEphemeralPort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
-    private static MqttServer CreateServer(int port)
-    {
-        var options = new MqttServerOptionsBuilder()
-            .WithDefaultEndpoint()
-            .WithDefaultEndpointPort(port)
-            .Build();
-        return new MqttServerFactory().CreateMqttServer(options);
-    }
-
     [Test]
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
     [Timeout(40_000)]
-    public async Task Resubscribes_after_session_lost_reconnect(CancellationToken ct)
+    public async Task Resubscribes_after_session_lost_reconnect(
+        BrokerKind kind, CancellationToken ct)
     {
-        var port = GetEphemeralPort();
-        var server = CreateServer(port);
-        await server.StartAsync();
+        var broker = await Brokers.StartAsync(kind);
+        var port = broker.Port;
 
         var client = MqttClient.CreateBuilder()
             .ConnectTo($"mqtt://127.0.0.1:{port}")
@@ -65,10 +45,8 @@ public class ResubscribeAfterReconnectTests
 
             // Restart the broker on the same port: a CleanStart reconnect reports
             // session-present=false, so the broker has forgotten our subscription.
-            await server.StopAsync(new MqttServerStopOptions());
-            server.Dispose();
-            server = CreateServer(port);
-            await server.StartAsync();
+            await broker.DisposeAsync();
+            broker = await Brokers.StartAsync(kind, port);
 
             // Wait for the client to auto-reconnect.
             await WaitForConnectedAsync(client, TimeSpan.FromSeconds(20), ct);
@@ -98,8 +76,7 @@ public class ResubscribeAfterReconnectTests
         }
         finally
         {
-            await server.StopAsync(new MqttServerStopOptions());
-            server.Dispose();
+            await broker.DisposeAsync();
         }
     }
 

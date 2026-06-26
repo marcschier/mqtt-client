@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Mqtt.Client/Mqtt.Client.csproj" />
+    <Project Path="src/Mqtt.Client.Testing/Mqtt.Client.Testing.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Mqtt.Client.ApiTests/Mqtt.Client.ApiTests.csproj" />
@@ -9,6 +10,7 @@
     <Project Path="tests/Mqtt.Client.FuzzTests/Mqtt.Client.FuzzTests.csproj" />
     <Project Path="tests/Mqtt.Client.IntegrationTests/Mqtt.Client.IntegrationTests.csproj" />
     <Project Path="tests/Mqtt.Client.InteropTests/Mqtt.Client.InteropTests.csproj" />
+    <Project Path="tests/Mqtt.Client.Testing.Tests/Mqtt.Client.Testing.Tests.csproj" />
     <Project Path="tests/Mqtt.Client.UnitTests/Mqtt.Client.UnitTests.csproj" />
   </Folder>
 </Solution>

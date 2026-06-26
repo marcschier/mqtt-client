@@ -1,135 +1,105 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-// Integration tests run against an in-process MQTTnet server. Each test spins up a fresh
-// broker on a random ephemeral port for isolation.
-
-using System.Net;
-using System.Net.Sockets;
-using MQTTnet;
-using MQTTnet.Server;
+// Core publish/subscribe round-trips. Each test runs against both broker implementations
+// (the MQTTnet in-process server and the embeddable MqttTestBroker) via [Arguments].
 
 namespace Mqtt.Client.IntegrationTests;
 
-internal sealed class InProcessBroker : IAsyncDisposable
-{
-    private readonly MqttServer _server;
-    public int Port { get; }
-
-    private InProcessBroker(MqttServer server, int port)
-    {
-        _server = server;
-        Port = port;
-    }
-
-    public static async Task<InProcessBroker> StartAsync()
-    {
-        var port = GetEphemeralPort();
-        var options = new MqttServerOptionsBuilder()
-            .WithDefaultEndpoint()
-            .WithDefaultEndpointPort(port)
-            .Build();
-        var server = new MqttServerFactory().CreateMqttServer(options);
-        await server.StartAsync();
-        return new InProcessBroker(server, port);
-    }
-
-    private static int GetEphemeralPort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _server.StopAsync();
-        _server.Dispose();
-    }
-}
-
 public class PublishSubscribeTests
 {
-    [Test]
-    [Timeout(15_000)]
-    public async Task QoS0_RoundTrip(CancellationToken ct)
-    {
-        await using var broker = await InProcessBroker.StartAsync();
-        var client = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
+    private static MqttClient Connect(
+        IIntegrationBroker broker, MqttProtocolVersion version = MqttProtocolVersion.V500)
+        => MqttClient.CreateBuilder()
+            .ConnectTo($"mqtt://127.0.0.1:{broker.Port}")
             .WithClientId($"test-{Guid.NewGuid():N}")
-            .WithProtocol(MqttProtocolVersion.V500)
+            .WithProtocol(version)
             .Build();
-        await using var _ = client;
 
-        var connect = await client.ConnectAsync();
+    [Test]
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
+    [Timeout(15_000)]
+    public async Task QoS0_RoundTrip(BrokerKind kind, CancellationToken ct)
+    {
+        await using var broker = await Brokers.StartAsync(kind);
+        await using var client = Connect(broker);
+
+        var connect = await client.ConnectAsync(ct);
         await Assert.That(connect.IsSuccess).IsTrue();
 
-        var sub = await client.SubscribeAsync("itest/qos0");
-        await using var __ = sub;
+        var sub = await client.SubscribeAsync("itest/qos0", cancellationToken: ct);
+        await using var _ = sub;
 
         var payload = new byte[] { 1, 2, 3 };
-        await client.PublishAsync("itest/qos0", payload, MqttQoS.AtMostOnce);
+        await client.PublishAsync("itest/qos0", payload, MqttQoS.AtMostOnce, cancellationToken: ct);
 
-        var received = await sub.Reader.ReadAsync();
+        var received = await sub.Reader.ReadAsync(ct);
         await Assert.That(received.Topic).IsEqualTo("itest/qos0");
         await Assert.That(received.PayloadMemory.Length).IsEqualTo(3);
     }
 
     [Test]
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
     [Timeout(15_000)]
-    public async Task QoS1_AwaitsAck(CancellationToken ct)
+    public async Task QoS1_RoundTrip(BrokerKind kind, CancellationToken ct)
     {
-        await using var broker = await InProcessBroker.StartAsync();
-        var client = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
-            .WithClientId($"test-{Guid.NewGuid():N}")
-            .Build();
-        await using var _ = client;
-        await client.ConnectAsync();
-        var result = await client.PublishAsync("itest/qos1", new byte[] { 9 }, MqttQoS.AtLeastOnce);
+        await using var broker = await Brokers.StartAsync(kind);
+        await using var client = Connect(broker);
+        await client.ConnectAsync(ct);
+
+        var sub = await client.SubscribeAsync(
+            "itest/qos1", new MqttSubscriptionOptions { QoS = MqttQoS.AtLeastOnce }, ct);
+        await using var _ = sub;
+
+        var result = await client.PublishAsync(
+            "itest/qos1", new byte[] { 9 }, MqttQoS.AtLeastOnce, cancellationToken: ct);
         await Assert.That(result.IsSuccess).IsTrue();
+
+        var received = await sub.Reader.ReadAsync(ct);
+        await Assert.That(received.Topic).IsEqualTo("itest/qos1");
     }
 
     [Test]
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
     [Timeout(15_000)]
-    public async Task QoS2_RoundTrip(CancellationToken ct)
+    public async Task QoS2_RoundTrip(BrokerKind kind, CancellationToken ct)
     {
-        await using var broker = await InProcessBroker.StartAsync();
-        var client = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
-            .WithClientId($"test-{Guid.NewGuid():N}")
-            .Build();
-        await using var _ = client;
-        await client.ConnectAsync();
+        await using var broker = await Brokers.StartAsync(kind);
+        await using var client = Connect(broker);
+        await client.ConnectAsync(ct);
+
         var sub = await client.SubscribeAsync(
-            "itest/qos2",
-            new MqttSubscriptionOptions { QoS = MqttQoS.ExactlyOnce });
-        await using var __ = sub;
-        var result = await client.PublishAsync("itest/qos2", new byte[] { 7 }, MqttQoS.ExactlyOnce);
+            "itest/qos2", new MqttSubscriptionOptions { QoS = MqttQoS.ExactlyOnce }, ct);
+        await using var _ = sub;
+
+        var result = await client.PublishAsync(
+            "itest/qos2", new byte[] { 7 }, MqttQoS.ExactlyOnce, cancellationToken: ct);
         await Assert.That(result.IsSuccess).IsTrue();
-        var received = await sub.Reader.ReadAsync();
+
+        var received = await sub.Reader.ReadAsync(ct);
         await Assert.That(received.Topic).IsEqualTo("itest/qos2");
     }
 
     [Test]
-    [Timeout(15_000)]
-    public async Task LargePayload_RoundTrip_MultiSegment(CancellationToken ct)
+    [Arguments(BrokerKind.Mqttnet)]
+    [Arguments(BrokerKind.Testing)]
+    [Timeout(20_000)]
+    public async Task LargePayload_RoundTrip_MultiSegment(BrokerKind kind, CancellationToken ct)
     {
-        await using var broker = await InProcessBroker.StartAsync();
+        await using var broker = await Brokers.StartAsync(kind);
         var client = MqttClient.CreateBuilder()
-            .ConnectTo($"mqtt://localhost:{broker.Port}")
+            .ConnectTo($"mqtt://127.0.0.1:{broker.Port}")
             .WithClientId($"test-{Guid.NewGuid():N}")
             .WithProtocol(MqttProtocolVersion.V500)
             .Configure(o => o.MaxIncomingPacketSize = 1024 * 1024)
             .Build();
         await using var _ = client;
-        await client.ConnectAsync();
+        await client.ConnectAsync(ct);
 
         var sub = await client.SubscribeAsync(
-            "itest/large",
-            new MqttSubscriptionOptions { QoS = MqttQoS.AtLeastOnce });
+            "itest/large", new MqttSubscriptionOptions { QoS = MqttQoS.AtLeastOnce }, ct);
         await using var __ = sub;
 
         // Far larger than the 8 KB outbound pipe segment, spanning enough segments to take the
@@ -139,10 +109,11 @@ public class PublishSubscribeTests
         {
             payload[i] = (byte)((i * 31) + 7);
         }
-        var result = await client.PublishAsync("itest/large", payload, MqttQoS.AtLeastOnce);
+        var result = await client.PublishAsync(
+            "itest/large", payload, MqttQoS.AtLeastOnce, cancellationToken: ct);
         await Assert.That(result.IsSuccess).IsTrue();
 
-        var received = await sub.Reader.ReadAsync();
+        var received = await sub.Reader.ReadAsync(ct);
         await Assert.That(received.PayloadMemory.Length).IsEqualTo(payload.Length);
         await Assert.That(received.PayloadMemory.Span.SequenceEqual(payload)).IsTrue();
     }
