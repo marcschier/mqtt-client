@@ -29,7 +29,7 @@ internal static class SocketConnect
         var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
         try
         {
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
             using (cancellationToken.Register(static s => ((Socket)s!).Dispose(), socket))
             {
                 await socket.ConnectAsync(host, port).ConfigureAwait(false);

@@ -258,7 +258,7 @@ internal sealed class Socks5SocketConnector : ISocketConnector
             return (AtypDomain, addr);
         }
 
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
         var resolved = await Dns.GetHostAddressesAsync(host).ConfigureAwait(false);
 #else
         var resolved = await Dns.GetHostAddressesAsync(host, cancellationToken)

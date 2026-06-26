@@ -84,7 +84,7 @@ internal static class MqttPacketDecoder
         // For a single-segment sequence FirstSpan is the whole buffer; capture it once and reuse it
         // for the fixed-header read and the PUBLISH fast path (FirstSpan/IsSingleSegment each decode
         // a SequencePosition, so we avoid repeating those accesses).
-        var segment = single ? buffer.FirstSpan : default;
+        var segment = single ? buffer.FirstSpan() : default;
         if (single)
         {
             firstByte = segment[0];
@@ -339,7 +339,7 @@ internal static class MqttPacketDecoder
                 Properties = props,
             };
         }
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
         var payload = new byte[payloadLen];
 #else
         // Skip the redundant zero-init: every byte is overwritten by the copy that follows.
@@ -417,7 +417,7 @@ internal static class MqttPacketDecoder
                 Properties = props,
             };
         }
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
         var payload = new byte[payloadLen];
 #else
         var payload = GC.AllocateUninitializedArray<byte>(payloadLen);

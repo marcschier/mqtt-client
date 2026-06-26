@@ -163,7 +163,9 @@ public sealed class MqttClient : IAsyncDisposable
         // Pause threshold scales with MaxIncomingPacketSize so a user who raises the cap also
         // gets enough buffer headroom; minimum 1 MiB to avoid pathologically small thresholds.
         var pauseThreshold = Math.Max(1024 * 1024, o.MaxIncomingPacketSize * 2);
+#if !NETSTANDARD2_0
         var wsPath = string.IsNullOrEmpty(o.WebSocketPath) ? "/mqtt" : o.WebSocketPath;
+#endif
         var connector = CreateSocketConnector(o);
         return o.Transport switch
         {
@@ -174,6 +176,12 @@ public sealed class MqttClient : IAsyncDisposable
                 o.Port,
                 ApplySecureTlsDefaults(o.Tls, o.Host),
                 connector),
+#if NETSTANDARD2_0
+            MqttTransportType.WebSocket or MqttTransportType.WebSocketSecure =>
+                throw new PlatformNotSupportedException(
+                    "WebSocket transport is not available on netstandard2.0; target " +
+                    "netstandard2.1 or .NET 8.0+ for ws://wss:// support."),
+#else
             MqttTransportType.WebSocket => o.Proxy is null
                 ? new WebSocketTransportFactory(
                     new Uri($"ws://{o.Host}:{(o.Port == 1883 ? 80 : o.Port)}{wsPath}"))
@@ -184,6 +192,7 @@ public sealed class MqttClient : IAsyncDisposable
                     new Uri($"wss://{o.Host}:{(o.Port == 1883 ? 443 : o.Port)}{wsPath}"))
                 : throw new NotSupportedException(
                     "A SOCKS5 proxy is not supported for WebSocket transports."),
+#endif
             _ => throw new NotSupportedException($"Transport {o.Transport} is not implemented."),
         };
     }
@@ -211,7 +220,7 @@ public sealed class MqttClient : IAsyncDisposable
         if (tls.EnabledSslProtocols == System.Security.Authentication.SslProtocols.None)
         {
 #pragma warning disable CA5398 // explicit modern minimums; OS picks TLS 1.3 when available
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
             tls.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
 #else
             tls.EnabledSslProtocols =
@@ -1766,7 +1775,7 @@ public sealed class MqttClient : IAsyncDisposable
         // promptly still disconnects.
         if (_readLoop is { } readLoop)
         {
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
             await Task.WhenAny(readLoop, Task.Delay(GracefulCloseTimeout, cancellationToken))
                 .ConfigureAwait(false);
 #else

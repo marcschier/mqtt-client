@@ -8,7 +8,7 @@ A high-performance, low-allocation MQTT 3.1.1 + 5.0 client for .NET — designed
 
 ## 🚀 Highlights
 
-- **Multi-TFM**: `netstandard2.1`, `net8.0`, `net9.0`, `net10.0` (NativeAOT-clean).
+- **Multi-TFM**: `netstandard2.0`, `netstandard2.1`, `net8.0`, `net9.0`, `net10.0` (NativeAOT-clean on net10.0; WebSocket transport requires netstandard2.1+).
 - **Channels-style API** — `ChannelReader<MqttMessage>` for subscriptions, `TryPublish` / `PublishAsync` for sending.
 - **Built-in** DI extensions, source-generated logging, `System.Diagnostics.Metrics`, `ActivitySource`.
 - **Transports**: TCP, TLS, WebSocket, Secure WebSocket.

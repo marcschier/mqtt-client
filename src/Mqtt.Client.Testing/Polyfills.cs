@@ -1,6 +1,6 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
 // Polyfills for language features that require attributes only present in newer runtimes,
 // but that the C# compiler is happy to consume from any assembly when targeting older TFMs.
 namespace System.Runtime.CompilerServices

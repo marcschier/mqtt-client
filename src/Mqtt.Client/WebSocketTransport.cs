@@ -1,5 +1,7 @@
 // Copyright (c) 2026 marcschier. Licensed under the MIT License.
 
+#if !NETSTANDARD2_0   // WebSocketPipe targets netstandard2.1+; ws unsupported on ns2.0
+
 using System;
 using System.IO.Pipelines;
 using System.Net.WebSockets;
@@ -71,3 +73,4 @@ internal sealed class WebSocketTransportFactory : IMqttTransportFactory
         }
     }
 }
+#endif

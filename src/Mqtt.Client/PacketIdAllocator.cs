@@ -130,7 +130,7 @@ internal sealed class PacketIdAllocator
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int TrailingZeroCount(uint value)
     {
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
         // BitOperations is .NET Core 3.0+. Callers only pass non-zero values, so this terminates.
         var count = 0;
         while ((value & 1u) == 0u)
