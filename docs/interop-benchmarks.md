@@ -1,6 +1,6 @@
 # Cross-implementation throughput — Mqtt.Client vs MQTTnet vs C (Mosquitto, Paho)
 
-_Generated 2026-06-25 10:04 UTC._
+_Generated 2026-06-25 16:32 UTC._
 
 End-to-end **publish→receive** throughput: each publisher sends N messages through a real [Eclipse Mosquitto](https://mosquitto.org/) broker to a constant `mosquitto_sub -C N` subscriber; the rate is N divided by the wall-clock time for the subscriber to receive all N. Two native-C datapoints are included — the `mosquitto_pub` CLI tool and a purpose-built **paho.mqtt.c** publisher. Higher is better.
 
@@ -12,19 +12,19 @@ These numbers are **wall-clock and cross-language** — not directly comparable 
 
 | Payload | Mqtt.Client | MQTTnet | Mosquitto C (CLI) | Paho C (lib) |
 | --- | ---: | ---: | ---: | ---: |
-| 64 B | 16,827 | 18,302 | 13,807 | 14,118 |
-| 256 B | 40,205 | 21,622 | 12,719 | 12,574 |
-| 1 KiB | 22,944 | 10,511 | 6,673 | 13,387 |
-| 16 KiB | 6,729 | 3,415 | 2,355 | 2,083 |
-| 64 KiB | 775 | 1,042 | 596 | 596 |
+| 64 B | 58,625 | 26,561 | 13,800 | 21,872 |
+| 256 B | 56,953 | 30,784 | 23,604 | 16,530 |
+| 1 KiB | 55,102 | 53,338 | 8,757 | 14,608 |
+| 16 KiB | 21,126 | 14,390 | 3,297 | 1,116 |
+| 64 KiB | 6,689 | 4,933 | 1,381 | 280 |
 
 ## QoS 1 — throughput (msg/s, higher is better)
 
 | Payload | Mqtt.Client | MQTTnet | Mosquitto C (CLI) | Paho C (lib) |
 | --- | ---: | ---: | ---: | ---: |
-| 64 B | 2,707 | 2,584 | 5,069 | 948 |
-| 256 B | 2,671 | 2,323 | 8,444 | 948 |
-| 1 KiB | 2,529 | 2,111 | 4,625 | 932 |
-| 16 KiB | 2,327 | 250 | 1,868 | 865 |
-| 64 KiB | 1,948 | 123 | 563 | 528 |
+| 64 B | 2,850 | 2,839 | 13,248 | 950 |
+| 256 B | 2,866 | 2,404 | 11,372 | 950 |
+| 1 KiB | 2,700 | 2,786 | 9,576 | 935 |
+| 16 KiB | 2,295 | 170 | 3,158 | 867 |
+| 64 KiB | 2,021 | 183 | 787 | 325 |
 
