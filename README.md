@@ -81,8 +81,7 @@ var retaining = MqttClient.CreateBuilder()
 - [Troubleshooting](docs/troubleshooting.md)
 - [Spec conformance](docs/conformance.md)
 - [Chaos / soak testing](docs/chaos.md) — continuous-recovery, no-leak, no-hang ruggedization gate
-- [Benchmarks](docs/benchmarks.md) — Mqtt.Client vs MQTTnet, full results matrix
-- [Interop benchmarks](docs/interop-benchmarks.md) — cross-implementation throughput vs Mosquitto C
+- [Benchmarks](docs/benchmarks.md) — Mqtt.Client vs MQTTnet (full matrix) plus cross-language throughput vs C (Mosquitto, Paho)
 
 ## 🔍 When to pick [MQTTnet](https://github.com/dotnet/MQTTnet) instead
 

@@ -267,11 +267,13 @@ internal static class CrossLangBench
             return;
         }
         var sb = new StringBuilder();
+        sb.AppendLine(CrossLangSection.Begin);
         sb.AppendLine(
-            "# Cross-implementation throughput — Mqtt.Client vs MQTTnet vs C (Mosquitto, Paho)");
+            "## Cross-implementation throughput — Mqtt.Client vs MQTTnet vs C (Mosquitto, Paho)");
         sb.AppendLine();
-        sb.AppendLine(
-            CultureInfo.InvariantCulture, $"_Generated {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC._");
+        var ts = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+        sb.AppendLine(CultureInfo.InvariantCulture,
+            $"_Cross-language section generated {ts} UTC by `--crosslang`._");
         sb.AppendLine();
         sb.AppendLine(
             "End-to-end **publish→receive** throughput: each publisher sends N messages through " +
@@ -283,13 +285,13 @@ internal static class CrossLangBench
         sb.AppendLine();
         sb.AppendLine(
             "These numbers are **wall-clock and cross-language** — not directly comparable to " +
-            "the per-operation [BenchmarkDotNet results](benchmarks.md). The **Mosquitto C " +
-            "(CLI)** column is the `mosquitto_pub` command-line tool (line-buffered stdin, no " +
-            "QoS 1 pipelining): a convenience tool, not a throughput-optimised client. The " +
-            "**Paho C (lib)** column is a purpose-built publisher on the Eclipse Paho C " +
-            "synchronous `MQTTClient` v5 API doing exactly what the .NET clients do — one " +
-            "persistent connection over the same broker — so it is the true apples-to-apples " +
-            "native baseline. For QoS 1 all three persistent publishers pipeline up to 100 " +
+            "the per-operation BenchmarkDotNet results above. The **Mosquitto C (CLI)** column " +
+            "is the `mosquitto_pub` command-line tool (line-buffered stdin, no QoS 1 " +
+            "pipelining): a convenience tool, not a throughput-optimised client. The **Paho C " +
+            "(lib)** column is a purpose-built publisher on the Eclipse Paho C synchronous " +
+            "`MQTTClient` v5 API doing exactly what the .NET clients do — one persistent " +
+            "connection over the same broker — so it is the true apples-to-apples native " +
+            "baseline. For QoS 1 all three persistent publishers pipeline up to 100 " +
             "acknowledgements in flight (sustained throughput, not per-message round-trip " +
             "latency); QoS 0 is measured end-to-end (the subscriber must receive all N), so " +
             "fire-and-forget enqueue is not mistaken for delivery.");
@@ -306,7 +308,7 @@ internal static class CrossLangBench
         foreach (var qos in QoSLevels)
         {
             sb.AppendLine(CultureInfo.InvariantCulture,
-                $"## QoS {qos} — throughput (msg/s, higher is better)");
+                $"### QoS {qos} — throughput (msg/s, higher is better)");
             sb.AppendLine();
             sb.AppendLine("| Payload | Mqtt.Client | MQTTnet | Mosquitto C (CLI) | Paho C (lib) |");
             sb.AppendLine("| --- | ---: | ---: | ---: | ---: |");
@@ -318,10 +320,15 @@ internal static class CrossLangBench
             }
             sb.AppendLine();
         }
+        sb.Append(CrossLangSection.End);
 
-        var path = Path.Combine(repoRoot, "docs", "interop-benchmarks.md");
-        File.WriteAllText(path, sb.ToString());
-        Console.WriteLine($"[crosslang] wrote {path}");
+        var path = Path.Combine(repoRoot, "docs", "benchmarks.md");
+        var doc = File.Exists(path)
+            ? File.ReadAllText(path)
+            : "# Mqtt.Client vs MQTTnet — benchmark results" + Environment.NewLine;
+        doc = CrossLangSection.Upsert(doc, sb.ToString());
+        File.WriteAllText(path, doc);
+        Console.WriteLine($"[crosslang] updated cross-language section in {path}");
     }
 
     private static string Rate(double msgPerSec)

@@ -85,9 +85,28 @@ public static class SummaryGenerator
             docs.AppendLine();
         }
 
+        // The cross-language throughput tables are owned by the --crosslang harness, which runs in
+        // a separate process / CI job. Preserve its marked section so regenerating the
+        // BenchmarkDotNet tables here never drops it.
+        var existingCrossLang = File.Exists(docsPath)
+            ? CrossLangSection.Extract(File.ReadAllText(docsPath))
+            : null;
+        docs.AppendLine(existingCrossLang ?? CrossLangPlaceholder());
+        docs.AppendLine();
+
         Directory.CreateDirectory(Path.GetDirectoryName(docsPath)!);
         File.WriteAllText(docsPath, docs.ToString());
         Console.WriteLine($"[SummaryGenerator] Wrote {docsPath}");
+    }
+
+    private static string CrossLangPlaceholder()
+    {
+        var nl = Environment.NewLine;
+        return CrossLangSection.Begin + nl
+            + "## Cross-implementation throughput" + nl + nl
+            + "_Run the harness with `--crosslang` (needs Mosquitto + the Paho C library) to "
+            + "populate this section._" + nl
+            + CrossLangSection.End;
     }
 
     private static string DescribeBenchmark(string reportName)

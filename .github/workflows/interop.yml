@@ -72,4 +72,4 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: interop-${{ github.run_id }}
-          path: docs/interop-benchmarks.md
+          path: docs/benchmarks.md

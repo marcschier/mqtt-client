@@ -66,9 +66,9 @@ dotnet run -c Release --project tests/Mqtt.Client.Benchmarks -- --filter '*' --r
 
 The `CrossLang/` folder adds a **cross-language throughput harness** (run with
 `--crosslang`) that measures end-to-end publish→receive throughput for `Mqtt.Client`,
-`MQTTnet`, and the native-C `mosquitto_pub` against a real Mosquitto broker, writing
-[`docs/interop-benchmarks.md`](../docs/interop-benchmarks.md). It skips when Mosquitto
-is not installed.
+`MQTTnet`, the native-C `mosquitto_pub` CLI and a purpose-built `paho.mqtt.c` publisher
+against a real Mosquitto broker, updating the **Cross-implementation throughput** section
+of [`docs/benchmarks.md`](../docs/benchmarks.md). It skips when Mosquitto is not installed.
 
 ## `Mqtt.Client.InteropTests/` — TUnit, net10.0 (Mosquitto required)
 
