@@ -82,6 +82,7 @@ var retaining = MqttClient.CreateBuilder()
 - [Spec conformance](docs/conformance.md)
 - [Chaos / soak testing](docs/chaos.md) — continuous-recovery, no-leak, no-hang ruggedization gate
 - [Benchmarks](docs/benchmarks.md) — Mqtt.Client vs MQTTnet (full matrix) plus cross-language throughput vs C (Mosquitto, Paho)
+- [Mqtt.Client.Testing](src/Mqtt.Client.Testing/README.md) — companion package: an embeddable, in-process MQTT broker for tests (no install, all TFMs, parallel-isolated)
 
 ## 🔍 When to pick [MQTTnet](https://github.com/dotnet/MQTTnet) instead
 
