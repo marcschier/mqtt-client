@@ -135,6 +135,22 @@ internal static class CrossLangBench
     // latency) while staying within paho's maxInflightMessages; all three publishers use it.
     private const int PublishWindow = 100;
 
+    // Keeps up to PublishWindow QoS>0 publishes in flight at once as a true sliding window: a new
+    // publish is started as soon as the oldest completes, so the pipe stays full. This matches the
+    // C publishers (mosquitto_pub / paho), which collect PUBACKs asynchronously and never block
+    // per message — a Task.WhenAll barrier would instead drain to zero every batch and understate
+    // sustained throughput.
+    private static async Task PipelineAsync(Func<Task> publishOne, int n)
+    {
+        var inflight = new Queue<Task>(PublishWindow);
+        for (var i = 0; i < n; i++)
+        {
+            inflight.Enqueue(publishOne());
+            if (inflight.Count >= PublishWindow) await inflight.Dequeue();
+        }
+        while (inflight.Count > 0) await inflight.Dequeue();
+    }
+
     private static async Task PublishOursAsync(
         Mqtt.Client.MqttClient client, string topic, byte[] payload, int qos, int n)
     {
@@ -144,13 +160,7 @@ internal static class CrossLangBench
             for (var i = 0; i < n; i++) await client.PublishAsync(topic, payload, q);
             return;
         }
-        var batch = new List<Task>(PublishWindow);
-        for (var i = 0; i < n; i++)
-        {
-            batch.Add(client.PublishAsync(topic, payload, q).AsTask());
-            if (batch.Count == PublishWindow) { await Task.WhenAll(batch); batch.Clear(); }
-        }
-        if (batch.Count > 0) await Task.WhenAll(batch);
+        await PipelineAsync(() => client.PublishAsync(topic, payload, q).AsTask(), n);
     }
 
     private static async Task PublishMqttnetAsync(
@@ -166,13 +176,7 @@ internal static class CrossLangBench
             for (var i = 0; i < n; i++) await client.PublishAsync(msg);
             return;
         }
-        var batch = new List<Task>(PublishWindow);
-        for (var i = 0; i < n; i++)
-        {
-            batch.Add(client.PublishAsync(msg));
-            if (batch.Count == PublishWindow) { await Task.WhenAll(batch); batch.Clear(); }
-        }
-        if (batch.Count > 0) await Task.WhenAll(batch);
+        await PipelineAsync(() => client.PublishAsync(msg), n);
     }
 
     private static async Task PublishMosquittoAsync(
@@ -286,14 +290,19 @@ internal static class CrossLangBench
         sb.AppendLine(
             "These numbers are **wall-clock and cross-language** — not directly comparable to " +
             "the per-operation BenchmarkDotNet results above. The **Mosquitto C (CLI)** column " +
-            "is the `mosquitto_pub` command-line tool (line-buffered stdin, no QoS 1 " +
-            "pipelining): a convenience tool, not a throughput-optimised client. The **Paho C " +
-            "(lib)** column is a purpose-built publisher on the Eclipse Paho C synchronous " +
-            "`MQTTClient` v5 API doing exactly what the .NET clients do — one persistent " +
-            "connection over the same broker — so it is the true apples-to-apples native " +
-            "baseline. For QoS 1 all three persistent publishers pipeline up to 100 " +
-            "acknowledgements in flight (sustained throughput, not per-message round-trip " +
-            "latency); QoS 0 is measured end-to-end (the subscriber must receive all N), so " +
+            "is the `mosquitto_pub` command-line tool, driven by feeding it one message per line " +
+            "on stdin; that stdin mechanism — not the protocol — caps it at roughly 14k msg/s " +
+            "here for both QoS levels. It still pipelines QoS 1 (it sends the PUBLISHes and " +
+            "collects the PUBACKs asynchronously, never blocking per message), so its QoS 1 " +
+            "lands at the same stdin-bound ceiling rather than below it — a convenience tool, " +
+            "not a throughput-optimised client. The **Paho C (lib)** column is a purpose-built " +
+            "publisher on the Eclipse Paho C synchronous `MQTTClient` v5 API doing exactly what " +
+            "the .NET clients do — one persistent connection over the same broker — so it is the " +
+            "true apples-to-apples native baseline. For QoS 1 every persistent publisher keeps a " +
+            "sliding window of in-flight publishes (the .NET clients and paho up to 100; " +
+            "`mosquitto_pub` via libmosquitto's own window) and collects the PUBACKs " +
+            "asynchronously, so the figure is sustained throughput, not per-message round-trip " +
+            "latency; QoS 0 is measured end-to-end (the subscriber must receive all N), so " +
             "fire-and-forget enqueue is not mistaken for delivery.");
         sb.AppendLine();
         sb.AppendLine(
