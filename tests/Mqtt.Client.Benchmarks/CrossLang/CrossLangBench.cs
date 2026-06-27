@@ -289,7 +289,7 @@ internal static class CrossLangBench
         sb.AppendLine();
         sb.AppendLine(
             "These numbers are **wall-clock and cross-language** — not directly comparable to " +
-            "the per-operation BenchmarkDotNet results above. The **Mosquitto C (CLI)** column " +
+            "the per-operation BenchmarkDotNet results below. The **Mosquitto C (CLI)** column " +
             "is the `mosquitto_pub` command-line tool, driven by feeding it one message per line " +
             "on stdin; that stdin mechanism — not the protocol — caps it at roughly 14k msg/s " +
             "here for both QoS levels. It still pipelines QoS 1 (it sends the PUBLISHes and " +

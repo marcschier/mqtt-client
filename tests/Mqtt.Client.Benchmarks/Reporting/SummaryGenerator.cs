@@ -38,17 +38,11 @@ public static class SummaryGenerator
             : null;
 
         var docs = new StringBuilder();
-        docs.AppendLine("# Mqtt.Client vs MQTTnet — benchmark results");
+        docs.AppendLine("# Mqtt.Client benchmark results");
         docs.AppendLine();
         docs.AppendLine(
             CultureInfo.InvariantCulture,
             $"_Generated {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC._");
-        docs.AppendLine();
-        docs.AppendLine(
-            "[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested .NET " +
-            "MQTT library. These benchmarks are not a verdict on MQTTnet — they exist to " +
-            "make tradeoffs visible for callers choosing between the two clients. See the " +
-            "README's \"When to pick MQTTnet instead\" section for guidance.");
         docs.AppendLine();
         // Cross-implementation throughput leads, then the per-operation micro/end-to-end tables.
         docs.AppendLine(existingCrossLang ?? CrossLangPlaceholder());
