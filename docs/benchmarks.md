@@ -1,8 +1,6 @@
-# Mqtt.Client vs MQTTnet — benchmark results
+# Mqtt.Client benchmark results
 
 _Generated 2026-06-23 09:32 UTC._
-
-[MQTTnet](https://github.com/dotnet/MQTTnet) is a mature, battle-tested .NET MQTT library. These benchmarks are not a verdict on MQTTnet — they exist to make tradeoffs visible for callers choosing between the two clients. See the README's "When to pick MQTTnet instead" section for guidance.
 
 <!-- BEGIN: cross-language throughput (--crosslang) -->
 ## Cross-implementation throughput — Mqtt.Client vs MQTTnet vs C (Mosquitto, Paho)
