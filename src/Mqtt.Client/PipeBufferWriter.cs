@@ -123,7 +123,7 @@ internal struct PipeBufferWriter : IMqttBufferWriter
     {
         if (value.IsSingleSegment)
         {
-            WriteBytes(value.FirstSpan);
+            WriteBytes(value.FirstSpan());
             return;
         }
         foreach (var segment in value)

@@ -77,7 +77,7 @@ internal sealed class TlsTransportFactory : IMqttTransportFactory
             ssl = new SslStream(
                 new NetworkStream(socket, ownsSocket: false),
                 leaveInnerStreamOpen: false);
-#if NETSTANDARD2_1
+#if NETSTANDARD2_0 || NETSTANDARD2_1
             await ssl.AuthenticateAsClientAsync(
                 _options.TargetHost!,
                 _options.ClientCertificates,

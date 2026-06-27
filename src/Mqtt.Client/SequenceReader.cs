@@ -29,7 +29,7 @@ internal ref struct MqttSequenceReader
         if (sequence.IsSingleSegment)
         {
             _single = true;
-            _span = sequence.FirstSpan;
+            _span = sequence.FirstSpan();
             _reader = default;
         }
         else
