@@ -6,6 +6,8 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ## [Unreleased]
 
+## [1.0.2] — 2026-06-27
+
 ### Added
 - **netstandard2.0 support.** `Mqtt.Client` and `Mqtt.Client.Testing` now also target `netstandard2.0` (alongside `netstandard2.1`/`net8.0`/`net9.0`/`net10.0`), broadening reach to .NET Framework 4.6.1+ and older runtimes. The TCP, TLS and SOCKS5 transports are fully supported. The **WebSocket transport is unavailable on netstandard2.0** — its `WebSocketPipe` dependency targets netstandard2.1+ — and a `ws://`/`wss://` endpoint throws `PlatformNotSupportedException` there. Every adaptation is a netstandard2.0-gated polyfill or extension method (span `Encoding`, Memory-based stream I/O, `SequenceReader<T>`, the nullable-annotation and `init`/`required` attributes, and an `SslClientAuthenticationOptions` shim), so the net8.0+/netstandard2.1 code paths — and their performance — are byte-for-byte unchanged.
 - **`Mqtt.Client.Testing` — an embeddable, in-process MQTT broker for tests.** A new companion NuGet package exposing `MqttTestBroker`: a pure-managed MQTT 3.1.1 + 5.0 broker that listens on an ephemeral loopback port and is started/stopped entirely in-process, with no native dependencies and nothing to install. It supports QoS 0/1/2, `+`/`#` wildcards, retained messages, Last Will and keep-alive; runs on every target framework (`netstandard2.1`–`net10.0`); and allows many isolated broker instances to run at once for parallel tests. It is published to the GitHub Packages feed and nuget.org alongside `Mqtt.Client`.
