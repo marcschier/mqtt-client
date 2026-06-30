@@ -102,3 +102,9 @@ are MIT-licensed and the protocol wire formats are identical.
 
 Found something? Please file privately via GitHub Security Advisories — see
 [SECURITY.md](SECURITY.md).
+
+## 🔏 Strong naming
+
+The published `Mqtt.Client` and `Mqtt.Client.Testing` assemblies are strong-named, so they can be referenced from other strong-named projects. The public key token is `7101d3319b65c487`.
+
+Strong naming is an assembly *identity* feature, not a security boundary: it does not authenticate the publisher, and the packages are not Authenticode- or NuGet-signed. The signing key (`Mqtt.Client.snk`) is committed to this repository and is intentionally not a secret. The same key is reused for every release so the strong-name identity stays stable across versions.

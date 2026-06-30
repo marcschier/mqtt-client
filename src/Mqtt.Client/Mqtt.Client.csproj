@@ -56,10 +56,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Mqtt.Client.UnitTests" />
-    <InternalsVisibleTo Include="Mqtt.Client.IntegrationTests" />
-    <InternalsVisibleTo Include="Mqtt.Client.Benchmarks" />
-    <InternalsVisibleTo Include="Mqtt.Client.FuzzTests" />
+    <InternalsVisibleTo Include="Mqtt.Client.UnitTests" Key="$(PublicKey)" />
+    <InternalsVisibleTo Include="Mqtt.Client.IntegrationTests" Key="$(PublicKey)" />
+    <InternalsVisibleTo Include="Mqtt.Client.Benchmarks" Key="$(PublicKey)" />
+    <InternalsVisibleTo Include="Mqtt.Client.FuzzTests" Key="$(PublicKey)" />
   </ItemGroup>
 
 </Project>

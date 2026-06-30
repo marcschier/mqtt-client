@@ -37,6 +37,14 @@
     <!-- Version is supplied by Nerdbank.GitVersioning from version.json + git history -->
   </PropertyGroup>
 
+  <PropertyGroup Label="Strong naming">
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)Mqtt.Client.snk</AssemblyOriginatorKeyFile>
+    <!-- Full public key of Mqtt.Client.snk (token 7101d3319b65c487). Referenced by InternalsVisibleTo
+         Key= metadata so the strong-named test projects can see internals. Keep in sync with the key. -->
+    <PublicKey>0024000004800000140100000602000000240000525341310008000001000100e57fb51da6eb5b38de98ec70b6137b33f47e260d472ac910ade2cd47284dcd1eee488846f349dac292a005147570580e22c0e700754f0e7fa5263d97ff6bebb7f894df3c4c83f73d49e08f03e7b1346dbcda430499e49832e458678a31d10209216fec6c5771442a4abfa76ac454083d2cdc6b4728b3c8b52085d10bca567c03f7e5dd7db98e8ccb85fb59619ff02fae571843efa88919f72acde00f14a06820869978cd2951492c71f7729a0702a4ba23f90386f16b8fe545cc3e2bf32237788d940e4af9c4541b4013b0454ee874d78b85670ce2f0a09fdf5d549726ac451ea4524af0122a93c8d2bad97614fe515ae47d382f3e9253f395deb594c9e572d5</PublicKey>
+  </PropertyGroup>
+
   <PropertyGroup Label="AOT and Trimming (net10.0 only)" Condition=" '$(TargetFramework)' == 'net10.0' ">
     <IsAotCompatible>true</IsAotCompatible>
     <IsTrimmable>true</IsTrimmable>

@@ -45,7 +45,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Mqtt.Client.Testing.Tests" />
+    <InternalsVisibleTo Include="Mqtt.Client.Testing.Tests" Key="$(PublicKey)" />
   </ItemGroup>
 
 </Project>
