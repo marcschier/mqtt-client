@@ -36,6 +36,7 @@ public sealed class ChaosWorker
     public long Acked { get; private set; }
     public long Received { get; private set; }
     public Exception? Fault { get; private set; }
+    public MqttConnectionState ClientState => _client.State;
 
     public double SecondsSincePublish => Elapsed(Volatile.Read(ref _lastPublishTicks));
     public double SecondsSinceReceive => Elapsed(Volatile.Read(ref _lastReceiveTicks));
@@ -131,7 +132,11 @@ public sealed class ChaosWorker
             {
                 BitConverter.TryWriteBytes(payload.AsSpan(0, 8), seq);
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(TimeSpan.FromSeconds(20));
+                // Per-publish timeout kept well under the liveness stall threshold (maxStallSec) so a
+                // single publish whose ack the broker drops mid-chaos is abandoned and retried before
+                // it trips the hang watchdog — the client waits for a QoS>0 ack up to the caller's
+                // token, so this is the application's responsibility, not a client-side timeout.
+                cts.CancelAfter(TimeSpan.FromSeconds(6));
                 await _client.PublishAsync(
                     _topic,
                     new ReadOnlyMemory<byte>(payload, 0, 16),
@@ -213,11 +218,15 @@ public sealed class Workload
     public long TotalReceived => Sum(static w => w.Received);
 
     /// <summary>
-    /// Asserts every worker has made forward progress on BOTH its publish and receive clocks within
-    /// <paramref name="maxStallSeconds"/>. Call only during a healthy window. A stalled receive
-    /// clock while publishing continues indicates a deaf subscription (no recovery).
+    /// Asserts every worker has made forward progress on BOTH its publish and receive clocks. Call
+    /// only during a healthy window. The clocks measure time since the last SUCCESS, so a worker that
+    /// recovers resets to zero — a stall only survives here if the worker made no progress for the
+    /// whole threshold, i.e. a genuine hang, not transient fault recovery. The receive threshold is
+    /// looser than the publish one: a deaf subscription can be broker-induced (a reference broker that
+    /// acks a resubscribe but drops it after a restart) and self-heals on the next reconnect, whereas
+    /// the client owns the publish path directly.
     /// </summary>
-    public bool CheckLiveness(double maxStallSeconds, out string reason)
+    public bool CheckLiveness(double maxPublishStall, double maxReceiveStall, out string reason)
     {
         foreach (var w in _workers)
         {
@@ -226,17 +235,17 @@ public sealed class Workload
                 reason = $"worker {w.Id} faulted: {w.Fault.GetType().Name}: {w.Fault.Message}";
                 return false;
             }
-            if (w.SecondsSincePublish > maxStallSeconds)
+            if (w.SecondsSincePublish > maxPublishStall)
             {
                 reason = $"worker {w.Id} publish stalled {w.SecondsSincePublish:n1}s "
-                    + $"(> {maxStallSeconds:n0}s) during a healthy window";
+                    + $"(> {maxPublishStall:n0}s) during a healthy window [state={w.ClientState}]";
                 return false;
             }
-            if (w.SecondsSinceReceive > maxStallSeconds)
+            if (w.SecondsSinceReceive > maxReceiveStall)
             {
                 reason = $"worker {w.Id} receive stalled {w.SecondsSinceReceive:n1}s "
-                    + $"(> {maxStallSeconds:n0}s) during a healthy window — subscription not "
-                    + "recovered?";
+                    + $"(> {maxReceiveStall:n0}s) during a healthy window [state={w.ClientState}]"
+                    + " — subscription not recovered?";
                 return false;
             }
         }

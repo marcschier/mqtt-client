@@ -89,4 +89,68 @@ public class MqttClientReconnectAndKeepAliveTests
         await client.DisposeAsync();
         await Assert.That(client.State).IsEqualTo(MqttConnectionState.Disposed);
     }
+
+    [Test]
+    [Timeout(5_000)]
+    public async Task Rejected_connack_resets_state_to_Disconnected(CancellationToken ct)
+    {
+        var (client, factory) = Build(policy: null);
+        await using var _0 = client;
+        var broker = new FakeBroker(factory.Transport);
+        var connectTask = client.ConnectAsync(ct);
+        await broker.ReadPacketAsync(ct);
+        await broker.SendConnAckAsync(MqttReasonCode.NotAuthorized, ct: ct);
+        var result = await connectTask;
+
+        await Assert.That(result.IsSuccess).IsFalse();
+        // Regression: a rejected CONNACK must return the client to Disconnected, not leave it stuck
+        // in Connecting. The reconnect supervisor only attempts while state==Disconnected, so a stuck
+        // Connecting state starves it and wedges the client permanently.
+        await Assert.That(client.State).IsEqualTo(MqttConnectionState.Disconnected);
+    }
+
+    [Test]
+    [Timeout(5_000)]
+    public async Task Failed_connect_resets_state_and_allows_retry(CancellationToken ct)
+    {
+        var factory = new FailableTransportFactory { Fail = true };
+        var client = new MqttClient(new MqttClientOptions
+        {
+            Host = "fake",
+            ClientId = "test",
+            ProtocolVersion = MqttProtocolVersion.V500,
+            CleanStart = true,
+            KeepAliveSeconds = 0,
+            Reconnect = null,
+        }, factory);
+        await using var _0 = client;
+
+        await Assert.That(async () => await client.ConnectAsync(ct)).Throws<IOException>();
+        // Regression: a throwing (re)connect must land back in Disconnected, otherwise a single
+        // failed attempt (e.g. a corrupted CONNECT/CONNACK during a fault) wedges the client.
+        await Assert.That(client.State).IsEqualTo(MqttConnectionState.Disconnected);
+
+        // The client is not wedged: a subsequent attempt can CAS out of Disconnected and connect.
+        factory.Fail = false;
+        var broker = new FakeBroker(factory.Transport);
+        var connectTask = client.ConnectAsync(ct);
+        await broker.ReadPacketAsync(ct);
+        await broker.SendConnAckAsync(ct: ct);
+        var result = await connectTask;
+
+        await Assert.That(result.IsSuccess).IsTrue();
+        await Assert.That(client.State).IsEqualTo(MqttConnectionState.Connected);
+    }
+
+    private sealed class FailableTransportFactory : IMqttTransportFactory
+    {
+        public FakePipeTransport Transport { get; } = new();
+        public bool Fail { get; set; }
+
+        public ValueTask<IMqttTransport> ConnectAsync(CancellationToken cancellationToken)
+        {
+            if (Fail) throw new IOException("connect failed");
+            return new ValueTask<IMqttTransport>(Transport);
+        }
+    }
 }

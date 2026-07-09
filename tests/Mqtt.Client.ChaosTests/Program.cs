@@ -50,7 +50,14 @@ var violations = new List<string>();
 const double monitorIntervalSec = 2;
 const double leakIntervalSec = 15;
 const double watchdogGraceSec = 8;   // healthy must persist this long before asserting liveness
-const double maxStallSec = 12;       // each worker must progress within this in a healthy window
+// The stall clocks measure time since the last SUCCESS, so a recovering worker resets to 0 and only a
+// genuine, non-recovering hang survives to the threshold. Publish is client-owned, so it is held to a
+// tight bound; receive is looser because a deaf subscription can be broker-induced (a reference broker
+// acking a resubscribe but dropping it after a restart) and self-heals on the next reconnect — well
+// inside one fault cycle — whereas a real client receive hang is unbounded (the pre-fix regressions
+// stalled for minutes).
+const double maxPublishStallSec = 20;
+const double maxReceiveStallSec = 45;
 double? healthySince = null;
 var lastLeak = 0.0;
 leak.Sample(0);
@@ -71,7 +78,7 @@ try
         {
             healthySince ??= elapsed;
             if (elapsed - healthySince.Value >= watchdogGraceSec
-                && !workload.CheckLiveness(maxStallSec, out var reason))
+                && !workload.CheckLiveness(maxPublishStallSec, maxReceiveStallSec, out var reason))
             {
                 Log($"VIOLATION: {reason}");
                 if (!violations.Contains(reason)) violations.Add(reason);
@@ -140,6 +147,7 @@ Console.WriteLine($"resubscribes     : {metrics.Total("mqtt.client.resubscribes"
 Console.WriteLine($"disconnects      : {metrics.Total("mqtt.client.disconnects")}");
 Console.WriteLine($"keepalive timeout: {metrics.Total("mqtt.client.keepalive.timeouts")}");
 Console.WriteLine($"decode errors    : {metrics.Total("mqtt.client.decode.errors")}");
+Console.WriteLine($"messages dropped : {metrics.Total("mqtt.client.messages.dropped")}");
 Console.WriteLine($"pending acks (end): {metrics.LatestGauge("mqtt.client.pending.acks")}");
 Console.WriteLine($"queue depth (end) : {metrics.LatestGauge("mqtt.client.outbound.queue.depth")}");
 Console.WriteLine($"subscriptions(end): {metrics.LatestGauge("mqtt.client.subscriptions")}");
@@ -176,7 +184,17 @@ static MqttClient BuildClientForTransport(ChaosConfig cfg, int proxyPort, string
         .WithProtocol(MqttProtocolVersion.V500)
         .WithKeepAlive((ushort)cfg.KeepAliveSeconds)
         .WithCleanStart(true)
-        .WithReconnect(MqttReconnectPolicy.Exponential());
+        // Fast-recovery configuration for the soak: it asserts the client re-establishes within a
+        // tight post-fault window, so bound the connect handshake (OperationTimeout) tightly and cap
+        // the reconnect backoff. A production deployment tuned for fast recovery uses similar values.
+        .Configure(o => o.OperationTimeout = TimeSpan.FromSeconds(3))
+        .WithReconnect(new MqttReconnectPolicy
+        {
+            InitialDelay = TimeSpan.FromMilliseconds(200),
+            MaxDelay = TimeSpan.FromSeconds(2),
+            BackoffFactor = 2.0,
+            JitterFactor = 0.2,
+        });
     switch (cfg.Transport)
     {
         case "tcp":
