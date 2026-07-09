@@ -76,6 +76,13 @@ public sealed class MqttClient : IAsyncDisposable
     // Serializes ReconnectAsync so overlapping credential-change signals don't stack reconnects.
     private readonly SemaphoreSlim _reconnectGate = new(1, 1);
 
+    // Reconnect supervision. _reconnectActive gates a SINGLE reconnect supervisor task; every
+    // disconnect sets _reconnectRequested. Together they guarantee each disconnect signal is serviced
+    // with no lost wakeup and that two ConnectAsync attempts never overlap — the source of the
+    // reconnect state races that could otherwise wedge the client after a fault.
+    private int _reconnectActive;
+    private int _reconnectRequested;
+
     // After sending DISCONNECT, wait up to this long for the broker to close the TCP connection
     // (making it the active closer) before forcing the close ourselves. Keeps our ephemeral port
     // out of TIME_WAIT so rapid connect/disconnect cycles don't exhaust the local port range.
@@ -258,53 +265,68 @@ public sealed class MqttClient : IAsyncDisposable
         {
             _metrics.ConnectAttempts.Add(1);
             var connectStart = Stopwatch.GetTimestamp();
-            _transport = await _transportFactory.ConnectAsync(cancellationToken)
-                .ConfigureAwait(false);
-            _loopCts = new CancellationTokenSource();
-
-            // Capture handler-supplied initial AUTH payload before encoding CONNECT.
-            _initialAuthMethod = null;
-            _initialAuthData = default;
-            var handler = _options.ProtocolVersion == MqttProtocolVersion.V500
-                ? _options.AuthenticationHandler
-                : null;
-            if (handler is not null)
+            MqttConnectResult connack;
+            // Bound the connect handshake (transport connect + CONNACK) with OperationTimeout so a
+            // half-open or black-holed link fails fast instead of parking the client in Connecting
+            // indefinitely — an unbounded handshake stalls the reconnect supervisor (which awaits this
+            // method), wedging recovery. Post-CONNACK work continues on the caller's token.
+            using (var handshakeCts =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
-                var first = await handler.ContinueAsync(null, cancellationToken)
+                handshakeCts.CancelAfter(_options.OperationTimeout);
+                var connectToken = handshakeCts.Token;
+                _transport = await _transportFactory.ConnectAsync(connectToken)
                     .ConfigureAwait(false);
-                if (first.Kind == MqttAuthenticationResultKind.Abort)
+                _loopCts = new CancellationTokenSource();
+
+                // Capture handler-supplied initial AUTH payload before encoding CONNECT.
+                _initialAuthMethod = null;
+                _initialAuthData = default;
+                var handler = _options.ProtocolVersion == MqttProtocolVersion.V500
+                    ? _options.AuthenticationHandler
+                    : null;
+                if (handler is not null)
                 {
-                    throw new MqttAuthenticationException(first.ReasonCode, first.ReasonString);
+                    var first = await handler.ContinueAsync(null, connectToken)
+                        .ConfigureAwait(false);
+                    if (first.Kind == MqttAuthenticationResultKind.Abort)
+                    {
+                        throw new MqttAuthenticationException(
+                            first.ReasonCode, first.ReasonString);
+                    }
+                    _initialAuthMethod = handler.Method;
+                    _initialAuthData = first.Data;
                 }
-                _initialAuthMethod = handler.Method;
-                _initialAuthData = first.Data;
-            }
 
-            // Resolve the username/password to present in CONNECT. A configured provider is
-            // consulted on every connect (initial and each reconnect via ReconnectLoopAsync), so
-            // freshly-loaded credentials are used each time; otherwise the static options apply.
-            _resolvedUsername = _options.Username;
-            _resolvedPassword = _options.Password;
-            if (_options.CredentialsProvider is { } credentialsProvider)
-            {
-                var credentials = await credentialsProvider
-                    .GetCredentialsAsync(cancellationToken).ConfigureAwait(false);
-                _resolvedUsername = credentials.Username;
-                _resolvedPassword = credentials.Password;
-            }
+                // Resolve the username/password to present in CONNECT. A configured provider is
+                // consulted on every connect (initial and each reconnect via the reconnect
+                // supervisor), so fresh credentials are used each time; else the static options apply.
+                _resolvedUsername = _options.Username;
+                _resolvedPassword = _options.Password;
+                if (_options.CredentialsProvider is { } credentialsProvider)
+                {
+                    var credentials = await credentialsProvider
+                        .GetCredentialsAsync(connectToken).ConfigureAwait(false);
+                    _resolvedUsername = credentials.Username;
+                    _resolvedPassword = credentials.Password;
+                }
 
-            var connectPkt = BuildConnectPacket();
-            var pw = new PipeBufferWriter(_transport!.Output, 256);
-            MqttPacketEncoder.EncodeConnect(connectPkt, ref pw);
-            var written = pw.WrittenCount;
-            pw.Commit();
-            await FlushOutputAsync(written, cancellationToken).ConfigureAwait(false);
-            // Wait for CONNACK or run the AUTH exchange first.
-            var connack = await ReadConnAckOrAuthAsync(handler, cancellationToken).ConfigureAwait(
-                false);
+                var connectPkt = BuildConnectPacket();
+                var pw = new PipeBufferWriter(_transport!.Output, 256);
+                MqttPacketEncoder.EncodeConnect(connectPkt, ref pw);
+                var written = pw.WrittenCount;
+                pw.Commit();
+                await FlushOutputAsync(written, connectToken).ConfigureAwait(false);
+                // Wait for CONNACK or run the AUTH exchange first.
+                connack = await ReadConnAckOrAuthAsync(handler, connectToken).ConfigureAwait(false);
+            }
             if (!connack.IsSuccess)
             {
                 await CleanupAsync("CONNACK failure").ConfigureAwait(false);
+                // Reset to Disconnected so a retry (the reconnect supervisor, which only attempts
+                // while state==Disconnected, or a manual ConnectAsync) can re-attempt. Leaving the
+                // state at Connecting here would starve the supervisor and wedge the client for good.
+                SetState(MqttConnectionState.Disconnected);
                 return connack;
             }
             CaptureServerLimits(connack);
@@ -362,6 +384,11 @@ public sealed class MqttClient : IAsyncDisposable
             _metrics.ConnectFailures.Add(
                 1, MqttMetrics.Reason(ClassifyReason(ex, wasManual: false)));
             await CleanupAsync("Connect failed").ConfigureAwait(false);
+            // A failed connect must land back in Disconnected, not stay in Connecting: the reconnect
+            // loop only retries while state==Disconnected, and a direct ConnectAsync only CASes from
+            // Disconnected. Without this, a single failed (re)connect — e.g. a corrupted CONNECT or
+            // CONNACK during a fault — permanently wedges the client with the loop already exited.
+            SetState(MqttConnectionState.Disconnected);
             throw;
         }
     }
@@ -714,7 +741,6 @@ public sealed class MqttClient : IAsyncDisposable
             while (!ct.IsCancellationRequested)
             {
                 var result = await reader.ReadAsync(ct).ConfigureAwait(false);
-                _lastInboundTimestamp = Stopwatch.GetTimestamp();
                 var buffer = result.Buffer;
                 while (MqttPacketDecoder.TryDecode(
                     buffer,
@@ -729,6 +755,12 @@ public sealed class MqttClient : IAsyncDisposable
                     // Awaited so an inline-handler delivery completes before we advance the pipe
                     // reader — the message payload borrows the receive buffer (true zero-copy).
                     await DispatchInboundAsync(firstByte, packet).ConfigureAwait(false);
+                    // Keep-alive liveness is protocol progress, not raw bytes: only a fully decoded
+                    // packet refreshes the read clock. A corrupted remaining-length that leaves the
+                    // decoder accumulating forever (bytes keep arriving but no packet ever completes)
+                    // must therefore trip the keep-alive watchdog and force a reconnect, rather than
+                    // masquerading as a live link and wedging in-flight publishes indefinitely.
+                    _lastInboundTimestamp = Stopwatch.GetTimestamp();
                     buffer = buffer.Slice(consumed);
                     // Avoid an O(segments) walk of buffer.Slice(start,end).Length: the size of the
                     // packet we just consumed is the difference in the unread sequence's length.
@@ -996,13 +1028,24 @@ public sealed class MqttClient : IAsyncDisposable
                 if (_subsById.TryGetValue(id, out var s)) _matchBuffer.Add(s);
             }
         }
-        else
+
+        // Fall back to topic matching when there were no subscription identifiers, OR an echoed
+        // identifier did not resolve to a live subscription (e.g. a stale id the broker replayed after
+        // a restart/resubscribe). Without this fallback such a message is silently dropped, leaving the
+        // subscription permanently deaf even though the client is connected and resubscribed.
+        if (_matchBuffer.Count == 0)
         {
             _collectMatch ??= s => _matchBuffer.Add(s);
             _trie.Match(topic, _collectMatch);
         }
 
-        if (_matchBuffer.Count == 0) return;
+        if (_matchBuffer.Count == 0)
+        {
+            // No live subscription matched (after both the id fast-path and the trie fallback): record
+            // it so a silently-dropped inbound PUBLISH is observable rather than an invisible hole.
+            _metrics.MessagesDropped.Add(1, MqttMetrics.Reason("no_subscription"));
+            return;
+        }
 
         // pub.Payload is a borrowed slice of the receive buffer (valid for this awaited dispatch).
         // Channel delivery copies it out (pooled by default, or GC-owned when retainable); a single
@@ -1145,9 +1188,10 @@ public sealed class MqttClient : IAsyncDisposable
     private async Task KeepAliveLoopAsync(CancellationToken ct)
     {
         var interval = TimeSpan.FromSeconds(_options.KeepAliveSeconds * 0.8);
-        // A healthy broker answers PINGREQ with PINGRESP, which (like any inbound packet) refreshes
-        // _lastInboundTimestamp. If nothing arrives for ~1.5x the keep-alive the link is dead even
-        // though TCP may not have noticed (e.g. a black-holed connection) — force a reconnect.
+        // A healthy broker answers PINGREQ with PINGRESP, which (like any fully decoded inbound
+        // packet) refreshes _lastInboundTimestamp. If no complete packet arrives for ~1.5x the
+        // keep-alive the link is dead even though TCP may not have noticed (e.g. a black-holed
+        // connection, or a corrupted length that has wedged the decoder) — force a reconnect.
         var idleLimitMs = _options.KeepAliveSeconds * 1500.0;
         while (!ct.IsCancellationRequested)
         {
@@ -1204,17 +1248,68 @@ public sealed class MqttClient : IAsyncDisposable
         if (!wasManual && _options.Reconnect is { } policy)
         {
             _disconnectedTimestamp = Stopwatch.GetTimestamp();
-            _ = ReconnectLoopAsync(policy);
+            SignalReconnect(policy);
         }
     }
 
-    private async Task ReconnectLoopAsync(MqttReconnectPolicy policy)
+    // Records a reconnect request and ensures exactly one supervisor services it. Safe to call
+    // concurrently from the read loop (EOF/error), the keep-alive watchdog, a broker DISCONNECT
+    // dispatch, or a failed manual ReconnectAsync — the CAS winner owns the single supervisor task.
+    private void SignalReconnect(MqttReconnectPolicy policy)
+    {
+        Volatile.Write(ref _reconnectRequested, 1);
+        if (Interlocked.CompareExchange(ref _reconnectActive, 1, 0) == 0)
+        {
+            _ = ReconnectSupervisorAsync(policy);
+        }
+    }
+
+    // The single reconnect supervisor. Drains reconnect requests until the client is Connected (or
+    // disposed / manually disconnected) with none outstanding. Only one instance runs at a time, so no
+    // two ConnectAsync attempts overlap; the pending flag plus the finally-relaunch close the
+    // lost-wakeup window where a fresh disconnect races the supervisor's exit.
+    private async Task ReconnectSupervisorAsync(MqttReconnectPolicy policy)
+    {
+        try
+        {
+            while (Interlocked.Exchange(ref _reconnectRequested, 0) == 1)
+            {
+                if (Volatile.Read(ref _manualDisconnect) == 1 ||
+                    Volatile.Read(ref _state) == (int)MqttConnectionState.Disposed ||
+                    Volatile.Read(ref _state) == (int)MqttConnectionState.Connected)
+                {
+                    continue;   // nothing to do this pass; re-check the request flag, then exit
+                }
+                await RunReconnectAttemptsAsync(policy).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _reconnectActive, 0);
+            // A request may have landed after our last Exchange but before we cleared _reconnectActive;
+            // relaunch (if we win the CAS) so a racing disconnect is never dropped.
+            if (Volatile.Read(ref _reconnectRequested) == 1 &&
+                Volatile.Read(ref _manualDisconnect) == 0 &&
+                Volatile.Read(ref _state) != (int)MqttConnectionState.Disposed &&
+                Volatile.Read(ref _state) != (int)MqttConnectionState.Connected &&
+                Interlocked.CompareExchange(ref _reconnectActive, 1, 0) == 0)
+            {
+                _ = ReconnectSupervisorAsync(policy);
+            }
+        }
+    }
+
+    // Attempts to (re)establish the connection with jittered exponential backoff until Connected, or
+    // until the client is disposed / manually disconnected. Records the reconnect + recovery metrics on
+    // success. Runs only from the single supervisor, so it is the sole connect path during recovery.
+    private async Task RunReconnectAttemptsAsync(MqttReconnectPolicy policy)
     {
         var delay = policy.InitialDelay;
         var attempt = 0;
         var rng = new Random();
-        while (Volatile.Read(ref _state) == (int)MqttConnectionState.Disconnected &&
-               Volatile.Read(ref _manualDisconnect) == 0)
+        while (Volatile.Read(ref _manualDisconnect) == 0 &&
+               Volatile.Read(ref _state) != (int)MqttConnectionState.Disposed &&
+               Volatile.Read(ref _state) != (int)MqttConnectionState.Connected)
         {
             attempt++;
             var jitter = 1 + (((rng.NextDouble() * 2) - 1) * policy.JitterFactor);
@@ -1224,7 +1319,9 @@ public sealed class MqttClient : IAsyncDisposable
             try
             {
                 SetState(MqttConnectionState.Reconnecting);
-                // ConnectAsync expects Disconnected → CAS to Connecting; reset state first.
+                // ConnectAsync expects Disconnected → CAS to Connecting; reset state first. Safe here
+                // because the supervisor is the only writer of these transient states during recovery
+                // (OnTransportClosedAsync only CASes from Connected, which we are not).
                 SetState(MqttConnectionState.Disconnected);
                 var result = await ConnectAsync().ConfigureAwait(false);
                 if (result.IsSuccess)
@@ -1614,14 +1711,26 @@ public sealed class MqttClient : IAsyncDisposable
     }
 
     /// <summary>
-    /// Re-sends SUBSCRIBE for every live subscription after a reconnect where the broker reported
-    /// the session was not present (so it has forgotten our subscriptions). Fire-and-forget: each
-    /// SUBSCRIBE uses a fresh packet id that the broker's SUBACK releases; no waiter is registered,
-    /// so a lost SUBACK can't park an awaiter — the next reconnect simply re-sends.
+    /// Re-sends SUBSCRIBE for every live subscription after a reconnect where the broker reported the
+    /// session was not present (so it has forgotten our subscriptions). Each SUBSCRIBE is confirmed by
+    /// awaiting its SUBACK (bounded by <see cref="MqttClientOptions.OperationTimeout"/>) and its
+    /// granted reason code is checked: a lost ack or a failure code (which would leave the
+    /// subscription silently deaf) is retried in-place on the same connection, and only a persistent
+    /// failure throws — failing the (re)connect so the supervisor re-establishes from scratch.
     /// </summary>
     private async Task ResendSubscriptionsAsync(CancellationToken ct)
     {
         foreach (var sub in _subscriptions.Keys)
+        {
+            await ResendOneSubscriptionAsync(sub, ct).ConfigureAwait(false);
+            _metrics.Resubscribes.Add(1);
+        }
+    }
+
+    private async Task ResendOneSubscriptionAsync(MqttSubscription sub, CancellationToken ct)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; ; attempt++)
         {
             var packetId = _packetIds.Allocate();
             var sp = new SubscribePacket
@@ -1634,10 +1743,61 @@ public sealed class MqttClient : IAsyncDisposable
                     sub.Options.RetainAsPublished) },
                 SubscriptionIdentifier = sub.Identifier,
             };
-            await EnqueueAsync(
-                OutboundEnvelope.ForPacket(OutboundKind.Subscribe, sp), ct).ConfigureAwait(false);
-            _metrics.Resubscribes.Add(1);
+            using var timeoutCts = new CancellationTokenSource(_options.OperationTimeout);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                ct, timeoutCts.Token);
+            var waiter = AckCompletionSource.Rent(linkedCts.Token);
+            _pendingAcks[packetId] = waiter;
+            SubAckPacket? ack;
+            try
+            {
+                await EnqueueAsync(
+                    OutboundEnvelope.ForPacket(OutboundKind.Subscribe, sp), linkedCts.Token)
+                    .ConfigureAwait(false);
+                ack = await waiter.ValueTask.ConfigureAwait(false) as SubAckPacket;
+            }
+            catch
+            {
+                // Reclaim the packet id only if the SUBACK path hasn't already done so, so a late
+                // SUBACK and this failure never double-release.
+                if (_pendingAcks.TryRemove(packetId, out _))
+                {
+                    _packetIds.Release(packetId);
+                }
+                throw;
+            }
+
+            // A SUBACK with a failure reason code (>= 0x80) means the broker did NOT register the
+            // subscription — treating it as success would leave a silently deaf subscription. This
+            // happens transiently under chaos (e.g. a broker mid-restart), so retry in-place on the
+            // same live connection before resorting to a full reconnect.
+            if (!SubscribeWasRejected(ack))
+            {
+                return;
+            }
+            if (attempt >= maxAttempts)
+            {
+                throw new MqttProtocolException(
+                    $"Broker repeatedly rejected resubscribe to '{sub.TopicFilter}'.");
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(200), ct).ConfigureAwait(false);
         }
+    }
+
+    private static bool SubscribeWasRejected(SubAckPacket? ack)
+    {
+        if (ack?.ReasonCodes is not { } reasonCodes)
+        {
+            return false;
+        }
+        foreach (var rc in reasonCodes)
+        {
+            if ((byte)rc >= 0x80)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -1727,7 +1887,7 @@ public sealed class MqttClient : IAsyncDisposable
                 Volatile.Write(ref _manualDisconnect, 0);
                 if (_options.Reconnect is { } policy)
                 {
-                    _ = ReconnectLoopAsync(policy);
+                    SignalReconnect(policy);
                 }
                 throw;
             }
