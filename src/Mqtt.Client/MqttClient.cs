@@ -1806,14 +1806,15 @@ public sealed class MqttClient : IAsyncDisposable
     private static string ClassifyReason(Exception? ex, bool wasManual)
     {
         if (wasManual) return "manual";
-        return ex switch
+        if (ex is null) return "transport";
+        if (ex is MqttProtocolException) return "protocol";
+        if (ex is MqttConnectionException)
         {
-            null => "transport",
-            MqttProtocolException => "protocol",
-            MqttConnectionException when ex.Message.Contains("Broker DISCONNECT") => "broker",
-            MqttConnectionException when ex.Message.Contains("keep-alive") => "keepalive",
-            _ => "transport",
-        };
+            var m = ex.Message;
+            if (m.Contains("Broker DISCONNECT", StringComparison.Ordinal)) return "broker";
+            if (m.Contains("keep-alive", StringComparison.Ordinal)) return "keepalive";
+        }
+        return "transport";
     }
 
     private async ValueTask UnsubscribeOnServerAsync(string topicFilter, CancellationToken ct)
