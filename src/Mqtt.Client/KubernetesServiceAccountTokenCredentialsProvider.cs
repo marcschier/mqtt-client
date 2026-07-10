@@ -165,6 +165,7 @@ public sealed class KubernetesServiceAccountTokenCredentialsProvider
 
     private void CheckForChange()
     {
+        if (Volatile.Read(ref _disposed) != 0) return;
         byte[] current;
         try
         {
@@ -186,7 +187,7 @@ public sealed class KubernetesServiceAccountTokenCredentialsProvider
                 _lastToken = current;
             }
         }
-        if (changed)
+        if (changed && Volatile.Read(ref _disposed) == 0)
         {
             CredentialsChanged?.Invoke(this, EventArgs.Empty);
         }
