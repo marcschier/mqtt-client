@@ -1810,8 +1810,8 @@ public sealed class MqttClient : IAsyncDisposable
         {
             null => "transport",
             MqttProtocolException => "protocol",
-            MqttConnectionException when ex.Message.Contains("Broker DISCONNECT") => "broker",
-            MqttConnectionException when ex.Message.Contains("keep-alive") => "keepalive",
+            MqttConnectionException when ex.Message.Contains("Broker DISCONNECT", StringComparison.Ordinal) => "broker",
+            MqttConnectionException when ex.Message.Contains("keep-alive", StringComparison.Ordinal) => "keepalive",
             _ => "transport",
         };
     }
