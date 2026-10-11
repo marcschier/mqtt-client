@@ -6,6 +6,17 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ## [Unreleased]
 
+## [1.1.5] — 2026-10-11
+
+### Changed
+- Update runtime dependencies to the latest stable releases, including .NET libraries 10.0.12 and Pipelines.Sockets.Unofficial 2.3.1, while retaining all existing target frameworks.
+- Update analyzers, versioning, SourceLink, TUnit, MQTTnet, coverage, fuzzing and benchmark dependencies; pin .NET SDK 10.0.401, local coverage/fuzzing tools and current workflow actions.
+- Update the pinned libfuzzer-dotnet driver to its latest published Ubuntu release.
+
+### Fixed
+- Preserve the underlying channel-closed exception when reporting that the client is not connected.
+- Instrument the compiled client assembly when collecting coverage and reject empty reports or failed collection steps.
+
 ## [1.0.2] — 2026-06-27
 
 ### Added

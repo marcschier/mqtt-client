@@ -53,13 +53,13 @@ jobs:
           ls -l artifacts
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: '10.0.x'
 
       - name: NuGet login (OIDC)
         id: login
-        uses: NuGet/login@v1
+        uses: NuGet/login@v1.2.0
         with:
           user: ${{ secrets.NUGET_USER }}   # nuget.org profile name (NOT email)
 

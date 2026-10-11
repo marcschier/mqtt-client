@@ -1181,8 +1181,11 @@ public sealed class MqttClient : IAsyncDisposable
     private async ValueTask EnqueueAsync(OutboundEnvelope env, CancellationToken ct = default)
     {
         try { await _outbound.Writer.WriteAsync(env, ct).ConfigureAwait(false); }
-        catch (ChannelClosedException) { env
-            .Dispose(); throw new MqttConnectionException("Client is not connected."); }
+        catch (ChannelClosedException ex)
+        {
+            env.Dispose();
+            throw new MqttConnectionException("Client is not connected.", ex);
+        }
     }
 
     private async Task KeepAliveLoopAsync(CancellationToken ct)

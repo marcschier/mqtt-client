@@ -30,21 +30,17 @@ dotnet build "$PROJ_DIR/Mqtt.Client.FuzzTests.csproj" -c Release -nologo -v quie
 OUT_DIR="$PROJ_DIR/bin/Release/net10.0"
 TARGET_DLL="$OUT_DIR/Mqtt.Client.dll"
 
-if ! command -v sharpfuzz >/dev/null 2>&1; then
-  echo "==> Installing SharpFuzz.CommandLine global tool..."
-  dotnet tool install --global SharpFuzz.CommandLine >/dev/null
-  export PATH="$PATH:$HOME/.dotnet/tools"
-fi
+echo "==> Restoring pinned local tools..."
+dotnet tool restore --tool-manifest "$REPO_ROOT/.config/dotnet-tools.json"
 
 echo "==> Instrumenting $(basename "$TARGET_DLL")..."
-sharpfuzz "$TARGET_DLL" >/dev/null
+dotnet tool run sharpfuzz -- "$TARGET_DLL" >/dev/null
 
 # 2. Ensure libfuzzer-dotnet driver exists.
 LIBFUZZER="$TOOLS_DIR/libfuzzer-dotnet"
 if [ ! -x "$LIBFUZZER" ]; then
   echo "==> Downloading libfuzzer-dotnet driver (pinned)..."
-  # NOTE: pinned to the SharpFuzz 2.x compatible release. Replace SHA / version as needed.
-  URL="https://github.com/Metalnem/libfuzzer-dotnet/releases/download/2024-08-15/libfuzzer-dotnet-linux"
+  URL="https://github.com/Metalnem/libfuzzer-dotnet/releases/download/v2025.05.02.0904/libfuzzer-dotnet-ubuntu"
   curl -fsSL "$URL" -o "$LIBFUZZER"
   chmod +x "$LIBFUZZER"
 fi

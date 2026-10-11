@@ -10,9 +10,12 @@ You need the .NET 10 SDK (pinned in `global.json`). Older SDKs won't pick the ri
 ```bash
 git clone https://github.com/marcschier/mqtt-client
 cd mqtt-client
+dotnet tool restore
 dotnet restore
 dotnet build
 ```
+
+Coverage and fuzzing use the versions pinned in `.config/dotnet-tools.json`; no global tool installation is required.
 
 ## Running tests
 
