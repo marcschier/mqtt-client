@@ -16,6 +16,7 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 ### Fixed
 - Preserve the underlying channel-closed exception when reporting that the client is not connected.
 - Instrument the compiled client assembly when collecting coverage and reject empty reports or failed collection steps.
+- Pass benchmark filters as individual shell arguments, default push-triggered runs to all benchmarks, and reject missing or empty measurements.
 
 ## [1.0.2] — 2026-06-27
 

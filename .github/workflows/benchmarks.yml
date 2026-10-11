@@ -41,10 +41,22 @@ jobs:
 
       - name: Run benchmarks
         working-directory: tests/Mqtt.Client.Benchmarks
+        env:
+          FILTER: ${{ inputs.filter || '*' }}
+          FULL: ${{ inputs.full || 'false' }}
         run: |
-          ARGS="--filter '${{ inputs.filter }}' --report"
-          if [ "${{ inputs.full }}" = "true" ]; then ARGS="$ARGS --full"; fi
-          dotnet run -c Release --no-build -- $ARGS
+          ARGS=(--filter "$FILTER" --report)
+          if [ "$FULL" = "true" ]; then ARGS+=(--full); fi
+          dotnet run -c Release --no-build -- "${ARGS[@]}"
+          shopt -s nullglob
+          REPORTS=(BenchmarkDotNet.Artifacts/results/*-report-full.json)
+          if [ "${#REPORTS[@]}" -eq 0 ]; then
+            echo "::error::No benchmark reports were produced"
+            exit 1
+          fi
+          for report in "${REPORTS[@]}"; do
+            jq -e '.Benchmarks | length > 0 and all(.Statistics != null)' "$report" > /dev/null
+          done
 
       - name: Upload BenchmarkDotNet artifacts
         if: always()
