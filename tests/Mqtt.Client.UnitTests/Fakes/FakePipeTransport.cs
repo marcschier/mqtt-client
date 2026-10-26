@@ -21,7 +21,7 @@ internal sealed class FakePipeTransport : IMqttTransport
     public ValueTask DisposeAsync()
     {
         _toClient.Writer.Complete();
-        _fromClient.Reader.Complete();
+        _fromClient.Writer.Complete();
         return default;
     }
 }
