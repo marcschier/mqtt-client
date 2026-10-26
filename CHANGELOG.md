@@ -6,6 +6,12 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
 ## [Unreleased]
 
+## [1.1.6] — 2026-10-26
+
+### Changed
+- Update .NET 10 runtime and test packages to 10.0.14 and the pinned SDK to 10.0.403.
+- Update Microsoft.NET.Test.Sdk, SourceLink, and Meziantou.Analyzer to current compatible releases.
+
 ## [1.1.5] — 2026-10-11
 
 ### Changed
