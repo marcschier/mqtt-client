@@ -10,6 +10,7 @@ Versioning follows [SemVer](https://semver.org/) (post-1.0).
 - Update .NET 10 runtime and test packages to 10.0.15 and the pinned SDK to 10.0.404.
 - Update Microsoft.NET.Test.Sdk, coverlet.collector, SourceLink, and Meziantou.Analyzer to current compatible releases; use setup-dotnet v6.1.0 in workflows.
 - Update TUnit to 1.85.0 after qualifying the authentication round-trip cap test on net8.0, net9.0, and net10.0.
+- Pin interop CI to Ubuntu 24.04; the ubuntu-latest move to 26.04 prevented Mosquitto from opening its test listeners.
 - Retain netstandard2.0, netstandard2.1, net8.0, net9.0, and net10.0 support.
 
 ## [1.1.6] — 2026-10-26
