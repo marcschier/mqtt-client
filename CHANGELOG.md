@@ -4,7 +4,14 @@ All notable changes to **Mqtt.Client** are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versioning follows [SemVer](https://semver.org/) (post-1.0).
 
-## [Unreleased]
+## [1.1.7] — 2026-11-16
+
+### Changed
+- Update .NET 10 runtime and test packages to 10.0.15 and the pinned SDK to 10.0.404.
+- Update Microsoft.NET.Test.Sdk, coverlet.collector, SourceLink, and Meziantou.Analyzer to current compatible releases; use setup-dotnet v6.1.0 in workflows.
+- Update TUnit to 1.85.0 after qualifying the authentication round-trip cap test on net8.0, net9.0, and net10.0.
+- Pin interop CI to Ubuntu 24.04: the last successful run used Mosquitto 2.0.18 there, while Ubuntu 26.04 with Mosquitto 2.0.22 timed out waiting for listeners; the pinned run passed.
+- Retain netstandard2.0, netstandard2.1, net8.0, net9.0, and net10.0 support.
 
 ## [1.1.6] — 2026-10-26
 
@@ -175,7 +182,10 @@ stable 1.0 baseline, and the library follows [SemVer](https://semver.org/) from 
 - Secure defaults: TLS 1.2/1.3, CRL on, `MaxIncomingPacketSize` capped at 1 MiB.
 - `Nerdbank.GitVersioning` for `version.json`-driven versioning; pack with SourceLink + symbols.
 
-[Unreleased]: https://github.com/marcschier/mqtt-client/compare/v1.0.1...HEAD
+[1.1.7]: https://github.com/marcschier/mqtt-client/releases/tag/v1.1.7
+[1.1.6]: https://github.com/marcschier/mqtt-client/releases/tag/v1.1.6
+[1.1.5]: https://github.com/marcschier/mqtt-client/releases/tag/v1.1.5
+[Unreleased]: https://github.com/marcschier/mqtt-client/compare/v1.1.7...HEAD
 [1.0.1]: https://github.com/marcschier/mqtt-client/releases/tag/v1.0.1
 [1.0.0]: https://github.com/marcschier/mqtt-client/releases/tag/v1.0.0
 [0.9.3]: https://github.com/marcschier/mqtt-client/releases/tag/v0.9.3
